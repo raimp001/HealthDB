@@ -9,8 +9,6 @@ from webauthn import (
     verify_registration_response,
     generate_authentication_options,
     verify_authentication_response,
-    base64url_to_bytes,
-    bytes_to_base64url,
 )
 from webauthn.helpers.structs import (
     AuthenticatorSelectionCriteria,
@@ -50,8 +48,9 @@ class AuthenticationManager:
         conn = get_database_connection()
         cur = conn.cursor()
         try:
-            credential_id = bytes_to_base64url(verification_data.credential_data.credential_id)
-            public_key = bytes_to_base64url(verification_data.credential_data.public_key)
+            # Convert credential data to base64 for storage
+            credential_id = base64.b64encode(verification_data.credential_data.credential_id).decode('utf-8')
+            public_key = base64.b64encode(verification_data.credential_data.public_key).decode('utf-8')
 
             cur.execute("""
                 INSERT INTO passkey_credentials 
@@ -84,8 +83,8 @@ class AuthenticationManager:
             credentials = []
             for cred_id, pub_key, sign_count in cur.fetchall():
                 credentials.append({
-                    'id': base64url_to_bytes(cred_id),
-                    'public_key': base64url_to_bytes(pub_key),
+                    'id': base64.b64decode(cred_id.encode('utf-8')),
+                    'public_key': base64.b64decode(pub_key.encode('utf-8')),
                     'sign_count': sign_count,
                 })
             return credentials
