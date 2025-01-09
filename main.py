@@ -38,17 +38,24 @@ def main():
 
         with tab1:
             st.header("Login")
+            use_zkp = st.checkbox("Use Password-less Authentication (ZKP)")
             username = st.text_input("Username", key="login_username")
-            password = st.text_input("Password", type="password", key="login_password")
+
+            if not use_zkp:
+                password = st.text_input("Password", type="password", key="login_password")
 
             if st.button("Login"):
-                user_id = authenticate_user(username, password)
+                if use_zkp:
+                    user_id = authenticate_user(username, None, use_zkp=True)
+                else:
+                    user_id = authenticate_user(username, password, use_zkp=False)
+
                 if user_id:
                     st.session_state.user_id = user_id
                     st.success("Login successful!")
-                    st.rerun()  
+                    st.rerun()
                 else:
-                    st.error("Invalid credentials")
+                    st.error("Authentication failed")
 
         with tab2:
             st.header("Register")
@@ -75,6 +82,7 @@ def main():
         - Create interactive visualizations
         - Manage research projects
         - Export data securely
+        - Password-less authentication using Zero-Knowledge Proofs
 
         Use the sidebar to navigate through different features.
         """)

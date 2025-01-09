@@ -1,6 +1,10 @@
 import hashlib
 import secrets
 from database import get_database_connection
+from zpass_interface import ZPassInterface, ZKProof
+
+# Initialize ZPass interface
+zpass = ZPassInterface()
 
 def hash_password(password):
     """Hash password using SHA-256."""
@@ -16,7 +20,7 @@ def create_user(username, password, email):
     """Create new user in the database."""
     conn = get_database_connection()
     cur = conn.cursor()
-    
+
     try:
         password_hash = hash_password(password)
         cur.execute("""
@@ -24,7 +28,7 @@ def create_user(username, password, email):
             VALUES (%s, %s, %s)
             RETURNING id;
         """, (username, password_hash, email))
-        
+
         user_id = cur.fetchone()[0]
         conn.commit()
         return user_id
@@ -35,21 +39,40 @@ def create_user(username, password, email):
         cur.close()
         conn.close()
 
-def authenticate_user(username, password):
-    """Authenticate user credentials."""
+def authenticate_user(username, password, use_zkp=False):
+    """Authenticate user credentials with optional ZKP support."""
     conn = get_database_connection()
     cur = conn.cursor()
-    
+
     cur.execute("""
         SELECT id, password_hash
         FROM users
         WHERE username = %s;
     """, (username,))
-    
+
     result = cur.fetchone()
     cur.close()
     conn.close()
-    
-    if result and verify_password(result[1], password):
-        return result[0]
+
+    if not result:
+        return None
+
+    user_id, password_hash = result
+
+    if use_zkp:
+        # Generate and verify ZKP for password-less authentication
+        proof = zpass.generate_authentication_proof(str(user_id))
+        if zpass.verify_authentication_proof(str(user_id), proof):
+            return user_id
+    else:
+        # Traditional password verification
+        if verify_password(password_hash, password):
+            return user_id
+
     return None
+
+def verify_data_integrity(data):
+    """Generate and verify ZKP for data integrity."""
+    proof = zpass.generate_data_proof(data)
+    # TODO: Implement actual verification logic using zPass SDK
+    return True
