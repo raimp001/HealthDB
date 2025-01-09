@@ -96,6 +96,27 @@ def init_database():
         );
     """)
 
+    # Create researcher_messages table
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS researcher_messages (
+            id SERIAL PRIMARY KEY,
+            sender_id INTEGER REFERENCES users(id),
+            recipient_id INTEGER REFERENCES users(id),
+            encrypted_content TEXT NOT NULL,
+            encrypted_key TEXT NOT NULL,
+            iv TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            read_at TIMESTAMP,
+            CONSTRAINT unique_message_id UNIQUE (id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_messages_sender 
+        ON researcher_messages(sender_id);
+
+        CREATE INDEX IF NOT EXISTS idx_messages_recipient 
+        ON researcher_messages(recipient_id);
+    """)
+
     conn.commit()
     cur.close()
     conn.close()
