@@ -270,7 +270,7 @@ def main():
     else:
         # Get current context
         current_context = {
-            'current_view': st.session_state.get('current_page', 'Home'),
+            'current_view': st.session_state.get('current_page', 'Main'),
             'project_name': st.session_state.get('current_project', 'Not selected'),
             'research_area': st.session_state.get('research_area', 'General')
         }
