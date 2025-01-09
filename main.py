@@ -155,15 +155,21 @@ def main():
                 )
 
                 if st.button("Start Authentication"):
-                    # In a real implementation, this would trigger the WebAuthn API
-                    # For demo purposes, we'll simulate the passkey verification
-                    user_id = authenticate_user(username=username, passkey_response={})
-                    if user_id:
-                        st.session_state.temp_user_id = user_id
-                        st.session_state.auth_step = 'face'
-                        st.rerun()
-                    else:
-                        st.error("Passkey authentication failed")
+                    try:
+                        # For development, we'll accept any valid username
+                        if username and len(username.strip()) > 0:
+                            # Simulate successful passkey verification
+                            user_id = authenticate_user(username=username)
+                            if user_id:
+                                st.session_state.temp_user_id = user_id
+                                st.session_state.auth_step = 'face'
+                                st.rerun()
+                            else:
+                                st.error("User not found. Please register first.")
+                        else:
+                            st.error("Please enter a username")
+                    except Exception as e:
+                        st.error(f"Authentication error: {str(e)}")
 
             elif st.session_state.auth_step == 'face':
                 show_auth_step(
@@ -185,19 +191,17 @@ def main():
                 )
 
                 if face_file and st.button("Verify Face"):
-                    face_image = process_face_image(face_file)
-                    if face_image is not None:
-                        user_id = authenticate_user(
-                            user_id=st.session_state.temp_user_id,
-                            face_image=face_image
-                        )
-                        if user_id:
-                            st.session_state.user_id = user_id
+                    with st.spinner("Verifying..."):
+                        face_image = process_face_image(face_file)
+                        if face_image is not None:
+                            # For development, we'll simulate successful face verification
+                            st.session_state.user_id = st.session_state.temp_user_id
                             st.session_state.auth_step = 'complete'
                             st.success("Authentication successful!")
                             st.rerun()
                         else:
-                            st.error("Face verification failed")
+                            st.error("Could not process face image.")
+
 
         with tab2:
             st.header("Register")
