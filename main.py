@@ -6,6 +6,7 @@ from PIL import Image
 import io
 import numpy as np
 import json
+from components.insights_sidebar import get_insights_sidebar
 
 # Initialize database
 init_database()
@@ -135,6 +136,7 @@ def main():
         st.session_state.temp_user_id = None
         st.session_state.passkey_registration = None
         st.session_state.face_verified = False
+        st.session_state.current_context = {}
 
     if st.session_state.user_id is None:
         st.title("Research Data Management Platform")
@@ -262,6 +264,17 @@ def main():
                         st.error(f"Passkey registration failed: {str(e)}")
 
     else:
+        # Get current context
+        current_context = {
+            'current_view': st.session_state.get('current_page', 'Home'),
+            'project_name': st.session_state.get('current_project', 'Not selected'),
+            'research_area': st.session_state.get('research_area', 'General')
+        }
+
+        # Initialize insights sidebar
+        insights_sidebar = get_insights_sidebar()
+        insights_sidebar.render(current_context)
+
         st.sidebar.success("Navigate through the pages using the sidebar menu.")
         st.sidebar.button("Logout", on_click=lambda: st.session_state.clear())
 
@@ -275,6 +288,7 @@ def main():
         - Export data securely
         - Multi-factor authentication with face recognition and passkeys
         - Password-less authentication using Zero-Knowledge Proofs
+        - AI-powered research insights and recommendations
 
         Use the sidebar to navigate through different features.
         """)
