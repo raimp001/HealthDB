@@ -9,10 +9,14 @@ from webauthn import (
     verify_registration_response,
     generate_authentication_options,
     verify_authentication_response,
+    base64url_to_bytes,
+    bytes_to_base64url,
 )
 from webauthn.helpers.structs import (
     AuthenticatorSelectionCriteria,
     UserVerificationRequirement,
+    PublicKeyCredentialDescriptor,
+    AuthenticatorAttachment,
 )
 import base64
 import json
@@ -27,20 +31,70 @@ class AuthenticationManager:
         self.origin = "https://localhost"
 
     def generate_passkey_registration_options(self, user_id, username):
-        """Generate options for passkey registration."""
+        """Generate options for passkey registration with biometric requirement."""
         options = generate_registration_options(
             rp_name=self.rp_name,
             rp_id=self.rp_id,
             user_id=str(user_id),
             user_name=username,
             authenticator_selection=AuthenticatorSelectionCriteria(
-                user_verification=UserVerificationRequirement.REQUIRED
+                authenticator_attachment=AuthenticatorAttachment.PLATFORM,  # Prefer platform authenticator
+                user_verification=UserVerificationRequirement.REQUIRED,  # Require biometric verification
+                require_resident_key=True  # Enable passwordless authentication
             ),
         )
         return options
 
-    def verify_passkey_registration(self, options, response):
-        """Verify passkey registration response."""
+    def store_passkey_credential(self, user_id, verification_data):
+        """Store passkey credential in database."""
+        conn = get_database_connection()
+        cur = conn.cursor()
+        try:
+            credential_id = bytes_to_base64url(verification_data.credential_data.credential_id)
+            public_key = bytes_to_base64url(verification_data.credential_data.public_key)
+
+            cur.execute("""
+                INSERT INTO passkey_credentials 
+                (user_id, credential_id, public_key, sign_count)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (credential_id) 
+                DO UPDATE SET sign_count = EXCLUDED.sign_count;
+            """, (user_id, credential_id, public_key, verification_data.sign_count))
+
+            conn.commit()
+            return True
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            cur.close()
+            conn.close()
+
+    def get_user_credentials(self, user_id):
+        """Get user's registered passkey credentials."""
+        conn = get_database_connection()
+        cur = conn.cursor()
+        try:
+            cur.execute("""
+                SELECT credential_id, public_key, sign_count
+                FROM passkey_credentials
+                WHERE user_id = %s;
+            """, (user_id,))
+
+            credentials = []
+            for cred_id, pub_key, sign_count in cur.fetchall():
+                credentials.append({
+                    'id': base64url_to_bytes(cred_id),
+                    'public_key': base64url_to_bytes(pub_key),
+                    'sign_count': sign_count,
+                })
+            return credentials
+        finally:
+            cur.close()
+            conn.close()
+
+    def verify_passkey_registration(self, user_id, options, response):
+        """Verify passkey registration response and store credential."""
         try:
             verification = verify_registration_response(
                 credential=response,
@@ -48,26 +102,45 @@ class AuthenticationManager:
                 expected_origin=self.origin,
                 expected_rp_id=self.rp_id,
             )
-            return verification
+
+            # Store the verified credential
+            self.store_passkey_credential(user_id, verification)
+            return True
         except Exception as e:
             raise Exception(f"Passkey registration failed: {str(e)}")
 
-    def generate_passkey_auth_options(self):
-        """Generate options for passkey authentication."""
+    def generate_passkey_auth_options(self, user_id):
+        """Generate options for passkey authentication with existing credentials."""
+        credentials = self.get_user_credentials(user_id)
+
         return generate_authentication_options(
             rp_id=self.rp_id,
+            allow_credentials=[
+                PublicKeyCredentialDescriptor(id=cred['id'])
+                for cred in credentials
+            ],
             user_verification=UserVerificationRequirement.REQUIRED,
         )
 
-    def verify_passkey_auth(self, credential, options):
-        """Verify passkey authentication."""
+    def verify_passkey_auth(self, user_id, credential, options):
+        """Verify passkey authentication with stored credentials."""
         try:
-            return verify_authentication_response(
+            credentials = self.get_user_credentials(user_id)
+            if not credentials:
+                return False
+
+            verification = verify_authentication_response(
                 credential=credential,
                 expected_challenge=options.challenge,
                 expected_origin=self.origin,
                 expected_rp_id=self.rp_id,
+                credential_public_key=credentials[0]['public_key'],
+                credential_current_sign_count=credentials[0]['sign_count'],
             )
+
+            # Update sign count
+            self.store_passkey_credential(user_id, verification)
+            return True
         except Exception as e:
             raise Exception(f"Passkey authentication failed: {str(e)}")
 
@@ -95,7 +168,7 @@ class AuthenticationManager:
             raise Exception(f"Failed to store face encoding: {str(e)}")
 
     def verify_face(self, user_id, face_image):
-        """Verify face against stored encoding."""
+        """Verify face against stored encoding with enhanced error handling."""
         try:
             conn = get_database_connection()
             cur = conn.cursor()
@@ -107,9 +180,6 @@ class AuthenticationManager:
             """, (user_id,))
 
             result = cur.fetchone()
-            cur.close()
-            conn.close()
-
             if not result or not result[0]:
                 return False
 
@@ -118,13 +188,20 @@ class AuthenticationManager:
             )
 
             # Get face encoding from current image
-            new_encoding = face_recognition.face_encodings(face_image)[0]
+            face_locations = face_recognition.face_locations(face_image)
+            if not face_locations:
+                raise Exception("No face detected in the image")
 
-            # Compare face encodings
-            matches = face_recognition.compare_faces([stored_encoding], new_encoding)
+            new_encoding = face_recognition.face_encodings(face_image, face_locations)[0]
+
+            # Compare face encodings with stricter threshold
+            matches = face_recognition.compare_faces([stored_encoding], new_encoding, tolerance=0.5)
             return matches[0]
         except Exception as e:
             raise Exception(f"Face verification failed: {str(e)}")
+        finally:
+            cur.close()
+            conn.close()
 
 def create_user(username, password, email, face_image=None):
     """Create new user with optional face recognition."""
@@ -155,55 +232,53 @@ def create_user(username, password, email, face_image=None):
         cur.close()
         conn.close()
 
-def authenticate_user(username, password=None, face_image=None, passkey_response=None, use_zkp=False):
-    """Multi-factor authentication handler."""
+def authenticate_user(user_id=None, username=None, password=None, face_image=None, passkey_response=None):
+    """Enhanced multi-factor authentication handler."""
+    if not user_id and not username:
+        return None
+
     conn = get_database_connection()
     cur = conn.cursor()
 
-    cur.execute("""
-        SELECT id, password_hash, face_encoding
-        FROM users
-        WHERE username = %s;
-    """, (username,))
+    try:
+        if username:
+            cur.execute("""
+                SELECT id, password_hash
+                FROM users
+                WHERE username = %s;
+            """, (username,))
+            result = cur.fetchone()
+            if not result:
+                return None
+            user_id = result[0]
 
-    result = cur.fetchone()
-    cur.close()
-    conn.close()
+        auth_manager = AuthenticationManager()
 
-    if not result:
+        # Passkey authentication
+        if passkey_response:
+            try:
+                if auth_manager.verify_passkey_auth(user_id, passkey_response, auth_manager.generate_passkey_auth_options(user_id)):
+                    return user_id
+            except Exception:
+                return None
+
+        # Face recognition
+        if face_image is not None:
+            try:
+                if auth_manager.verify_face(user_id, face_image):
+                    return user_id
+            except Exception:
+                return None
+
+        # Password authentication (fallback)
+        if password and result:
+            if verify_password(result[1], password):
+                return user_id
+
         return None
-
-    user_id, password_hash, stored_face = result
-
-    # Passkey authentication
-    if passkey_response:
-        auth_manager = AuthenticationManager()
-        try:
-            if auth_manager.verify_passkey_auth(passkey_response, stored_passkey_options):
-                return user_id
-        except:
-            return None
-
-    # Face recognition
-    if face_image is not None:
-        auth_manager = AuthenticationManager()
-        try:
-            if auth_manager.verify_face(user_id, face_image):
-                return user_id
-        except:
-            return None
-
-    # ZKP authentication
-    if use_zkp:
-        proof = zpass.generate_authentication_proof(str(user_id))
-        if zpass.verify_authentication_proof(str(user_id), proof):
-            return user_id
-
-    # Password authentication
-    if password and verify_password(password_hash, password):
-        return user_id
-
-    return None
+    finally:
+        cur.close()
+        conn.close()
 
 def hash_password(password):
     """Hash password using SHA-256."""
