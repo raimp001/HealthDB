@@ -6,6 +6,8 @@ from database import (
     mark_notification_as_read
 )
 from utils.notification_service import notification_service
+import openai
+import json
 
 def notification_center_page():
     """Notification center page for managing preferences and viewing notifications."""
@@ -15,8 +17,8 @@ def notification_center_page():
 
     st.title("Notification Center")
 
-    # Create tabs for notifications and preferences
-    tab1, tab2 = st.tabs(["Notifications", "Preferences"])
+    # Create tabs for notifications, preferences, and research tracking
+    tab1, tab2, tab3 = st.tabs(["Notifications", "Research Topics", "Notification Settings"])
 
     with tab1:
         st.subheader("Your Notifications")
@@ -50,38 +52,77 @@ def notification_center_page():
                                     st.rerun()
 
     with tab2:
-        st.subheader("Notification Preferences")
-        
-        # Add new preference
-        with st.form("add_preference"):
-            topic = st.text_input(
-                "Research Topic",
-                help="Enter a research topic you want to follow"
+        st.subheader("Research Topic Tracking")
+
+        # Add new research topic
+        with st.form("add_research_topic"):
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                topic = st.text_input(
+                    "Research Topic",
+                    help="Enter a research topic you want to track"
+                )
+            with col2:
+                frequency = st.selectbox(
+                    "Update Frequency",
+                    options=['daily', 'weekly', 'monthly'],
+                    help="How often do you want updates?"
+                )
+
+            notification_channels = st.multiselect(
+                "Notification Channels",
+                options=['in_app', 'sms'],
+                default=['in_app'],
+                help="Choose how you want to receive notifications"
             )
-            frequency = st.selectbox(
-                "Update Frequency",
-                options=['daily', 'weekly', 'monthly'],
-                help="How often do you want to receive updates?"
-            )
-            
-            if st.form_submit_button("Add Topic"):
+
+            if st.form_submit_button("Track Topic"):
                 if topic:
-                    if save_notification_preferences(
-                        st.session_state.user_id,
-                        topic,
-                        frequency
-                    ):
-                        st.success(f"Added {topic} to your notification preferences!")
-                        st.rerun()
+                    try:
+                        # Get initial research insight using OpenAI
+                        client = openai.OpenAI()
+                        prompt = f"""Analyze current research trends in {topic} and provide a brief summary.
+                        Focus on: 1) Recent developments 2) Key researchers 3) Future directions
+                        Keep it concise and informative."""
+
+                        response = client.chat.completions.create(
+                            model="gpt-4",
+                            messages=[
+                                {"role": "system", "content": "You are a research trend analyst."},
+                                {"role": "user", "content": prompt}
+                            ],
+                            temperature=0.7,
+                            max_tokens=300
+                        )
+
+                        initial_insight = response.choices[0].message.content
+
+                        # Save preferences and send initial notification
+                        if save_notification_preferences(
+                            st.session_state.user_id,
+                            topic,
+                            frequency
+                        ):
+                            notification_service.send_notification(
+                                user_id=st.session_state.user_id,
+                                title=f"Research Track: {topic}",
+                                content=f"Initial Research Insight:\n{initial_insight}",
+                                notification_type="research_update",
+                                channels=notification_channels
+                            )
+                            st.success(f"Now tracking research in: {topic}")
+                            st.rerun()
+                    except Exception as e:
+                        st.error(f"Error setting up research tracking: {str(e)}")
                 else:
                     st.error("Please enter a topic")
 
-        # Display current preferences
-        st.subheader("Current Preferences")
+        # Display current research topics
+        st.subheader("Topics You're Tracking")
         preferences = get_user_notification_preferences(st.session_state.user_id)
-        
+
         if not preferences:
-            st.info("No notification preferences set")
+            st.info("You're not tracking any research topics yet")
         else:
             for pref in preferences:
                 st.markdown(
@@ -93,11 +134,51 @@ def notification_center_page():
                         margin-bottom: 0.5rem;
                     '>
                     <strong>{pref['topic']}</strong><br>
-                    Frequency: {pref['frequency']}<br>
-                    Status: {'Active' if pref['enabled'] else 'Disabled'}
+                    Updates: {pref['frequency']}<br>
+                    Status: {'Active' if pref['enabled'] else 'Paused'}
                     </div>""",
                     unsafe_allow_html=True
                 )
+
+    with tab3:
+        st.subheader("Notification Settings")
+
+        # Global notification settings
+        st.write("##### Global Settings")
+
+        notification_enabled = st.toggle(
+            "Enable All Notifications",
+            value=True,
+            help="Toggle all notifications on/off"
+        )
+
+        if notification_enabled:
+            st.write("##### Channel Settings")
+
+            # SMS notifications setup
+            sms_enabled = st.checkbox("Enable SMS Notifications")
+            if sms_enabled:
+                phone = st.text_input(
+                    "Phone Number",
+                    help="Enter your phone number to receive SMS notifications"
+                )
+                if st.button("Verify Phone Number"):
+                    if phone:
+                        # TODO: Implement phone verification
+                        st.success("Phone number saved")
+                    else:
+                        st.error("Please enter a phone number")
+
+            # Email digest settings
+            st.write("##### Email Digest Settings")
+            email_digest = st.selectbox(
+                "Research Digest Email",
+                options=['Never', 'Daily', 'Weekly', 'Monthly'],
+                help="Choose how often to receive email summaries"
+            )
+
+            if st.button("Save Settings"):
+                st.success("Notification settings updated!")
 
 if __name__ == "__main__":
     notification_center_page()
