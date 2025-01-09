@@ -21,33 +21,85 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS styling
+# CSS styling based on Aleo guidelines
 st.markdown("""
     <style>
+    /* Typography */
+    body {
+        font-family: 'Inter', sans-serif;
+        color: #121212;  /* Coal */
+        line-height: 1.5;
+    }
+    h1, h2, h3, h4, h5, h6 {
+        font-family: 'Inter', sans-serif;
+        font-weight: 600;
+        color: #121212;  /* Coal */
+        margin-bottom: 1.5rem;
+    }
+
+    /* Layout and Spacing */
     .main {
-        background-color: #f0f2f6;
+        background-color: #E3E3E3;  /* Stone */
+        padding: 2rem;
     }
+    .block-container {
+        padding: 2rem;
+    }
+
+    /* Buttons */
     .stButton button {
-        background-color: #0066cc;
-        color: white;
+        background-color: #121212;  /* Coal */
+        color: #C4F652;  /* Lime */
+        border: none;
+        border-radius: 4px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 500;
+        transition: all 0.2s ease;
     }
-    .auth-method {
-        margin: 10px 0;
-        padding: 15px;
-        border-radius: 5px;
-        border: 1px solid #e0e0e0;
+    .stButton button:hover {
+        background-color: #2A2A2A;
+        transform: translateY(-1px);
     }
-    .auth-step {
-        background-color: #f8f9fa;
-        padding: 20px;
-        border-radius: 10px;
-        margin-bottom: 20px;
+
+    /* Cards and Containers */
+    .auth-method, .auth-step {
+        background-color: #F5F5F5;  /* Ivory */
+        padding: 1.5rem;
+        border-radius: 8px;
+        border: 1px solid rgba(18, 18, 18, 0.1);  /* Coal with opacity */
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 4px rgba(18, 18, 18, 0.05);
     }
+
+    /* Form Elements */
+    .stTextInput input, .stTextArea textarea {
+        border: 2px solid #E3E3E3;  /* Stone */
+        border-radius: 4px;
+        padding: 0.75rem;
+        transition: border-color 0.2s ease;
+    }
+    .stTextInput input:focus, .stTextArea textarea:focus {
+        border-color: #C4F652;  /* Lime */
+        box-shadow: 0 0 0 2px rgba(196, 246, 82, 0.2);  /* Lime with opacity */
+    }
+
+    /* Success Messages */
     .success-message {
-        color: #28a745;
-        padding: 10px;
-        border-radius: 5px;
-        margin: 10px 0;
+        color: #121212;  /* Coal */
+        background-color: #C4F652;  /* Lime */
+        padding: 1rem;
+        border-radius: 4px;
+        margin: 1rem 0;
+        font-weight: 500;
+    }
+
+    /* Sidebar */
+    .css-1d391kg {  /* Sidebar class */
+        background-color: #121212;  /* Coal */
+    }
+    .css-1d391kg .stButton button {
+        background-color: #C4F652;  /* Lime */
+        color: #121212;  /* Coal */
     }
     </style>
     """, unsafe_allow_html=True)
