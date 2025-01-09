@@ -17,4 +17,5 @@ dependencies = [
     "streamlit>=1.41.1",
     "webauthn>=2.4.0",
     "twilio>=9.4.1",
+    "openai>=1.59.5",
 ]
