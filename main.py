@@ -137,7 +137,9 @@ def main():
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Input area with action buttons
+    # Input section with buttons
+    st.markdown('<div class="input-container">', unsafe_allow_html=True)
+
     col1, col2, col3, col4 = st.columns([0.1, 1, 0.1, 0.1])
 
     with col1:
@@ -163,6 +165,8 @@ def main():
                 📈
             </button>
         """, unsafe_allow_html=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)
 
     if user_input:
         # Add user message
