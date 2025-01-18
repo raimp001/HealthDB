@@ -62,6 +62,16 @@ st.markdown("""
         clear: both;
     }
 
+    /* Sidebar styling */
+    .css-1d391kg {
+        background-color: #1e1e2f;
+        padding: 1rem;
+    }
+
+    .sidebar .sidebar-content {
+        background-color: #1e1e2f;
+    }
+
     /* Input container */
     .input-container {
         display: flex;
@@ -75,7 +85,7 @@ st.markdown("""
 
     /* Action buttons */
     .action-button {
-        background-color: #121212;  /* Coal */
+        background-color: #1e1e2f;
         color: #C4F652;  /* Lime */
         width: 2.5rem;
         height: 2.5rem;
@@ -110,6 +120,34 @@ st.markdown("""
     .stTextInput input:focus {
         border-color: #C4F652;  /* Lime */
         box-shadow: 0 0 0 2px rgba(196, 246, 82, 0.2);
+    }
+
+    /* Hide hamburger menu */
+    .css-14xtw13 {
+        display: none !important;
+    }
+
+    /* Custom sidebar icons */
+    .sidebar-icon {
+        width: 24px;
+        height: 24px;
+        margin: 8px;
+        padding: 8px;
+        border-radius: 8px;
+        background-color: #1e1e2f;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .sidebar-icon:hover {
+        background-color: rgba(196, 246, 82, 0.1);
+    }
+
+    .sidebar-icon svg {
+        fill: #C4F652;
     }
     </style>
     """, unsafe_allow_html=True)
