@@ -62,44 +62,49 @@ st.markdown("""
         clear: both;
     }
 
-    /* Action icons */
-    .action-icons {
-        position: fixed;
-        right: 2rem;
-        top: 50%;
-        transform: translateY(-50%);
+    /* Input container */
+    .input-container {
         display: flex;
-        flex-direction: column;
+        align-items: center;
         gap: 1rem;
-        z-index: 1000;
+        padding: 0.5rem;
+        background-color: #F5F5F5;  /* Ivory */
+        border-radius: 8px;
+        margin-top: 1rem;
     }
 
-    .icon-button {
+    /* Action buttons */
+    .action-button {
         background-color: #121212;  /* Coal */
         color: #C4F652;  /* Lime */
-        width: 3rem;
-        height: 3rem;
-        border-radius: 50%;
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 8px;
         display: flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
         transition: all 0.2s ease;
         border: none;
-        font-size: 1.5rem;
+        font-size: 1.2rem;
     }
 
-    .icon-button:hover {
+    .action-button:hover {
         background-color: #2A2A2A;
-        transform: scale(1.1);
+        transform: scale(1.05);
     }
 
     /* Input area */
+    .stTextInput {
+        flex-grow: 1;
+    }
+
     .stTextInput input {
         border: 2px solid #E3E3E3;  /* Stone */
         border-radius: 8px;
         padding: 0.75rem;
         font-size: 1rem;
+        width: 100%;
     }
 
     .stTextInput input:focus {
@@ -120,14 +125,6 @@ def main():
     if 'show_viz' not in st.session_state:
         st.session_state.show_viz = False
 
-    # Action Icons
-    st.markdown("""
-        <div class="action-icons">
-            <button class="icon-button" onclick="handleUpload()">📤</button>
-            <button class="icon-button" onclick="handleVisualize()">📊</button>
-        </div>
-    """, unsafe_allow_html=True)
-
     # Chat container
     st.markdown('<div class="chat-container">', unsafe_allow_html=True)
 
@@ -140,8 +137,33 @@ def main():
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Input area
-    user_input = st.text_input("Send a message", key="user_input")
+    # Input area with action buttons
+    col1, col2, col3, col4 = st.columns([0.1, 1, 0.1, 0.1])
+
+    with col1:
+        st.markdown("""
+            <button class="action-button" onclick="handleUpload()">
+                📎
+            </button>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        user_input = st.text_input("Send a message", key="user_input")
+
+    with col3:
+        st.markdown("""
+            <button class="action-button" onclick="handleSend()">
+                ⬆️
+            </button>
+        """, unsafe_allow_html=True)
+
+    with col4:
+        st.markdown("""
+            <button class="action-button" onclick="handleVisualize()">
+                📈
+            </button>
+        """, unsafe_allow_html=True)
+
     if user_input:
         # Add user message
         st.session_state.messages.append({"role": "user", "content": user_input})
@@ -164,7 +186,7 @@ def main():
     if st.session_state.show_viz:
         st.write("Visualization options will appear here")
 
-    # JavaScript for handling icon clicks
+    # JavaScript for handling button clicks
     st.markdown("""
         <script>
         function handleUpload() {
@@ -173,6 +195,21 @@ def main():
 
         function handleVisualize() {
             window.parent.postMessage({type: 'streamlit:setComponentValue', value: true, key: 'show_viz'}, '*');
+        }
+
+        function handleSend() {
+            // Trigger enter key press on input
+            const input = document.querySelector('input[aria-label="Send a message"]');
+            if (input && input.value) {
+                const event = new KeyboardEvent('keydown', {
+                    key: 'Enter',
+                    code: 'Enter',
+                    which: 13,
+                    keyCode: 13,
+                    bubbles: true
+                });
+                input.dispatchEvent(event);
+            }
         }
         </script>
     """, unsafe_allow_html=True)
