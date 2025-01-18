@@ -6,7 +6,6 @@ from PIL import Image
 import io
 import numpy as np
 import json
-from components.insights_sidebar import get_insights_sidebar
 
 # Initialize database
 init_database()
@@ -136,7 +135,6 @@ def main():
         st.session_state.temp_user_id = None
         st.session_state.passkey_registration = None
         st.session_state.face_verified = False
-        st.session_state.current_context = {}
 
     if st.session_state.user_id is None:
         st.title("Research Data Management Platform")
@@ -155,21 +153,15 @@ def main():
                 )
 
                 if st.button("Start Authentication"):
-                    try:
-                        # For development, we'll accept any valid username
-                        if username and len(username.strip()) > 0:
-                            # Simulate successful passkey verification
-                            user_id = authenticate_user(username=username)
-                            if user_id:
-                                st.session_state.temp_user_id = user_id
-                                st.session_state.auth_step = 'face'
-                                st.rerun()
-                            else:
-                                st.error("User not found. Please register first.")
-                        else:
-                            st.error("Please enter a username")
-                    except Exception as e:
-                        st.error(f"Authentication error: {str(e)}")
+                    # In a real implementation, this would trigger the WebAuthn API
+                    # For demo purposes, we'll simulate the passkey verification
+                    user_id = authenticate_user(username=username, passkey_response={})
+                    if user_id:
+                        st.session_state.temp_user_id = user_id
+                        st.session_state.auth_step = 'face'
+                        st.rerun()
+                    else:
+                        st.error("Passkey authentication failed")
 
             elif st.session_state.auth_step == 'face':
                 show_auth_step(
@@ -191,17 +183,19 @@ def main():
                 )
 
                 if face_file and st.button("Verify Face"):
-                    with st.spinner("Verifying..."):
-                        face_image = process_face_image(face_file)
-                        if face_image is not None:
-                            # For development, we'll simulate successful face verification
-                            st.session_state.user_id = st.session_state.temp_user_id
+                    face_image = process_face_image(face_file)
+                    if face_image is not None:
+                        user_id = authenticate_user(
+                            user_id=st.session_state.temp_user_id,
+                            face_image=face_image
+                        )
+                        if user_id:
+                            st.session_state.user_id = user_id
                             st.session_state.auth_step = 'complete'
                             st.success("Authentication successful!")
                             st.rerun()
                         else:
-                            st.error("Could not process face image.")
-
+                            st.error("Face verification failed")
 
         with tab2:
             st.header("Register")
@@ -268,17 +262,6 @@ def main():
                         st.error(f"Passkey registration failed: {str(e)}")
 
     else:
-        # Get current context
-        current_context = {
-            'current_view': st.session_state.get('current_page', 'Main'),
-            'project_name': st.session_state.get('current_project', 'Not selected'),
-            'research_area': st.session_state.get('research_area', 'General')
-        }
-
-        # Initialize insights sidebar
-        insights_sidebar = get_insights_sidebar()
-        insights_sidebar.render(current_context)
-
         st.sidebar.success("Navigate through the pages using the sidebar menu.")
         st.sidebar.button("Logout", on_click=lambda: st.session_state.clear())
 
@@ -292,7 +275,6 @@ def main():
         - Export data securely
         - Multi-factor authentication with face recognition and passkeys
         - Password-less authentication using Zero-Knowledge Proofs
-        - AI-powered research insights and recommendations
 
         Use the sidebar to navigate through different features.
         """)

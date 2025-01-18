@@ -2,7 +2,6 @@ import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import pandas as pd
-from datetime import datetime
 
 def get_database_connection():
     """Create a connection to the PostgreSQL database."""
@@ -33,8 +32,7 @@ def init_database():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             bio TEXT,
             institution VARCHAR(200),
-            research_interests TEXT[],
-            phone_number VARCHAR(20)
+            research_interests TEXT[]
         );
     """)
 
@@ -111,37 +109,12 @@ def init_database():
             read_at TIMESTAMP,
             CONSTRAINT unique_message_id UNIQUE (id)
         );
+
         CREATE INDEX IF NOT EXISTS idx_messages_sender 
         ON researcher_messages(sender_id);
+
         CREATE INDEX IF NOT EXISTS idx_messages_recipient 
         ON researcher_messages(recipient_id);
-    """)
-
-    # Create notification_preferences table
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS notification_preferences (
-            id SERIAL PRIMARY KEY,
-            user_id INTEGER REFERENCES users(id),
-            topic VARCHAR(100) NOT NULL,
-            frequency VARCHAR(20) CHECK (frequency IN ('daily', 'weekly', 'monthly')),
-            enabled BOOLEAN DEFAULT true,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(user_id, topic)
-        );
-    """)
-
-    # Create notifications table
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS notifications (
-            id SERIAL PRIMARY KEY,
-            user_id INTEGER REFERENCES users(id),
-            title VARCHAR(200) NOT NULL,
-            content TEXT NOT NULL,
-            notification_type VARCHAR(50) NOT NULL,
-            read BOOLEAN DEFAULT false,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            sent_at TIMESTAMP
-        );
     """)
 
     conn.commit()
@@ -188,7 +161,7 @@ def get_user_profile(user_id):
 
     # Get user basic info
     cur.execute("""
-        SELECT id, username, email, bio, institution, research_interests, created_at, phone_number
+        SELECT id, username, email, bio, institution, research_interests, created_at
         FROM users
         WHERE id = %s;
     """, (user_id,))
@@ -266,112 +239,6 @@ def add_collaboration(project_id, user_id, role):
     except Exception as e:
         conn.rollback()
         raise e
-    finally:
-        cur.close()
-        conn.close()
-
-def save_notification_preferences(user_id: int, topic: str, frequency: str) -> bool:
-    """Save or update user's notification preferences."""
-    conn = get_database_connection()
-    cur = conn.cursor()
-
-    try:
-        cur.execute("""
-            INSERT INTO notification_preferences (user_id, topic, frequency)
-            VALUES (%s, %s, %s)
-            ON CONFLICT (user_id, topic)
-            DO UPDATE SET frequency = EXCLUDED.frequency
-            RETURNING id;
-        """, (user_id, topic, frequency))
-
-        pref_id = cur.fetchone()[0]
-        conn.commit()
-        return bool(pref_id)
-    except Exception as e:
-        conn.rollback()
-        raise e
-    finally:
-        cur.close()
-        conn.close()
-
-def get_user_notification_preferences(user_id: int) -> list:
-    """Get user's notification preferences."""
-    conn = get_database_connection()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-
-    try:
-        cur.execute("""
-            SELECT topic, frequency, enabled, created_at
-            FROM notification_preferences
-            WHERE user_id = %s
-            ORDER BY created_at DESC;
-        """, (user_id,))
-
-        return cur.fetchall()
-    finally:
-        cur.close()
-        conn.close()
-
-def create_notification(user_id: int, title: str, content: str, notification_type: str) -> int:
-    """Create a new notification for a user."""
-    conn = get_database_connection()
-    cur = conn.cursor()
-
-    try:
-        cur.execute("""
-            INSERT INTO notifications 
-            (user_id, title, content, notification_type)
-            VALUES (%s, %s, %s, %s)
-            RETURNING id;
-        """, (user_id, title, content, notification_type))
-
-        notification_id = cur.fetchone()[0]
-        conn.commit()
-        return notification_id
-    except Exception as e:
-        conn.rollback()
-        raise e
-    finally:
-        cur.close()
-        conn.close()
-
-def get_user_notifications(user_id: int, unread_only: bool = False) -> list:
-    """Get notifications for a user."""
-    conn = get_database_connection()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-
-    try:
-        query = """
-            SELECT id, title, content, notification_type, read, created_at, sent_at
-            FROM notifications
-            WHERE user_id = %s
-        """
-        if unread_only:
-            query += " AND read = false"
-        query += " ORDER BY created_at DESC;"
-
-        cur.execute(query, (user_id,))
-        return cur.fetchall()
-    finally:
-        cur.close()
-        conn.close()
-
-def mark_notification_as_read(notification_id: int, user_id: int) -> bool:
-    """Mark a notification as read."""
-    conn = get_database_connection()
-    cur = conn.cursor()
-
-    try:
-        cur.execute("""
-            UPDATE notifications
-            SET read = true
-            WHERE id = %s AND user_id = %s
-            RETURNING id;
-        """, (notification_id, user_id))
-
-        updated = cur.fetchone() is not None
-        conn.commit()
-        return updated
     finally:
         cur.close()
         conn.close()
