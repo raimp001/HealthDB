@@ -1,17 +1,9 @@
 import streamlit as st
-from auth import authenticate_user, create_user, AuthenticationManager
 from database import init_database
 import os
-from PIL import Image
-import io
-import numpy as np
-import json
 
 # Initialize database
 init_database()
-
-# Initialize authentication manager
-auth_manager = AuthenticationManager()
 
 # Page config
 st.set_page_config(
@@ -109,16 +101,6 @@ st.markdown("""
         color: #121212;  /* Coal */
     }
 
-    /* Cards and Containers */
-    .auth-method, .auth-step {
-        background-color: #F5F5F5;  /* Ivory */
-        padding: 1.5rem;
-        border-radius: 8px;
-        border: 1px solid rgba(18, 18, 18, 0.1);  /* Coal with opacity */
-        margin-bottom: 1.5rem;
-        box-shadow: 0 2px 4px rgba(18, 18, 18, 0.05);
-    }
-
     /* Form Elements */
     .stTextInput input, .stTextArea textarea {
         border: 2px solid #E3E3E3;  /* Stone */
@@ -129,16 +111,6 @@ st.markdown("""
     .stTextInput input:focus, .stTextArea textarea:focus {
         border-color: #C4F652;  /* Lime */
         box-shadow: 0 0 0 2px rgba(196, 246, 82, 0.2);  /* Lime with opacity */
-    }
-
-    /* Success Messages */
-    .success-message {
-        color: #121212;  /* Coal */
-        background-color: #C4F652;  /* Lime */
-        padding: 1rem;
-        border-radius: 4px;
-        margin: 1rem 0;
-        font-weight: 500;
     }
 
     /* Dropdown Styles */
@@ -156,194 +128,67 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-def process_face_image(uploaded_file):
-    """Process uploaded face image."""
-    if uploaded_file is None:
-        return None
-
-    image = Image.open(uploaded_file)
-    image_array = np.array(image)
-    return image_array
-
-def show_auth_step(title, content, status=None):
-    """Display an authentication step with status."""
-    with st.container():
-        col1, col2 = st.columns([5,1])
-        with col1:
-            st.markdown(f"### {title}")
-            st.markdown(content)
-        with col2:
-            if status == "success":
-                st.markdown("✅")
-            elif status == "pending":
-                st.markdown("⏳")
-            elif status == "error":
-                st.markdown("❌")
-
 def main():
+    # Set default user session for development
     if 'user_id' not in st.session_state:
-        st.session_state.user_id = None
-        st.session_state.auth_step = 'start'
-        st.session_state.temp_user_id = None
-        st.session_state.passkey_registration = None
-        st.session_state.face_verified = False
+        st.session_state.user_id = 1  # Default user ID for development
 
-    if st.session_state.user_id is None:
-        st.title("Research Data Management Platform")
+    # Sidebar Navigation
+    with st.sidebar:
+        st.markdown("""
+            <div class="sidebar-group">
+                <div class="sidebar-group-title">Research Tools</div>
+                <a href="/" class="active">Home</a>
+                <a href="1_Data_Upload">Data Upload</a>
+                <a href="2_Visualizations">Visualizations</a>
+                <a href="3_Project_Management">Project Management</a>
+                <a href="4_Data_Export">Data Export</a>
+            </div>
 
-        tab1, tab2 = st.tabs(["Login", "Register"])
+            <div class="sidebar-group">
+                <div class="sidebar-group-title">Advanced Features</div>
+                <a href="5_ZKP_Demo">ZKP Demo</a>
+                <a href="6_Researcher_Profile">Researcher Profile</a>
+                <a href="7_Secure_Messages">Secure Messages</a>
+                <a href="8_Citation_Tool">Citation Tool</a>
+                <a href="9_Message_Analytics">Message Analytics</a>
+                <a href="10_Literature_Review_Assistant">Literature Review</a>
+            </div>
+        """, unsafe_allow_html=True)
 
-        with tab1:
-            st.header("Login")
-            username = st.text_input("Username", key="login_username")
+    # Main content area
+    st.title("Research Data Platform")
+    st.write("""
+    Welcome to the Research Data Platform! This platform provides advanced tools for:
 
-            if st.session_state.auth_step == 'start':
-                show_auth_step(
-                    "Step 1: Passkey Authentication",
-                    "Use your device's biometric authentication to verify your identity.",
-                    "pending"
-                )
+    - Data management and visualization
+    - Secure collaboration between researchers
+    - AI-powered literature review assistance
+    - Zero-knowledge proof demonstrations
+    - Citation management
 
-                if st.button("Start Authentication"):
-                    # In a real implementation, this would trigger the WebAuthn API
-                    # For demo purposes, we'll simulate the passkey verification
-                    user_id = authenticate_user(username=username, passkey_response={})
-                    if user_id:
-                        st.session_state.temp_user_id = user_id
-                        st.session_state.auth_step = 'face'
-                        st.rerun()
-                    else:
-                        st.error("Passkey authentication failed")
+    Use the sidebar navigation to explore different features.
+    """)
 
-            elif st.session_state.auth_step == 'face':
-                show_auth_step(
-                    "Step 1: Passkey Authentication",
-                    "Device authentication successful",
-                    "success"
-                )
+    # Feature highlights
+    col1, col2, col3 = st.columns(3)
 
-                show_auth_step(
-                    "Step 2: Face Verification",
-                    "Please look at the camera or upload a photo for additional verification.",
-                    "pending"
-                )
+    with col1:
+        st.markdown("""
+        ### Data Management
+        Upload, visualize, and manage your research data securely.
+        """)
 
-                face_file = st.camera_input("Take a photo") or st.file_uploader(
-                    "Or upload a photo", 
-                    type=['jpg', 'jpeg', 'png'],
-                    key="login_face"
-                )
+    with col2:
+        st.markdown("""
+        ### Collaboration
+        Connect with other researchers and share insights safely.
+        """)
 
-                if face_file and st.button("Verify Face"):
-                    face_image = process_face_image(face_file)
-                    if face_image is not None:
-                        user_id = authenticate_user(
-                            user_id=st.session_state.temp_user_id,
-                            face_image=face_image
-                        )
-                        if user_id:
-                            st.session_state.user_id = user_id
-                            st.session_state.auth_step = 'complete'
-                            st.success("Authentication successful!")
-                            st.rerun()
-                        else:
-                            st.error("Face verification failed")
-
-        with tab2:
-            st.header("Register")
-            new_username = st.text_input("Username", key="reg_username")
-            new_password = st.text_input("Password", type="password", key="reg_password")
-            email = st.text_input("Email")
-
-            if st.session_state.auth_step == 'start':
-                st.write("Step 1: Set up face recognition")
-                face_file = st.camera_input("Take a photo") or st.file_uploader(
-                    "Or upload a photo", 
-                    type=['jpg', 'jpeg', 'png'],
-                    key="reg_face"
-                )
-
-                if st.button("Continue with Registration"):
-                    try:
-                        face_image = process_face_image(face_file) if face_file else None
-                        if face_image is None:
-                            st.error("Face image is required for registration")
-                            return
-
-                        user_id = create_user(new_username, new_password, email, face_image)
-                        st.session_state.temp_user_id = user_id
-                        st.session_state.auth_step = 'passkey'
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Registration failed: {str(e)}")
-
-            elif st.session_state.auth_step == 'passkey':
-                show_auth_step(
-                    "Step 1: Face Recognition Setup",
-                    "Face recognition configured successfully",
-                    "success"
-                )
-
-                show_auth_step(
-                    "Step 2: Passkey Setup",
-                    "Register your device for passwordless login. This will use your device's biometric authentication.",
-                    "pending"
-                )
-
-                if st.button("Register Passkey"):
-                    # Generate registration options
-                    options = auth_manager.generate_passkey_registration_options(
-                        st.session_state.temp_user_id,
-                        new_username
-                    )
-                    st.session_state.passkey_registration = options
-
-                    # In a real implementation, this would trigger the WebAuthn API
-                    # For demo purposes, we'll simulate successful registration
-                    try:
-                        auth_manager.verify_passkey_registration(
-                            st.session_state.temp_user_id,
-                            options,
-                            {'dummy': 'response'}
-                        )
-                        st.success("Registration completed successfully! Please login.")
-                        st.session_state.auth_step = 'start'
-                        st.session_state.temp_user_id = None
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Passkey registration failed: {str(e)}")
-
-    else:
-        # Sidebar Navigation
-        with st.sidebar:
-            st.sidebar.markdown("""
-                <div class="sidebar-group">
-                    <div class="sidebar-group-title">Data Management</div>
-                    <a href="#">Upload Data</a>
-                    <a href="#">Manage Projects</a>
-                    <a href="#">Visualizations</a>
-                </div>
-                <div class="sidebar-group">
-                    <div class="sidebar-group-title">Account</div>
-                    <a href="#">Settings</a>
-                </div>
-            """, unsafe_allow_html=True)
-
-            st.sidebar.success("Navigate through the pages using the sidebar menu.")
-            st.sidebar.button("Logout", on_click=lambda: st.session_state.clear())
-
-        st.title("Welcome to the Research Data Platform")
-        st.write("""
-        This platform provides secure research data management capabilities:
-
-        - Upload and manage research data
-        - Create interactive visualizations
-        - Manage research projects
-        - Export data securely
-        - Multi-factor authentication with face recognition and passkeys
-        - Password-less authentication using Zero-Knowledge Proofs
-
-        Use the sidebar to navigate through different features.
+    with col3:
+        st.markdown("""
+        ### AI Assistant
+        Get AI-powered help with literature reviews and analysis.
         """)
 
 if __name__ == "__main__":
