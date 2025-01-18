@@ -61,6 +61,54 @@ st.markdown("""
         transform: translateY(-1px);
     }
 
+    /* Sidebar Navigation */
+    .css-1d391kg {  /* Sidebar class */
+        background-color: #121212;  /* Coal */
+        padding: 1rem;
+    }
+    .css-1d391kg .stButton button {
+        background-color: #C4F652;  /* Lime */
+        color: #121212;  /* Coal */
+    }
+
+    /* Navigation Groups */
+    .sidebar-group {
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        border-radius: 8px;
+        background-color: rgba(255, 255, 255, 0.05);
+    }
+
+    .sidebar-group-title {
+        color: #C4F652;  /* Lime */
+        font-size: 0.9rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.75rem;
+    }
+
+    /* Navigation Links */
+    .css-1d391kg a {
+        color: #F5F5F5;  /* Ivory */
+        text-decoration: none;
+        display: block;
+        padding: 0.5rem 1rem;
+        margin: 0.25rem 0;
+        border-radius: 4px;
+        transition: all 0.2s ease;
+    }
+
+    .css-1d391kg a:hover {
+        background-color: rgba(196, 246, 82, 0.1);  /* Lime with opacity */
+        color: #C4F652;  /* Lime */
+    }
+
+    .css-1d391kg a.active {
+        background-color: #C4F652;  /* Lime */
+        color: #121212;  /* Coal */
+    }
+
     /* Cards and Containers */
     .auth-method, .auth-step {
         background-color: #F5F5F5;  /* Ivory */
@@ -93,13 +141,17 @@ st.markdown("""
         font-weight: 500;
     }
 
-    /* Sidebar */
-    .css-1d391kg {  /* Sidebar class */
-        background-color: #121212;  /* Coal */
+    /* Dropdown Styles */
+    .stSelectbox {
+        margin-bottom: 1rem;
     }
-    .css-1d391kg .stButton button {
-        background-color: #C4F652;  /* Lime */
-        color: #121212;  /* Coal */
+    .stSelectbox > div > div {
+        background-color: #F5F5F5;  /* Ivory */
+        border: 2px solid #E3E3E3;  /* Stone */
+        border-radius: 4px;
+    }
+    .stSelectbox > div > div:hover {
+        border-color: #C4F652;  /* Lime */
     }
     </style>
     """, unsafe_allow_html=True)
@@ -262,8 +314,23 @@ def main():
                         st.error(f"Passkey registration failed: {str(e)}")
 
     else:
-        st.sidebar.success("Navigate through the pages using the sidebar menu.")
-        st.sidebar.button("Logout", on_click=lambda: st.session_state.clear())
+        # Sidebar Navigation
+        with st.sidebar:
+            st.sidebar.markdown("""
+                <div class="sidebar-group">
+                    <div class="sidebar-group-title">Data Management</div>
+                    <a href="#">Upload Data</a>
+                    <a href="#">Manage Projects</a>
+                    <a href="#">Visualizations</a>
+                </div>
+                <div class="sidebar-group">
+                    <div class="sidebar-group-title">Account</div>
+                    <a href="#">Settings</a>
+                </div>
+            """, unsafe_allow_html=True)
+
+            st.sidebar.success("Navigate through the pages using the sidebar menu.")
+            st.sidebar.button("Logout", on_click=lambda: st.session_state.clear())
 
         st.title("Welcome to the Research Data Platform")
         st.write("""
