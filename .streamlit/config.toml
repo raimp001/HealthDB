@@ -4,13 +4,8 @@ address = "0.0.0.0"
 port = 5000
 
 [theme]
-# Primary colors
-primaryColor = "#121212"  # Coal
-backgroundColor = "#E3E3E3"  # Stone
-secondaryBackgroundColor = "#F5F5F5"  # Ivory
-textColor = "#121212"  # Coal for text
-
-# Accent colors
-# Using Lime for interactive elements
-base = "light"
+primaryColor = "#121212"
+backgroundColor = "#1E1E2F"
+secondaryBackgroundColor = "#252525"
+textColor = "#FFFFFF"
 font = "sans serif"
