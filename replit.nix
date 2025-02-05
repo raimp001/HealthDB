@@ -1,5 +1,7 @@
 {pkgs}: {
   deps = [
+    pkgs.yakut
+    pkgs.tenv
     pkgs.cmake
     pkgs.postgresql
     pkgs.zlib
