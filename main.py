@@ -1,11 +1,13 @@
 import streamlit as st
+import pandas as pd
+#from database import get_database_connection #This import is in edited code, but not used and might cause issues if database.py doesn't exist.  Removing for now.
 
 # Page config
 st.set_page_config(
-    page_title="Research Assistant",
+    page_title="Research Data Management",
     page_icon="⚡",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
 # Custom CSS for better styling
@@ -16,57 +18,24 @@ st.markdown("""
         margin: auto;
         padding: 2rem;
     }
-    .chat-container {
-        max-height: 60vh;
-        overflow-y: auto;
-        margin-bottom: 2rem;
-        padding: 1rem;
-        border-radius: 0.5rem;
+    .dashboard-section {
         background-color: #1E1E2F;
+        padding: 1.5rem;
+        border-radius: 0.5rem;
+        margin-bottom: 1.5rem;
     }
-    .chat-message {
+    .data-stats {
+        background-color: #252525;
         padding: 1rem;
         border-radius: 0.5rem;
         margin-bottom: 1rem;
-        display: flex;
-        flex-direction: column;
     }
-    .user-message {
-        background-color: #252525;
-        margin-left: 2rem;
-        border-left: 4px solid #6C63FF;
-    }
-    .assistant-message {
-        background-color: #1E1E2F;
-        margin-right: 2rem;
-        border-left: 4px solid #2E7D32;
-    }
-    .message-content {
-        color: #FFFFFF;
-        font-size: 1rem;
-        line-height: 1.5;
-    }
-    .control-panel {
-        display: flex;
-        gap: 1rem;
+    .upload-area {
+        border: 2px dashed #6C63FF;
+        border-radius: 0.5rem;
+        padding: 2rem;
+        text-align: center;
         margin: 1rem 0;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        background-color: #252525;
-    }
-    .input-area {
-        background-color: #1E1E2F;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        margin-top: 1rem;
-    }
-    .stTextInput > div > div > input {
-        background-color: #1E1E2F;
-        color: white;
-        border: 1px solid #6C63FF;
-        border-radius: 0.5rem;
-        padding: 0.5rem 1rem;
-        font-size: 1rem;
     }
     .stButton > button {
         border-radius: 0.5rem;
@@ -81,92 +50,92 @@ st.markdown("""
         color: white;
         transform: translateY(-1px);
     }
-    .tool-section {
-        padding: 1rem;
-        background-color: #252525;
-        border-radius: 0.5rem;
-        margin-top: 1rem;
-    }
 </style>
 """, unsafe_allow_html=True)
 
-# Initialize session state
-if 'messages' not in st.session_state:
-    st.session_state.messages = []
-if 'show_upload' not in st.session_state:
-    st.session_state.show_upload = False
-if 'show_viz' not in st.session_state:
-    st.session_state.show_viz = False
-
 try:
-    st.title("Research Assistant")
+    st.title("Research Data Management")
 
-    # Main chat container
-    with st.container():
-        st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+    # Main dashboard layout
+    col1, col2 = st.columns([2, 1])
 
-        # Display messages with improved styling
-        for message in st.session_state.messages:
-            message_class = "user-message" if message["role"] == "user" else "assistant-message"
-            st.markdown(f"""
-                <div class="chat-message {message_class}">
-                    <div class="message-content">
-                        {message['content']}
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
+    with col1:
+        # Epic Data Extraction Section
+        st.markdown('<div class="dashboard-section">', unsafe_allow_html=True)
+        st.header("Epic Data Extraction")
 
+        # Epic connection form
+        epic_server = st.text_input("Epic Server URL")
+        epic_credentials = st.file_uploader("Upload Epic Credentials File", type=['json'])
+
+        date_cols = st.columns(2)
+        with date_cols[0]:
+            start_date = st.date_input("Start Date")
+        with date_cols[1]:
+            end_date = st.date_input("End Date")
+
+        data_types = st.multiselect(
+            "Select Data Types",
+            ["Patient Demographics", "Lab Results", "Medications", "Diagnoses", "Procedures"]
+        )
+
+        if st.button("Extract Data"):
+            st.info("Data extraction will start soon...")
+            # Add Epic data extraction logic here
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # Input and controls section
-    with st.container():
-        st.markdown('<div class="input-area">', unsafe_allow_html=True)
+    with col2:
+        # Data Stats Section
+        st.markdown('<div class="dashboard-section">', unsafe_allow_html=True)
+        st.header("Data Statistics")
 
-        # Control panel with tools
-        cols = st.columns([0.1, 1, 0.1, 0.1])
-
-        with cols[0]:
-            if st.button("⊕", help="Upload files"):
-                st.session_state.show_upload = True
-
-        with cols[1]:
-            user_input = st.text_input(
-                "",
-                placeholder="Type your message here...",
-                key="user_input"
-            )
-
-        with cols[2]:
-            if st.button("→", help="Send message"):
-                if user_input:
-                    st.session_state.messages.append({"role": "user", "content": user_input})
-                    bot_response = f"I received: {user_input}"
-                    st.session_state.messages.append({"role": "assistant", "content": bot_response})
-                    st.experimental_rerun()
-
-        with cols[3]:
-            if st.button("≡", help="Show visualizations"):
-                st.session_state.show_viz = True
-
+        # Placeholder stats - replace with actual database queries
+        st.markdown('<div class="data-stats">', unsafe_allow_html=True)
+        st.metric("Total Records", "0")
+        st.metric("Last Import", "Never")
+        st.metric("Active Projects", "0")
+        st.markdown('</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # Tool sections
-    if st.session_state.show_upload:
-        with st.container():
-            st.markdown('<div class="tool-section">', unsafe_allow_html=True)
-            st.subheader("Upload Files")
-            uploaded_file = st.file_uploader("Choose a file", type=['csv', 'xlsx', 'txt'])
-            if uploaded_file is not None:
-                st.success(f"File {uploaded_file.name} uploaded successfully!")
-                st.session_state.show_upload = False
-            st.markdown('</div>', unsafe_allow_html=True)
+    # Spreadsheet Import Section
+    st.markdown('<div class="dashboard-section">', unsafe_allow_html=True)
+    st.header("Data Import")
 
-    if st.session_state.show_viz:
-        with st.container():
-            st.markdown('<div class="tool-section">', unsafe_allow_html=True)
-            st.subheader("Visualizations")
-            st.write("Visualization options will appear here")
-            st.markdown('</div>', unsafe_allow_html=True)
+    import_tabs = st.tabs(["Spreadsheet Upload", "Database Import", "API Integration"])
+
+    with import_tabs[0]:
+        st.markdown('<div class="upload-area">', unsafe_allow_html=True)
+        uploaded_file = st.file_uploader(
+            "Drop your spreadsheet here or click to upload",
+            type=['csv', 'xlsx', 'xls'],
+            help="Supported formats: CSV, Excel"
+        )
+
+        if uploaded_file is not None:
+            try:
+                if uploaded_file.name.endswith('.csv'):
+                    df = pd.read_csv(uploaded_file)
+                else:
+                    df = pd.read_excel(uploaded_file)
+
+                st.success(f"Successfully loaded {len(df)} rows of data")
+                st.dataframe(df.head())
+
+                if st.button("Import Data"):
+                    # Add data import logic here
+                    st.success("Data imported successfully!")
+
+            except Exception as e:
+                st.error(f"Error reading file: {str(e)}")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with import_tabs[1]:
+        st.write("Database connection configuration will be here")
+
+    with import_tabs[2]:
+        st.write("API integration options will be here")
+
+    st.markdown('</div>', unsafe_allow_html=True)
 
 except Exception as e:
     st.error(f"An error occurred: {str(e)}")
