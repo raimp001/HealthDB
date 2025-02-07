@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+from utils.document_processor import process_document
+import json
 
 # Page config
 st.set_page_config(
@@ -124,8 +126,6 @@ try:
         if st.button("Extract Data"):
             with st.spinner("Preparing data extraction..."):
                 st.info("Data extraction will start soon. This may take several minutes depending on the selected date range and data types.")
-                # Add EMR data extraction logic here
-        st.markdown('</div>', unsafe_allow_html=True)
 
     with col2:
         # Data Stats Section
@@ -144,32 +144,47 @@ try:
     st.markdown('<div class="dashboard-section">', unsafe_allow_html=True)
     st.header("Data Import")
 
-    import_tabs = st.tabs(["Spreadsheet Upload", "Database Import", "API Integration"])
+    import_tabs = st.tabs(["Document Upload", "Database Import", "API Integration"])
 
     with import_tabs[0]:
         st.markdown('<div class="upload-area">', unsafe_allow_html=True)
+        st.write("Upload research documents for processing")
         uploaded_file = st.file_uploader(
-            "Drop your spreadsheet here or click to upload",
-            type=['csv', 'xlsx', 'xls'],
-            help="Supported formats: CSV, Excel"
+            "Drop your files here or click to upload",
+            type=['csv', 'xlsx', 'xls', 'pdf', 'docx', 'txt'],
+            help="Supported formats: CSV, Excel, PDF, Word, Text"
         )
 
         if uploaded_file is not None:
             try:
-                if uploaded_file.name.endswith('.csv'):
-                    df = pd.read_csv(uploaded_file)
+                file_content = uploaded_file.read()
+                with st.spinner("Processing document..."):
+                    metadata, processed_content = process_document(file_content, uploaded_file.name)
+
+                # Display metadata
+                st.success("File processed successfully!")
+                st.json(metadata)
+
+                # Display preview based on file type
+                if metadata["type"] == "spreadsheet":
+                    df = pd.read_json(processed_content)
+                    st.dataframe(df.head())
+                elif metadata["type"] in ["docx", "text"]:
+                    st.subheader("Document Chunks Preview")
+                    for i, chunk in enumerate(processed_content[:3]):
+                        with st.expander(f"Chunk {i+1}"):
+                            st.write(chunk)
+                    if len(processed_content) > 3:
+                        st.info(f"{len(processed_content) - 3} more chunks available")
                 else:
-                    df = pd.read_excel(uploaded_file)
+                    st.write(processed_content)
 
-                st.success(f"Successfully loaded {len(df)} rows of data")
-                st.dataframe(df.head())
-
-                if st.button("Import Data"):
-                    # Add data import logic here
+                if st.button("Import to Database"):
+                    # Add database import logic here
                     st.success("Data imported successfully!")
 
             except Exception as e:
-                st.error(f"Error reading file: {str(e)}")
+                st.error(f"Error processing file: {str(e)}")
         st.markdown('</div>', unsafe_allow_html=True)
 
     with import_tabs[1]:

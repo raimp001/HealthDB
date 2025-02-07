@@ -1,5 +1,9 @@
 {pkgs}: {
   deps = [
+    pkgs.pkg-config
+    pkgs.arrow-cpp
+    pkgs.poppler_utils
+    pkgs.tesseract
     pkgs.yakut
     pkgs.tenv
     pkgs.cmake
