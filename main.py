@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-#from database import get_database_connection #This import is in edited code, but not used and might cause issues if database.py doesn't exist.  Removing for now.
 
 # Page config
 st.set_page_config(
@@ -60,28 +59,72 @@ try:
     col1, col2 = st.columns([2, 1])
 
     with col1:
-        # Epic Data Extraction Section
+        # EMR Data Extraction Section
         st.markdown('<div class="dashboard-section">', unsafe_allow_html=True)
-        st.header("Epic Data Extraction")
+        st.header("EMR Data Extraction")
 
-        # Epic connection form
-        epic_server = st.text_input("Epic Server URL")
-        epic_credentials = st.file_uploader("Upload Epic Credentials File", type=['json'])
+        # EMR connection form
+        emr_type = st.selectbox(
+            "EMR System",
+            ["Epic Clarity", "Cerner", "AllScripts", "MEDITECH", "Other"]
+        )
 
+        connection_tabs = st.tabs(["Direct Connection", "File Import"])
+
+        with connection_tabs[0]:
+            st.subheader("Database Connection")
+            emr_server = st.text_input("Database Server URL")
+            credentials_method = st.radio(
+                "Authentication Method",
+                ["Certificate", "Username/Password", "Service Account"]
+            )
+            if credentials_method == "Certificate":
+                st.file_uploader("Upload Certificate", type=['pem', 'crt'])
+            elif credentials_method == "Username/Password":
+                st.text_input("Username")
+                st.text_input("Password", type="password")
+            else:
+                st.file_uploader("Service Account Credentials", type=['json', 'key'])
+
+        with connection_tabs[1]:
+            st.subheader("File-based Import")
+            st.file_uploader("Upload EMR Export File", type=['csv', 'xlsx', 'sql'])
+
+        # Date range selection
         date_cols = st.columns(2)
         with date_cols[0]:
             start_date = st.date_input("Start Date")
         with date_cols[1]:
             end_date = st.date_input("End Date")
 
-        data_types = st.multiselect(
-            "Select Data Types",
-            ["Patient Demographics", "Lab Results", "Medications", "Diagnoses", "Procedures"]
+        # Data selection
+        st.subheader("Data Selection")
+        data_categories = {
+            "Clinical": ["Patient Demographics", "Diagnoses", "Procedures", "Medications", "Allergies"],
+            "Laboratory": ["Lab Results", "Microbiology", "Pathology"],
+            "Imaging": ["Radiology Reports", "Image Metadata"],
+            "Notes": ["Progress Notes", "Discharge Summaries", "Consultation Notes"]
+        }
+
+        selected_categories = st.multiselect(
+            "Select Data Categories",
+            options=list(data_categories.keys())
         )
 
+        if selected_categories:
+            all_data_types = []
+            for category in selected_categories:
+                all_data_types.extend(data_categories[category])
+
+            selected_data_types = st.multiselect(
+                "Select Specific Data Types",
+                options=all_data_types
+            )
+
         if st.button("Extract Data"):
-            st.info("Data extraction will start soon...")
-            # Add Epic data extraction logic here
+            with st.spinner("Preparing data extraction..."):
+                st.info("Data extraction will start soon. This may take several minutes depending on the selected date range and data types.")
+                # Add EMR data extraction logic here
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col2:
@@ -97,7 +140,7 @@ try:
         st.markdown('</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # Spreadsheet Import Section
+    # Data Import Section
     st.markdown('<div class="dashboard-section">', unsafe_allow_html=True)
     st.header("Data Import")
 
