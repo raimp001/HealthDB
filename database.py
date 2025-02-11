@@ -36,6 +36,63 @@ def init_database():
         );
     """)
 
+    # Create institutions table
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS institutions (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(200) UNIQUE NOT NULL,
+            type VARCHAR(50),
+            country VARCHAR(100),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    """)
+
+    # Create irb_submissions table
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS irb_submissions (
+            id SERIAL PRIMARY KEY,
+            title VARCHAR(300) NOT NULL,
+            principal_investigator_id INTEGER REFERENCES users(id),
+            institution_id INTEGER REFERENCES institutions(id),
+            project_description TEXT NOT NULL,
+            methodology TEXT NOT NULL,
+            risks_and_benefits TEXT NOT NULL,
+            participant_selection TEXT NOT NULL,
+            consent_process TEXT NOT NULL,
+            data_safety_plan TEXT NOT NULL,
+            status VARCHAR(50) DEFAULT 'pending',
+            submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    """)
+
+    # Create irb_reviews table
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS irb_reviews (
+            id SERIAL PRIMARY KEY,
+            submission_id INTEGER REFERENCES irb_submissions(id),
+            reviewer_id INTEGER REFERENCES users(id),
+            review_type VARCHAR(50) NOT NULL,
+            comments TEXT,
+            decision VARCHAR(50),
+            reviewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(submission_id, reviewer_id)
+        );
+    """)
+
+    # Create irb_documents table
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS irb_documents (
+            id SERIAL PRIMARY KEY,
+            submission_id INTEGER REFERENCES irb_submissions(id),
+            document_type VARCHAR(100) NOT NULL,
+            file_name VARCHAR(255) NOT NULL,
+            file_path TEXT NOT NULL,
+            uploaded_by INTEGER REFERENCES users(id),
+            uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    """)
+
     # Create projects table
     cur.execute("""
         CREATE TABLE IF NOT EXISTS projects (
@@ -109,13 +166,18 @@ def init_database():
             read_at TIMESTAMP,
             CONSTRAINT unique_message_id UNIQUE (id)
         );
+    """)
 
+    cur.execute("""
         CREATE INDEX IF NOT EXISTS idx_messages_sender 
         ON researcher_messages(sender_id);
+    """)
 
+    cur.execute("""
         CREATE INDEX IF NOT EXISTS idx_messages_recipient 
         ON researcher_messages(recipient_id);
     """)
+
 
     conn.commit()
     cur.close()
@@ -236,6 +298,132 @@ def add_collaboration(project_id, user_id, role):
         collab_id = cur.fetchone()[0]
         conn.commit()
         return collab_id
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        cur.close()
+        conn.close()
+
+def submit_irb_application(
+    title: str,
+    pi_id: int,
+    institution_id: int,
+    project_description: str,
+    methodology: str,
+    risks_and_benefits: str,
+    participant_selection: str,
+    consent_process: str,
+    data_safety_plan: str
+) -> int:
+    """Submit a new IRB application."""
+    conn = get_database_connection()
+    cur = conn.cursor()
+
+    try:
+        cur.execute("""
+            INSERT INTO irb_submissions (
+                title, principal_investigator_id, institution_id,
+                project_description, methodology, risks_and_benefits,
+                participant_selection, consent_process, data_safety_plan
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id;
+        """, (
+            title, pi_id, institution_id, project_description,
+            methodology, risks_and_benefits, participant_selection,
+            consent_process, data_safety_plan
+        ))
+
+        submission_id = cur.fetchone()[0]
+        conn.commit()
+        return submission_id
+
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        cur.close()
+        conn.close()
+
+def get_irb_submissions(institution_id: int = None, pi_id: int = None):
+    """Get IRB submissions with optional filtering."""
+    conn = get_database_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+
+    query = """
+        SELECT 
+            s.*,
+            u.username as pi_name,
+            i.name as institution_name,
+            COUNT(DISTINCT r.id) as review_count
+        FROM irb_submissions s
+        JOIN users u ON s.principal_investigator_id = u.id
+        JOIN institutions i ON s.institution_id = i.id
+        LEFT JOIN irb_reviews r ON s.id = r.submission_id
+    """
+
+    conditions = []
+    params = []
+
+    if institution_id:
+        conditions.append("s.institution_id = %s")
+        params.append(institution_id)
+    if pi_id:
+        conditions.append("s.principal_investigator_id = %s")
+        params.append(pi_id)
+
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+
+    query += " GROUP BY s.id, u.username, i.name ORDER BY s.submitted_at DESC"
+
+    try:
+        cur.execute(query, params)
+        submissions = cur.fetchall()
+        return submissions
+    finally:
+        cur.close()
+        conn.close()
+
+def submit_irb_review(
+    submission_id: int,
+    reviewer_id: int,
+    review_type: str,
+    comments: str,
+    decision: str
+) -> int:
+    """Submit a review for an IRB submission."""
+    conn = get_database_connection()
+    cur = conn.cursor()
+
+    try:
+        cur.execute("""
+            INSERT INTO irb_reviews (
+                submission_id, reviewer_id, review_type,
+                comments, decision
+            ) VALUES (%s, %s, %s, %s, %s)
+            ON CONFLICT (submission_id, reviewer_id)
+            DO UPDATE SET
+                review_type = EXCLUDED.review_type,
+                comments = EXCLUDED.comments,
+                decision = EXCLUDED.decision,
+                reviewed_at = CURRENT_TIMESTAMP
+            RETURNING id;
+        """, (submission_id, reviewer_id, review_type, comments, decision))
+
+        review_id = cur.fetchone()[0]
+
+        # Update submission status based on review decision
+        cur.execute("""
+            UPDATE irb_submissions
+            SET status = %s,
+                last_updated_at = CURRENT_TIMESTAMP
+            WHERE id = %s;
+        """, (decision, submission_id))
+
+        conn.commit()
+        return review_id
+
     except Exception as e:
         conn.rollback()
         raise e
