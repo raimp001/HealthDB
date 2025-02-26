@@ -2,6 +2,15 @@ import streamlit as st
 import pandas as pd
 from utils.document_processor import process_document
 import json
+from database import init_database
+
+# Initialize database tables
+try:
+    init_database()
+    st.session_state.db_initialized = True
+except Exception as e:
+    st.error(f"Error initializing database: {str(e)}")
+    st.session_state.db_initialized = False
 
 # Page config
 st.set_page_config(

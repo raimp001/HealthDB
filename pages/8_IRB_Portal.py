@@ -6,10 +6,12 @@ from database import (
     submit_irb_review,
     get_institutions_for_selection,
     get_submission_approvals,
-    update_institutional_approval
+    update_institutional_approval,
+    init_database
 )
 import pandas as pd
 from datetime import datetime
+from psycopg2.extras import RealDictCursor
 
 def get_institutions():
     """Get list of participating institutions."""
@@ -136,29 +138,39 @@ def irb_portal():
         st.header("New IRB Submission")
 
         # Get institutions for dropdown
-        institutions = get_institutions()
-        if len(institutions) == 0:
-            # Create some example institutions if none exist
-            conn = get_database_connection()
-            cur = conn.cursor()
-            cur.execute("""
-                INSERT INTO institutions (name, type, country)
-                VALUES 
-                    ('University of Research', 'University', 'USA'),
-                    ('Medical Research Institute', 'Research Institute', 'USA'),
-                    ('City Hospital', 'Hospital', 'USA'),
-                    ('Global Health Organization', 'Non-profit', 'International')
-                ON CONFLICT (name) DO NOTHING;
-            """)
-            conn.commit()
-            cur.close()
-            conn.close()
+        try:
+            # Make sure database is initialized
+            if not st.session_state.get('db_initialized', False):
+                init_database()
+                st.session_state.db_initialized = True
 
-            # Reload institutions
             institutions = get_institutions()
             if len(institutions) == 0:
-                st.error("Could not create example institutions. Please contact an administrator.")
-                return
+                # Create some example institutions if none exist
+                conn = get_database_connection()
+                cur = conn.cursor()
+                cur.execute("""
+                    INSERT INTO institutions (name, type, country)
+                    VALUES 
+                        ('University of Research', 'University', 'USA'),
+                        ('Medical Research Institute', 'Research Institute', 'USA'),
+                        ('City Hospital', 'Hospital', 'USA'),
+                        ('Global Health Organization', 'Non-profit', 'International')
+                    ON CONFLICT (name) DO NOTHING;
+                """)
+                conn.commit()
+                cur.close()
+                conn.close()
+
+                # Reload institutions
+                institutions = get_institutions()
+                if len(institutions) == 0:
+                    st.error("Could not create example institutions. Please contact an administrator.")
+                    return
+        except Exception as e:
+            st.error(f"Error loading institutions: {str(e)}")
+            # Create a default empty dataframe for demo purposes
+            institutions = pd.DataFrame({'id': [1], 'name': ['Demo Institution']})
 
         # IRB Submission Form
         with st.form("irb_submission_form"):
