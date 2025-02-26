@@ -5,6 +5,7 @@ Contains shared utilities for the research platform.
 import pandas as pd
 from datetime import datetime
 import json
+import io
 
 def validate_data(df: pd.DataFrame) -> tuple[bool, str]:
     """
@@ -72,3 +73,73 @@ def generate_metadata(df: pd.DataFrame) -> dict:
             "error": str(e),
             "timestamp": datetime.now().isoformat()
         }
+
+def prepare_data_export(df: pd.DataFrame, format_type: str, include_metadata: bool = True):
+    """
+    Prepares data for export in various formats.
+
+    Args:
+        df: Pandas DataFrame to export
+        format_type: Export format ('csv', 'json', 'excel')
+        include_metadata: Whether to include metadata in the export
+
+    Returns:
+        File-like object or string with the exported data
+    """
+    try:
+        metadata = generate_metadata(df) if include_metadata else None
+
+        if format_type == 'csv':
+            output = df.to_csv(index=False)
+            if include_metadata:
+                metadata_str = json.dumps(metadata, indent=2)
+                # Fix: Create the replaced string separately first
+                metadata_commented = metadata_str.replace("\n", "\n# ")
+                output = f"# Metadata:\n# {metadata_commented}\n\n{output}"
+            return output
+
+        elif format_type == 'json':
+            if include_metadata:
+                data_dict = {
+                    "metadata": metadata,
+                    "data": json.loads(df.to_json(orient='records'))
+                }
+                return json.dumps(data_dict, indent=2)
+            else:
+                return df.to_json(orient='records')
+
+        elif format_type == 'excel':
+            buffer = io.BytesIO()
+            writer = pd.ExcelWriter(buffer, engine='openpyxl')
+            df.to_excel(writer, sheet_name='Data', index=False)
+
+            if include_metadata:
+                # Convert metadata to DataFrame for Excel sheet
+                meta_items = []
+                if metadata:  # Check if metadata is not None
+                    for key, value in metadata.items():
+                        if isinstance(value, dict):
+                            for subkey, subvalue in value.items():
+                                meta_items.append({
+                                    "Category": key,
+                                    "Property": subkey,
+                                    "Value": str(subvalue)
+                                })
+                        else:
+                            meta_items.append({
+                                "Category": "",
+                                "Property": key,
+                                "Value": str(value)
+                            })
+                    meta_df = pd.DataFrame(meta_items)
+                    meta_df.to_excel(writer, sheet_name='Metadata', index=False)
+
+            writer.close()
+            buffer.seek(0)
+            return buffer
+
+        else:
+            raise ValueError(f"Unsupported export format: {format_type}")
+
+    except Exception as e:
+        raise Exception(f"Error preparing data export: {str(e)}")

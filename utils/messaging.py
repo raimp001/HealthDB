@@ -27,10 +27,10 @@ class SecureMessaging:
         # Generate a random symmetric key for this message
         symmetric_key = Fernet.generate_key()
         f = Fernet(symmetric_key)
-        
+
         # Encrypt the message using the symmetric key
         encrypted_message = f.encrypt(message.encode(self.encoding))
-        
+
         # Encrypt the symmetric key using recipient's public key
         encrypted_key = recipient_public_key.encrypt(
             symmetric_key,
@@ -71,21 +71,21 @@ class SecureMessaging:
         except Exception as e:
             raise Exception(f"Failed to decrypt message: {str(e)}")
 
-def send_message(sender_id: int, recipient_id: int, message: str, recipient_public_key: str) -> bool:
+def send_message(sender_id: int, recipient_id: int, message: str, recipient_public_key) -> int:
     """Send an encrypted message to another researcher."""
     try:
         secure_messaging = SecureMessaging()
-        
+
         # Convert stored public key string back to key object
         # In production, implement proper key serialization/deserialization
         recipient_key = recipient_public_key  # Placeholder for key reconstruction
-        
+
         # Encrypt the message
         encrypted_data = secure_messaging.encrypt_message(message, recipient_key)
-        
+
         conn = get_database_connection()
         cur = conn.cursor()
-        
+
         cur.execute("""
             INSERT INTO researcher_messages 
             (sender_id, recipient_id, encrypted_content, encrypted_key, iv)
@@ -98,12 +98,12 @@ def send_message(sender_id: int, recipient_id: int, message: str, recipient_publ
             encrypted_data['encrypted_key'],
             encrypted_data['iv']
         ))
-        
+
         message_id = cur.fetchone()[0]
         conn.commit()
         cur.close()
         conn.close()
-        return True
+        return message_id
     except Exception as e:
         raise Exception(f"Failed to send message: {str(e)}")
 
@@ -111,7 +111,7 @@ def get_messages(user_id: int, conversation_with: Optional[int] = None) -> List[
     """Get messages for a user, optionally filtered by conversation partner."""
     conn = get_database_connection()
     cur = conn.cursor()
-    
+
     try:
         if conversation_with:
             cur.execute("""
@@ -136,9 +136,9 @@ def get_messages(user_id: int, conversation_with: Optional[int] = None) -> List[
                 WHERE m.sender_id = %s OR m.recipient_id = %s
                 ORDER BY m.created_at DESC;
             """, (user_id, user_id))
-        
+
         messages = cur.fetchall()
-        
+
         # Convert to list of dictionaries
         message_list = []
         for msg in messages:
@@ -155,7 +155,7 @@ def get_messages(user_id: int, conversation_with: Optional[int] = None) -> List[
                 'recipient_username': msg[9]
             }
             message_list.append(message_dict)
-            
+
         return message_list
     finally:
         cur.close()
@@ -165,7 +165,7 @@ def mark_message_as_read(message_id: int, user_id: int) -> bool:
     """Mark a message as read by the recipient."""
     conn = get_database_connection()
     cur = conn.cursor()
-    
+
     try:
         cur.execute("""
             UPDATE researcher_messages
@@ -173,7 +173,7 @@ def mark_message_as_read(message_id: int, user_id: int) -> bool:
             WHERE id = %s AND recipient_id = %s AND read_at IS NULL
             RETURNING id;
         """, (message_id, user_id))
-        
+
         updated = cur.fetchone() is not None
         conn.commit()
         return updated
