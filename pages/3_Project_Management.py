@@ -3,9 +3,14 @@ from database import get_database_connection
 import pandas as pd
 
 def project_management_page():
+    # Set up demo user if not logged in
     if 'user_id' not in st.session_state or st.session_state.user_id is None:
-        st.warning("Please login to access this page.")
-        return
+        # Instead of requiring login, use a demo user ID
+        st.session_state.user_id = 1  # Use a default user ID for demonstration
+        st.session_state.username = "Demo User"
+
+        # Create a notice that we're in demo mode
+        st.info("You are viewing the Project Management page in demonstration mode. No login required.")
 
     st.title("Project Management")
 
@@ -94,6 +99,31 @@ def project_management_page():
 
         st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
+
+    # Create demo projects if none exist
+    try:
+        conn = get_database_connection()
+        query = """
+            SELECT COUNT(*) FROM projects WHERE owner_id = %s
+        """
+        count_df = pd.read_sql(query, conn, params=(st.session_state.user_id,))
+
+        if count_df.iloc[0][0] == 0:
+            # Create sample projects for demo
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO projects (name, description, owner_id, is_public)
+                VALUES 
+                    ('Genomic Analysis', 'Analysis of genomic data for rare diseases', %s, true),
+                    ('Clinical Trial Data', 'Multi-center trial data repository', %s, true)
+                RETURNING id;
+            """, (st.session_state.user_id, st.session_state.user_id))
+            conn.commit()
+            cur.close()
+
+        conn.close()
+    except Exception as e:
+        st.error(f"Error initializing demo projects: {str(e)}")
 
     # Project statistics
     try:

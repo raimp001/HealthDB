@@ -6,9 +6,14 @@ import json
 import io
 
 def data_export_page():
+    # Set up demo user if not logged in
     if 'user_id' not in st.session_state or st.session_state.user_id is None:
-        st.warning("Please login to access this page.")
-        return
+        # Instead of requiring login, use a demo user ID
+        st.session_state.user_id = 1  # Use a default user ID for demonstration
+        st.session_state.username = "Demo User"
+
+        # Create a notice that we're in demo mode
+        st.info("You are viewing the Data Export page in demonstration mode. No login required.")
 
     st.title("Data Export")
 

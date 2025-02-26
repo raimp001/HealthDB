@@ -50,15 +50,27 @@ async def store_on_blockchain(data, metadata):
     return result
 
 def data_upload_page():
+    # Set up demo user if not logged in
     if 'user_id' not in st.session_state or st.session_state.user_id is None:
-        st.warning("Please login to access this page.")
-        return
+        # Instead of requiring login, use a demo user ID
+        st.session_state.user_id = 1  # Use a default user ID for demonstration
+        st.session_state.username = "Demo User"
+
+        # Create a notice that we're in demo mode
+        st.info("You are viewing the Data Upload page in demonstration mode. No login required.")
 
     st.title("Data Upload")
 
+    # Check for selected project from Project Management page
+    project_id = st.session_state.get('selected_project_id', 1)  # Default to project 1 for demo
+    project_name = st.session_state.get('selected_project_name', 'Demo Project')
+
     # Project information
-    project_name = st.text_input("Project Name")
-    project_description = st.text_area("Project Description")
+    if project_id != 1:
+        st.subheader(f"Project: {project_name}")
+    else:
+        project_name = st.text_input("Project Name", "Demo Project")
+        project_description = st.text_area("Project Description", "Description of research project for demonstration")
 
     # File upload
     uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
@@ -102,7 +114,7 @@ def data_upload_page():
 
                     # Save to database
                     data_id = save_research_data(
-                        project_id=1,  # Default project ID for now
+                        project_id=project_id,  # Use selected project ID
                         data_type="csv",
                         data_value=df.to_json(orient='records'),
                         metadata=updated_metadata,
