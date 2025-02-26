@@ -20,9 +20,14 @@ def get_institutions():
     return df
 
 def irb_portal():
+    # Set up demo user if not logged in
     if 'user_id' not in st.session_state or st.session_state.user_id is None:
-        st.warning("Please login to access the IRB portal.")
-        return
+        # Instead of requiring login, use a demo user ID
+        st.session_state.user_id = 1  # Use a default user ID for demonstration
+        st.session_state.username = "Demo User"
+
+        # Create a notice that we're in demo mode
+        st.info("You are viewing the IRB Portal in demonstration mode. No login required.")
 
     st.title("IRB Submission Portal")
 
@@ -133,8 +138,27 @@ def irb_portal():
         # Get institutions for dropdown
         institutions = get_institutions()
         if len(institutions) == 0:
-            st.error("No institutions are currently registered in the system.")
-            return
+            # Create some example institutions if none exist
+            conn = get_database_connection()
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO institutions (name, type, country)
+                VALUES 
+                    ('University of Research', 'University', 'USA'),
+                    ('Medical Research Institute', 'Research Institute', 'USA'),
+                    ('City Hospital', 'Hospital', 'USA'),
+                    ('Global Health Organization', 'Non-profit', 'International')
+                ON CONFLICT (name) DO NOTHING;
+            """)
+            conn.commit()
+            cur.close()
+            conn.close()
+
+            # Reload institutions
+            institutions = get_institutions()
+            if len(institutions) == 0:
+                st.error("Could not create example institutions. Please contact an administrator.")
+                return
 
         # IRB Submission Form
         with st.form("irb_submission_form"):
@@ -328,7 +352,7 @@ def irb_portal():
         st.header("Review IRB Applications")
 
         # In a real application, you would check if user is an IRB reviewer
-        # For now, we'll assume all users can review
+        # For demo, we'll allow all users to review
         try:
             all_submissions = get_irb_submissions()
 
@@ -402,162 +426,180 @@ def irb_portal():
         st.markdown('<div class="irb-section">', unsafe_allow_html=True)
         st.header("Institutional Approvals")
 
-        # Get user information
+        # For demo purposes, create a default institution assignment
         try:
+            # Try to get the institution from user's profile
             conn = get_database_connection()
             cur = conn.cursor()
             cur.execute("SELECT institution FROM users WHERE id = %s", (st.session_state.user_id,))
-            user_institution = cur.fetchone()[0]
+            result = cur.fetchone()
+
+            # If user doesn't have an institution in their profile, assign a default one
+            if result is None or result[0] is None:
+                # Get first institution for demo purposes
+                institutions_df = get_institutions()
+                if not institutions_df.empty:
+                    user_institution = institutions_df.iloc[0]['name']
+                    # For demo, we don't update the user record, just use the institution name
+                else:
+                    user_institution = "Demo Institution"
+            else:
+                user_institution = result[0]
+
             conn.close()
 
-            if not user_institution:
-                st.warning("To review applications for your institution, please update your profile with your institution name.")
-            else:
-                # Get institution ID for user's institution
-                institutions_df = get_institutions()
-                institution_matches = institutions_df[institutions_df['name'] == user_institution]
+            # Get institution ID for user's institution
+            institutions_df = get_institutions()
+            institution_matches = institutions_df[institutions_df['name'] == user_institution]
 
-                if institution_matches.empty:
-                    st.warning(f"Institution '{user_institution}' not found in the system. Please contact an administrator.")
+            if institution_matches.empty:
+                # If institution not found, use the first one for demo
+                if not institutions_df.empty:
+                    user_institution = institutions_df.iloc[0]['name']
+                    user_institution_id = institutions_df.iloc[0]['id']
                 else:
-                    user_institution_id = institution_matches.iloc[0]['id']
+                    st.warning("No institutions found in the system. Please add some first.")
+                    st.markdown('</div>', unsafe_allow_html=True)
+                    return
+            else:
+                user_institution_id = institution_matches.iloc[0]['id']
 
-                    # Get submissions that need approval from this institution
-                    st.subheader(f"Applications Requiring {user_institution} Approval")
+            # Get submissions that need approval from this institution
+            st.subheader(f"Applications Requiring {user_institution} Approval")
 
-                    conn = get_database_connection()
-                    query = """
-                        SELECT 
-                            s.id, s.title, s.status as submission_status, 
-                            u.username as pi_name,
-                            ia.id as approval_id, ia.status as approval_status,
-                            ia.reviewer_id, ia.comments, ia.approval_date
-                        FROM irb_submissions s
-                        JOIN users u ON s.principal_investigator_id = u.id
-                        JOIN irb_institutional_approvals ia ON s.id = ia.submission_id
-                        WHERE ia.institution_id = %s
-                        ORDER BY s.submitted_at DESC
-                    """
-                    approvals_df = pd.read_sql(query, conn, params=(user_institution_id,))
-                    conn.close()
+            conn = get_database_connection()
+            query = """
+                SELECT 
+                    s.id, s.title, s.status as submission_status, 
+                    u.username as pi_name,
+                    ia.id as approval_id, ia.status as approval_status,
+                    ia.reviewer_id, ia.comments, ia.approval_date
+                FROM irb_submissions s
+                JOIN users u ON s.principal_investigator_id = u.id
+                JOIN irb_institutional_approvals ia ON s.id = ia.submission_id
+                WHERE ia.institution_id = %s
+                ORDER BY s.submitted_at DESC
+            """
+            approvals_df = pd.read_sql(query, conn, params=(user_institution_id,))
+            conn.close()
 
-                    if approvals_df.empty:
-                        st.info(f"No applications require approval from {user_institution}.")
-                    else:
-                        for _, row in approvals_df.iterrows():
-                            approval_status_class = f"status-{row['approval_status']}"
+            if approvals_df.empty:
+                st.info(f"No applications require approval from {user_institution}.")
+            else:
+                for _, row in approvals_df.iterrows():
+                    approval_status_class = f"status-{row['approval_status']}"
 
-                            st.markdown(f"""
-                            <div class="submission-card">
-                                <h3>{row['title']}</h3>
-                                <p>Principal Investigator: {row['pi_name']}</p>
-                                <p>Approval Status: <span class="{approval_status_class}">{row['approval_status'].upper()}</span></p>
-                                {f"<p>Reviewed on: {row['approval_date']}</p>" if pd.notna(row['approval_date']) else ""}
-                            </div>
-                            """, unsafe_allow_html=True)
+                    st.markdown(f"""
+                    <div class="submission-card">
+                        <h3>{row['title']}</h3>
+                        <p>Principal Investigator: {row['pi_name']}</p>
+                        <p>Approval Status: <span class="{approval_status_class}">{row['approval_status'].upper()}</span></p>
+                        {f"<p>Reviewed on: {row['approval_date']}</p>" if pd.notna(row['approval_date']) else ""}
+                    </div>
+                    """, unsafe_allow_html=True)
 
-                            # Only show approval form if not already approved/rejected by this user
-                            if (pd.isna(row['reviewer_id']) or row['approval_status'] == 'pending'):
-                                with st.expander("Review for Institutional Approval"):
-                                    # Get full submission details for review
-                                    conn = get_database_connection()
-                                    cur = conn.cursor(cursor_factory=RealDictCursor)
-                                    cur.execute("""
-                                        SELECT * FROM irb_submissions WHERE id = %s
-                                    """, (row['id'],))
-                                    submission = cur.fetchone()
-                                    conn.close()
+                    # Only show approval form if not already approved/rejected by this user
+                    if (pd.isna(row['reviewer_id']) or row['approval_status'] == 'pending'):
+                        with st.expander("Review for Institutional Approval"):
+                            # Get full submission details for review
+                            conn = get_database_connection()
+                            cur = conn.cursor(cursor_factory=RealDictCursor)
+                            cur.execute("""
+                                SELECT * FROM irb_submissions WHERE id = %s
+                            """, (row['id'],))
+                            submission = cur.fetchone()
+                            conn.close()
 
-                                    if submission:
-                                        st.markdown(f"#### Review Request from {row['pi_name']}")
+                            if submission:
+                                st.markdown(f"#### Review Request from {row['pi_name']}")
 
-                                        col1, col2 = st.columns(2)
-                                        with col1:
-                                            st.markdown("**Project Description**")
-                                            st.write(submission['project_description'])
-                                        with col2:
-                                            st.markdown("**Methodology**")
-                                            st.write(submission['methodology'])
+                                col1, col2 = st.columns(2)
+                                with col1:
+                                    st.markdown("**Project Description**")
+                                    st.write(submission['project_description'])
+                                with col2:
+                                    st.markdown("**Methodology**")
+                                    st.write(submission['methodology'])
 
-                                        st.markdown("**Risk Assessment**")
-                                        st.write(submission['risks_and_benefits'])
+                                st.markdown("**Risk Assessment**")
+                                st.write(submission['risks_and_benefits'])
 
-                                        with st.form(f"approval_form_{row['approval_id']}"):
-                                            comments = st.text_area(
-                                                "Institutional Review Comments",
-                                                help="Provide feedback from your institution's perspective"
+                                with st.form(f"approval_form_{row['approval_id']}"):
+                                    comments = st.text_area(
+                                        "Institutional Review Comments",
+                                        help="Provide feedback from your institution's perspective"
+                                    )
+
+                                    status = st.radio(
+                                        "Institutional Decision",
+                                        ["approved", "rejected", "pending"],
+                                        index=2
+                                    )
+
+                                    if st.form_submit_button("Submit Institutional Decision"):
+                                        try:
+                                            updated = update_institutional_approval(
+                                                approval_id=row['approval_id'],
+                                                reviewer_id=st.session_state.user_id,
+                                                status=status,
+                                                comments=comments
                                             )
 
-                                            status = st.radio(
-                                                "Institutional Decision",
-                                                ["approved", "rejected", "pending"],
-                                                index=2
-                                            )
-
-                                            if st.form_submit_button("Submit Institutional Decision"):
-                                                try:
-                                                    updated = update_institutional_approval(
-                                                        approval_id=row['approval_id'],
-                                                        reviewer_id=st.session_state.user_id,
-                                                        status=status,
-                                                        comments=comments
-                                                    )
-
-                                                    if updated:
-                                                        st.success(f"Institutional review submitted successfully!")
-                                                        st.rerun()
-                                                    else:
-                                                        st.error("Failed to update approval status.")
-                                                except Exception as e:
-                                                    st.error(f"Error submitting institutional review: {str(e)}")
-                                    else:
-                                        st.error("Could not retrieve submission details.")
-
+                                            if updated:
+                                                st.success(f"Institutional review submitted successfully!")
+                                                st.rerun()
+                                            else:
+                                                st.error("Failed to update approval status.")
+                                        except Exception as e:
+                                            st.error(f"Error submitting institutional review: {str(e)}")
                             else:
-                                # Show previous review details
-                                with st.expander("View Approval Details"):
-                                    st.info(f"This submission has already been reviewed with status: {row['approval_status'].upper()}")
+                                st.error("Could not retrieve submission details.")
 
-                                    if pd.notna(row['comments']):
-                                        st.markdown("**Review Comments:**")
-                                        st.write(row['comments'])
+                    else:
+                        # Show previous review details
+                        with st.expander("View Approval Details"):
+                            st.info(f"This submission has already been reviewed with status: {row['approval_status'].upper()}")
 
-                                    # Add option to update the status if needed
-                                    if st.button(f"Update approval status for #{row['id']}", key=f"update_{row['approval_id']}"):
-                                        st.session_state[f"show_update_form_{row['approval_id']}"] = True
+                            if pd.notna(row['comments']):
+                                st.markdown("**Review Comments:**")
+                                st.write(row['comments'])
 
-                                    if st.session_state.get(f"show_update_form_{row['approval_id']}", False):
-                                        with st.form(f"update_form_{row['approval_id']}"):
-                                            new_comments = st.text_area(
-                                                "Updated Comments",
-                                                value=row['comments'] if pd.notna(row['comments']) else "",
-                                                key=f"update_comments_{row['approval_id']}"
+                            # Add option to update the status if needed
+                            if st.button(f"Update approval status for #{row['id']}", key=f"update_{row['approval_id']}"):
+                                st.session_state[f"show_update_form_{row['approval_id']}"] = True
+
+                            if st.session_state.get(f"show_update_form_{row['approval_id']}", False):
+                                with st.form(f"update_form_{row['approval_id']}"):
+                                    new_comments = st.text_area(
+                                        "Updated Comments",
+                                        value=row['comments'] if pd.notna(row['comments']) else "",
+                                        key=f"update_comments_{row['approval_id']}"
+                                    )
+
+                                    new_status = st.radio(
+                                        "Updated Decision",
+                                        ["approved", "rejected", "pending"],
+                                        index=0 if row['approval_status'] == 'approved' else 
+                                              1 if row['approval_status'] == 'rejected' else 2,
+                                        key=f"update_status_{row['approval_id']}"
+                                    )
+
+                                    if st.form_submit_button("Update Approval"):
+                                        try:
+                                            updated = update_institutional_approval(
+                                                approval_id=row['approval_id'],
+                                                reviewer_id=st.session_state.user_id,
+                                                status=new_status,
+                                                comments=new_comments
                                             )
 
-                                            new_status = st.radio(
-                                                "Updated Decision",
-                                                ["approved", "rejected", "pending"],
-                                                index=0 if row['approval_status'] == 'approved' else 
-                                                      1 if row['approval_status'] == 'rejected' else 2,
-                                                key=f"update_status_{row['approval_id']}"
-                                            )
-
-                                            if st.form_submit_button("Update Approval"):
-                                                try:
-                                                    updated = update_institutional_approval(
-                                                        approval_id=row['approval_id'],
-                                                        reviewer_id=st.session_state.user_id,
-                                                        status=new_status,
-                                                        comments=new_comments
-                                                    )
-
-                                                    if updated:
-                                                        st.success("Approval status updated successfully!")
-                                                        st.rerun()
-                                                    else:
-                                                        st.error("Failed to update approval status.")
-                                                except Exception as e:
-                                                    st.error(f"Error updating approval status: {str(e)}")
+                                            if updated:
+                                                st.success("Approval status updated successfully!")
+                                                st.rerun()
+                                            else:
+                                                st.error("Failed to update approval status.")
+                                        except Exception as e:
+                                            st.error(f"Error updating approval status: {str(e)}")
 
         except Exception as e:
             st.error(f"Error loading institutional approvals: {str(e)}")
