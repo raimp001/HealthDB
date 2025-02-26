@@ -93,6 +93,23 @@ def init_database():
         );
     """)
 
+    # Create irb_institutional_approvals table for multi-institutional tracking
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS irb_institutional_approvals (
+            id SERIAL PRIMARY KEY,
+            submission_id INTEGER REFERENCES irb_submissions(id),
+            institution_id INTEGER REFERENCES institutions(id),
+            reviewer_id INTEGER REFERENCES users(id),
+            status VARCHAR(50) DEFAULT 'pending',
+            comments TEXT,
+            required BOOLEAN DEFAULT true,
+            approval_date TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(submission_id, institution_id)
+        );
+    """)
+
     # Create projects table
     cur.execute("""
         CREATE TABLE IF NOT EXISTS projects (
@@ -187,13 +204,13 @@ def save_research_data(project_id, data_type, data_value, metadata, user_id):
     """Save research data to database."""
     conn = get_database_connection()
     cur = conn.cursor()
-    
+
     cur.execute("""
         INSERT INTO research_data (project_id, data_type, data_value, metadata, uploaded_by)
         VALUES (%s, %s, %s, %s, %s)
         RETURNING id;
     """, (project_id, data_type, data_value, metadata, user_id))
-    
+
     data_id = cur.fetchone()[0]
     conn.commit()
     cur.close()
@@ -204,13 +221,13 @@ def get_project_data(project_id):
     """Retrieve research data for a specific project."""
     conn = get_database_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
-    
+
     cur.execute("""
         SELECT * FROM research_data
         WHERE project_id = %s
         ORDER BY uploaded_at DESC;
     """, (project_id,))
-    
+
     data = cur.fetchall()
     cur.close()
     conn.close()
@@ -314,9 +331,10 @@ def submit_irb_application(
     risks_and_benefits: str,
     participant_selection: str,
     consent_process: str,
-    data_safety_plan: str
+    data_safety_plan: str,
+    collaborating_institutions: list = None
 ) -> int:
-    """Submit a new IRB application."""
+    """Submit a new IRB application with multi-institutional tracking."""
     conn = get_database_connection()
     cur = conn.cursor()
 
@@ -335,6 +353,24 @@ def submit_irb_application(
         ))
 
         submission_id = cur.fetchone()[0]
+
+        # Add primary institution approval tracking
+        cur.execute("""
+            INSERT INTO irb_institutional_approvals (
+                submission_id, institution_id, required, status
+            ) VALUES (%s, %s, %s, %s);
+        """, (submission_id, institution_id, True, 'pending'))
+
+        # Add collaborating institutions for approval tracking if provided
+        if collaborating_institutions and len(collaborating_institutions) > 0:
+            for inst_id in collaborating_institutions:
+                if inst_id != institution_id:  # Skip primary institution (already added)
+                    cur.execute("""
+                        INSERT INTO irb_institutional_approvals (
+                            submission_id, institution_id, required, status
+                        ) VALUES (%s, %s, %s, %s);
+                    """, (submission_id, inst_id, True, 'pending'))
+
         conn.commit()
         return submission_id
 
@@ -385,6 +421,119 @@ def get_irb_submissions(institution_id: int = None, pi_id: int = None):
         cur.close()
         conn.close()
 
+def get_submission_approvals(submission_id: int):
+    """Get approval status from all institutions for a submission."""
+    conn = get_database_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+
+    query = """
+        SELECT 
+            ia.id, 
+            ia.submission_id, 
+            ia.institution_id, 
+            i.name as institution_name,
+            ia.reviewer_id,
+            u.username as reviewer_name,
+            ia.status,
+            ia.comments,
+            ia.required,
+            ia.approval_date,
+            ia.created_at,
+            ia.updated_at
+        FROM irb_institutional_approvals ia
+        JOIN institutions i ON ia.institution_id = i.id
+        LEFT JOIN users u ON ia.reviewer_id = u.id
+        WHERE ia.submission_id = %s
+        ORDER BY ia.required DESC, i.name ASC
+    """
+
+    try:
+        cur.execute(query, (submission_id,))
+        approvals = cur.fetchall()
+        return approvals
+    finally:
+        cur.close()
+        conn.close()
+
+def update_institutional_approval(
+    approval_id: int,
+    reviewer_id: int,
+    status: str,
+    comments: str = None
+) -> bool:
+    """Update the approval status from an institution."""
+    conn = get_database_connection()
+    cur = conn.cursor()
+
+    try:
+        if status == 'approved':
+            cur.execute("""
+                UPDATE irb_institutional_approvals
+                SET reviewer_id = %s,
+                    status = %s,
+                    comments = %s,
+                    approval_date = CURRENT_TIMESTAMP,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+                RETURNING id;
+            """, (reviewer_id, status, comments, approval_id))
+        else:
+            cur.execute("""
+                UPDATE irb_institutional_approvals
+                SET reviewer_id = %s,
+                    status = %s,
+                    comments = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+                RETURNING id;
+            """, (reviewer_id, status, comments, approval_id))
+
+        updated = cur.fetchone() is not None
+
+        if updated:
+            # Check if all required approvals are completed to update main submission status
+            submission_id = None
+
+            # Get the submission_id for this approval
+            cur.execute("""
+                SELECT submission_id FROM irb_institutional_approvals WHERE id = %s
+            """, (approval_id,))
+            result = cur.fetchone()
+            if result:
+                submission_id = result[0]
+
+                # Check if all required approvals are complete
+                cur.execute("""
+                    SELECT 
+                        CASE 
+                            WHEN COUNT(*) = SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) THEN 'approved'
+                            WHEN SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) > 0 THEN 'rejected'
+                            ELSE 'pending'
+                        END as overall_status
+                    FROM irb_institutional_approvals
+                    WHERE submission_id = %s AND required = true
+                """, (submission_id,))
+
+                overall_status = cur.fetchone()[0]
+
+                # Update the main submission status
+                cur.execute("""
+                    UPDATE irb_submissions
+                    SET status = %s,
+                        last_updated_at = CURRENT_TIMESTAMP
+                    WHERE id = %s;
+                """, (overall_status, submission_id))
+
+        conn.commit()
+        return updated
+
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        cur.close()
+        conn.close()
+
 def submit_irb_review(
     submission_id: int,
     reviewer_id: int,
@@ -427,6 +576,25 @@ def submit_irb_review(
     except Exception as e:
         conn.rollback()
         raise e
+    finally:
+        cur.close()
+        conn.close()
+
+def get_institutions_for_selection():
+    """Get all institutions available for selection."""
+    conn = get_database_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+
+    query = """
+        SELECT id, name, type, country
+        FROM institutions
+        ORDER BY name ASC
+    """
+
+    try:
+        cur.execute(query)
+        institutions = cur.fetchall()
+        return institutions
     finally:
         cur.close()
         conn.close()

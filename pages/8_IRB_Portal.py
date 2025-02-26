@@ -3,7 +3,10 @@ from database import (
     get_database_connection,
     submit_irb_application,
     get_irb_submissions,
-    submit_irb_review
+    submit_irb_review,
+    get_institutions_for_selection,
+    get_submission_approvals,
+    update_institutional_approval
 )
 import pandas as pd
 from datetime import datetime
@@ -64,14 +67,63 @@ def irb_portal():
             background-color: #252525;
             border-radius: 0.3rem;
         }
+        .approval-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            margin: 0.25rem;
+            border-radius: 1rem;
+            font-size: 0.8rem;
+        }
+        .approval-pending {
+            background-color: #FFC107;
+            color: #333;
+        }
+        .approval-approved {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .approval-rejected {
+            background-color: #F44336;
+            color: white;
+        }
+        .approval-card {
+            background-color: #2C2C3C;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            border-radius: 0.25rem;
+        }
+        .workflow-step {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        .workflow-number {
+            width: 2rem;
+            height: 2rem;
+            border-radius: 50%;
+            background-color: #6C63FF;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 0.75rem;
+            font-weight: bold;
+        }
+        .workflow-text {
+            flex: 1;
+        }
+        .workflow-status {
+            margin-left: 0.75rem;
+        }
     </style>
     """, unsafe_allow_html=True)
 
     # Tabs for different IRB portal sections
-    tab1, tab2, tab3 = st.tabs([
+    tab1, tab2, tab3, tab4 = st.tabs([
         "Submit IRB Application",
         "My Submissions",
-        "Review Applications"
+        "Review Applications",
+        "Institutional Approvals"
     ])
 
     with tab1:
@@ -91,12 +143,49 @@ def irb_portal():
 
             title = st.text_input("Project Title")
             institution_id = st.selectbox(
-                "Institution",
+                "Primary Institution",
                 options=institutions['id'].tolist(),
                 format_func=lambda x: institutions[
                     institutions['id'] == x
                 ]['name'].iloc[0]
             )
+
+            # Multi-institutional selection
+            st.subheader("Collaborating Institutions")
+            st.info("Select additional institutions that need to approve this IRB submission")
+
+            # Create a multi-select for additional institutions
+            other_institutions = institutions[institutions['id'] != institution_id]
+            collaborating_institutions = st.multiselect(
+                "Collaborating Institutions (Optional)",
+                options=other_institutions['id'].tolist(),
+                format_func=lambda x: other_institutions[
+                    other_institutions['id'] == x
+                ]['name'].iloc[0],
+                help="Select institutions that are collaborating on this research project and need to provide IRB approval"
+            )
+
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            # Display workflow steps
+            st.markdown('<div class="form-section">', unsafe_allow_html=True)
+            st.subheader("Approval Workflow")
+
+            workflow_steps = [
+                "Submit IRB application to your primary institution", 
+                "Application is reviewed by your primary IRB committee",
+                "Collaborating institutions review the application",
+                "When all required approvals are received, the application status changes to 'Approved'"
+            ]
+
+            for idx, step in enumerate(workflow_steps):
+                st.markdown(f"""
+                <div class="workflow-step">
+                    <div class="workflow-number">{idx+1}</div>
+                    <div class="workflow-text">{step}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
             st.markdown('</div>', unsafe_allow_html=True)
 
             st.markdown('<div class="form-section">', unsafe_allow_html=True)
@@ -139,6 +228,9 @@ def irb_portal():
 
             if submitted:
                 try:
+                    # Include the list of collaborating institutions in the submission
+                    all_institutions = [institution_id] + collaborating_institutions
+
                     submission_id = submit_irb_application(
                         title=title,
                         pi_id=st.session_state.user_id,
@@ -148,12 +240,15 @@ def irb_portal():
                         risks_and_benefits=risks_and_benefits,
                         participant_selection=participant_selection,
                         consent_process=consent_process,
-                        data_safety_plan=data_safety_plan
+                        data_safety_plan=data_safety_plan,
+                        collaborating_institutions=all_institutions
                     )
 
                     st.success(f"""
                         IRB application submitted successfully!
                         Submission ID: {submission_id}
+
+                        Your application will be reviewed by {len(all_institutions)} institution(s).
                     """)
 
                 except Exception as e:
@@ -191,13 +286,38 @@ def irb_portal():
                         st.subheader("Methodology")
                         st.write(sub['methodology'])
 
+                        # Show multi-institutional approval status
+                        st.subheader("Institutional Approvals")
+                        approvals = get_submission_approvals(sub['id'])
+
+                        if approvals:
+                            cols = st.columns(3)
+                            for i, approval in enumerate(approvals):
+                                with cols[i % 3]:
+                                    status_badge_class = f"approval-{approval['status']}"
+
+                                    st.markdown(f"""
+                                    <div class="approval-card">
+                                        <strong>{approval['institution_name']}</strong><br>
+                                        <span class="approval-badge {status_badge_class}">
+                                            {approval['status'].upper()}
+                                        </span><br>
+                                        <small>
+                                            {f"Reviewed by: {approval['reviewer_name']}" if approval['reviewer_name'] else "Not yet reviewed"}
+                                        </small>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+
+                        else:
+                            st.info("No institutional approvals found.")
+
                         st.subheader("Status History")
                         if sub['status'] == 'pending':
                             st.info("Your submission is under review.")
                         elif sub['status'] == 'approved':
-                            st.success("Your submission has been approved!")
+                            st.success("Your submission has been approved by all required institutions!")
                         elif sub['status'] == 'rejected':
-                            st.error("Your submission was not approved.")
+                            st.error("Your submission was not approved by at least one institution.")
 
         except Exception as e:
             st.error(f"Error loading submissions: {str(e)}")
@@ -276,6 +396,172 @@ def irb_portal():
 
         except Exception as e:
             st.error(f"Error loading submissions for review: {str(e)}")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with tab4:
+        st.markdown('<div class="irb-section">', unsafe_allow_html=True)
+        st.header("Institutional Approvals")
+
+        # Get user information
+        try:
+            conn = get_database_connection()
+            cur = conn.cursor()
+            cur.execute("SELECT institution FROM users WHERE id = %s", (st.session_state.user_id,))
+            user_institution = cur.fetchone()[0]
+            conn.close()
+
+            if not user_institution:
+                st.warning("To review applications for your institution, please update your profile with your institution name.")
+            else:
+                # Get institution ID for user's institution
+                institutions_df = get_institutions()
+                institution_matches = institutions_df[institutions_df['name'] == user_institution]
+
+                if institution_matches.empty:
+                    st.warning(f"Institution '{user_institution}' not found in the system. Please contact an administrator.")
+                else:
+                    user_institution_id = institution_matches.iloc[0]['id']
+
+                    # Get submissions that need approval from this institution
+                    st.subheader(f"Applications Requiring {user_institution} Approval")
+
+                    conn = get_database_connection()
+                    query = """
+                        SELECT 
+                            s.id, s.title, s.status as submission_status, 
+                            u.username as pi_name,
+                            ia.id as approval_id, ia.status as approval_status,
+                            ia.reviewer_id, ia.comments, ia.approval_date
+                        FROM irb_submissions s
+                        JOIN users u ON s.principal_investigator_id = u.id
+                        JOIN irb_institutional_approvals ia ON s.id = ia.submission_id
+                        WHERE ia.institution_id = %s
+                        ORDER BY s.submitted_at DESC
+                    """
+                    approvals_df = pd.read_sql(query, conn, params=(user_institution_id,))
+                    conn.close()
+
+                    if approvals_df.empty:
+                        st.info(f"No applications require approval from {user_institution}.")
+                    else:
+                        for _, row in approvals_df.iterrows():
+                            approval_status_class = f"status-{row['approval_status']}"
+
+                            st.markdown(f"""
+                            <div class="submission-card">
+                                <h3>{row['title']}</h3>
+                                <p>Principal Investigator: {row['pi_name']}</p>
+                                <p>Approval Status: <span class="{approval_status_class}">{row['approval_status'].upper()}</span></p>
+                                {f"<p>Reviewed on: {row['approval_date']}</p>" if pd.notna(row['approval_date']) else ""}
+                            </div>
+                            """, unsafe_allow_html=True)
+
+                            # Only show approval form if not already approved/rejected by this user
+                            if (pd.isna(row['reviewer_id']) or row['approval_status'] == 'pending'):
+                                with st.expander("Review for Institutional Approval"):
+                                    # Get full submission details for review
+                                    conn = get_database_connection()
+                                    cur = conn.cursor(cursor_factory=RealDictCursor)
+                                    cur.execute("""
+                                        SELECT * FROM irb_submissions WHERE id = %s
+                                    """, (row['id'],))
+                                    submission = cur.fetchone()
+                                    conn.close()
+
+                                    if submission:
+                                        st.markdown(f"#### Review Request from {row['pi_name']}")
+
+                                        col1, col2 = st.columns(2)
+                                        with col1:
+                                            st.markdown("**Project Description**")
+                                            st.write(submission['project_description'])
+                                        with col2:
+                                            st.markdown("**Methodology**")
+                                            st.write(submission['methodology'])
+
+                                        st.markdown("**Risk Assessment**")
+                                        st.write(submission['risks_and_benefits'])
+
+                                        with st.form(f"approval_form_{row['approval_id']}"):
+                                            comments = st.text_area(
+                                                "Institutional Review Comments",
+                                                help="Provide feedback from your institution's perspective"
+                                            )
+
+                                            status = st.radio(
+                                                "Institutional Decision",
+                                                ["approved", "rejected", "pending"],
+                                                index=2
+                                            )
+
+                                            if st.form_submit_button("Submit Institutional Decision"):
+                                                try:
+                                                    updated = update_institutional_approval(
+                                                        approval_id=row['approval_id'],
+                                                        reviewer_id=st.session_state.user_id,
+                                                        status=status,
+                                                        comments=comments
+                                                    )
+
+                                                    if updated:
+                                                        st.success(f"Institutional review submitted successfully!")
+                                                        st.rerun()
+                                                    else:
+                                                        st.error("Failed to update approval status.")
+                                                except Exception as e:
+                                                    st.error(f"Error submitting institutional review: {str(e)}")
+                                    else:
+                                        st.error("Could not retrieve submission details.")
+
+                            else:
+                                # Show previous review details
+                                with st.expander("View Approval Details"):
+                                    st.info(f"This submission has already been reviewed with status: {row['approval_status'].upper()}")
+
+                                    if pd.notna(row['comments']):
+                                        st.markdown("**Review Comments:**")
+                                        st.write(row['comments'])
+
+                                    # Add option to update the status if needed
+                                    if st.button(f"Update approval status for #{row['id']}", key=f"update_{row['approval_id']}"):
+                                        st.session_state[f"show_update_form_{row['approval_id']}"] = True
+
+                                    if st.session_state.get(f"show_update_form_{row['approval_id']}", False):
+                                        with st.form(f"update_form_{row['approval_id']}"):
+                                            new_comments = st.text_area(
+                                                "Updated Comments",
+                                                value=row['comments'] if pd.notna(row['comments']) else "",
+                                                key=f"update_comments_{row['approval_id']}"
+                                            )
+
+                                            new_status = st.radio(
+                                                "Updated Decision",
+                                                ["approved", "rejected", "pending"],
+                                                index=0 if row['approval_status'] == 'approved' else 
+                                                      1 if row['approval_status'] == 'rejected' else 2,
+                                                key=f"update_status_{row['approval_id']}"
+                                            )
+
+                                            if st.form_submit_button("Update Approval"):
+                                                try:
+                                                    updated = update_institutional_approval(
+                                                        approval_id=row['approval_id'],
+                                                        reviewer_id=st.session_state.user_id,
+                                                        status=new_status,
+                                                        comments=new_comments
+                                                    )
+
+                                                    if updated:
+                                                        st.success("Approval status updated successfully!")
+                                                        st.rerun()
+                                                    else:
+                                                        st.error("Failed to update approval status.")
+                                                except Exception as e:
+                                                    st.error(f"Error updating approval status: {str(e)}")
+
+        except Exception as e:
+            st.error(f"Error loading institutional approvals: {str(e)}")
+
         st.markdown('</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
