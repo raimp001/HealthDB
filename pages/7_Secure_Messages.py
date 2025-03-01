@@ -4,6 +4,7 @@ from database import get_database_connection
 import pandas as pd
 from datetime import datetime
 import pytz
+from components.navigation import render_navigation
 
 def get_available_recipients():
     """Get list of available users to message."""
@@ -36,6 +37,9 @@ def messages_page():
 
         # Create a notice that we're in demo mode
         st.info("You are viewing the Secure Messages page in demonstration mode. No login required.")
+
+    # Render consistent navigation
+    render_navigation()
 
     st.title("Secure Research Messages")
 

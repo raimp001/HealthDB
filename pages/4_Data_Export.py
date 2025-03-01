@@ -4,6 +4,7 @@ from database import get_database_connection, get_project_data
 from utils import prepare_data_export
 import json
 import io
+from components.navigation import render_navigation
 
 def data_export_page():
     # Set up demo user if not logged in
@@ -15,28 +16,34 @@ def data_export_page():
         # Create a notice that we're in demo mode
         st.info("You are viewing the Data Export page in demonstration mode. No login required.")
 
+    # Render consistent navigation
+    render_navigation()
+
     st.title("Data Export")
 
     # Custom CSS for better styling
     st.markdown("""
     <style>
         .export-section {
-            background-color: #1E1E2F;
+            background-color: #f8f9fa;
             padding: 1.5rem;
             border-radius: 0.5rem;
             margin-bottom: 1.5rem;
+            border: 1px solid rgba(0,0,0,0.1);
         }
         .data-preview {
-            background-color: #252525;
+            background-color: #ffffff;
             padding: 1rem;
             border-radius: 0.5rem;
             margin: 1rem 0;
+            border: 1px solid rgba(0,0,0,0.05);
         }
         .export-options {
-            background-color: #252525;
+            background-color: #ffffff;
             padding: 1rem;
             border-radius: 0.5rem;
             margin-bottom: 1rem;
+            border: 1px solid rgba(0,0,0,0.05);
         }
     </style>
     """, unsafe_allow_html=True)

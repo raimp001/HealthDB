@@ -4,6 +4,7 @@ from database import save_research_data
 from utils import validate_data, generate_metadata
 from aleo_interface import AleoInterface
 from components.validation_tracker import validation_progress_tracker
+from components.navigation import render_navigation
 import asyncio
 import json
 import time
@@ -58,6 +59,9 @@ def data_upload_page():
 
         # Create a notice that we're in demo mode
         st.info("You are viewing the Data Upload page in demonstration mode. No login required.")
+
+    # Render consistent navigation
+    render_navigation()
 
     st.title("Data Upload")
 

@@ -12,6 +12,7 @@ from database import (
 import pandas as pd
 from datetime import datetime
 from psycopg2.extras import RealDictCursor
+from components.navigation import render_navigation
 
 def get_institutions():
     """Get list of participating institutions."""
@@ -31,16 +32,20 @@ def irb_portal():
         # Create a notice that we're in demo mode
         st.info("You are viewing the IRB Portal in demonstration mode. No login required.")
 
+    # Render consistent navigation
+    render_navigation()
+
     st.title("IRB Submission Portal")
 
     # Custom CSS for better styling
     st.markdown("""
     <style>
         .irb-section {
-            background-color: #1E1E2F;
+            background-color: #f8f9fa;
             padding: 1.5rem;
             border-radius: 0.5rem;
             margin-bottom: 1.5rem;
+            border: 1px solid rgba(0,0,0,0.1);
         }
         .status-pending {
             color: #FFC107;
@@ -55,23 +60,25 @@ def irb_portal():
             font-weight: bold;
         }
         .form-section {
-            background-color: #252525;
+            background-color: #ffffff;
             padding: 1rem;
             border-radius: 0.5rem;
             margin-bottom: 1rem;
+            border: 1px solid rgba(0,0,0,0.05);
         }
         .submission-card {
             border-left: 4px solid #6C63FF;
             padding: 1rem;
             margin-bottom: 1rem;
-            background-color: #252525;
+            background-color: #ffffff;
             border-radius: 0.3rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
         .review-form {
             border-left: 4px solid #4CAF50;
             padding: 1rem;
             margin-top: 1rem;
-            background-color: #252525;
+            background-color: #ffffff;
             border-radius: 0.3rem;
         }
         .approval-badge {
@@ -94,7 +101,7 @@ def irb_portal():
             color: white;
         }
         .approval-card {
-            background-color: #2C2C3C;
+            background-color: #f8f9fa;
             padding: 0.75rem;
             margin-bottom: 0.5rem;
             border-radius: 0.25rem;

@@ -1,6 +1,7 @@
 import streamlit as st
 from database import get_database_connection
 import pandas as pd
+from components.navigation import render_navigation
 
 def project_management_page():
     # Set up demo user if not logged in
@@ -12,30 +13,36 @@ def project_management_page():
         # Create a notice that we're in demo mode
         st.info("You are viewing the Project Management page in demonstration mode. No login required.")
 
+    # Render consistent navigation
+    render_navigation()
+
     st.title("Project Management")
 
     # Custom CSS for better styling
     st.markdown("""
     <style>
         .project-section {
-            background-color: #1E1E2F;
+            background-color: #f8f9fa;
             padding: 1.5rem;
             border-radius: 0.5rem;
             margin-bottom: 1.5rem;
+            border: 1px solid rgba(0,0,0,0.1);
         }
         .form-section {
-            background-color: #252525;
+            background-color: #ffffff;
             padding: 1rem;
             border-radius: 0.5rem;
             margin-bottom: 1rem;
+            border: 1px solid rgba(0,0,0,0.05);
         }
         .project-card {
             border-left: 4px solid #6C63FF;
             padding: 1rem;
             margin-bottom: 1rem;
-            background-color: #252525;
+            background-color: #ffffff;
             border-radius: 0.3rem;
             transition: transform 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
         .project-card:hover {
             transform: translateY(-2px);
@@ -43,10 +50,10 @@ def project_management_page():
         .collaborators-section {
             margin-top: 0.5rem;
             padding-top: 0.5rem;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
         }
         .metric-container {
-            background-color: #1E1E2F;
+            background-color: #f8f9fa;
             padding: 0.5rem;
             border-radius: 0.3rem;
             text-align: center;
@@ -58,7 +65,7 @@ def project_management_page():
         }
         .metric-label {
             font-size: 0.8rem;
-            color: rgba(255, 255, 255, 0.7);
+            color: rgba(0, 0, 0, 0.7);
         }
     </style>
     """, unsafe_allow_html=True)

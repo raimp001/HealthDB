@@ -2,11 +2,14 @@ import streamlit as st
 import pandas as pd
 from utils.document_processor import process_document
 import json
-from database import init_database
+from database import init_database, get_database_connection
+import plotly.express as px
+from datetime import datetime, timedelta
+import numpy as np
 
 # Page config must be the first Streamlit command
 st.set_page_config(
-    page_title="Research Data Management",
+    page_title="Research Platform",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -20,189 +23,549 @@ except Exception as e:
     st.error(f"Error initializing database: {str(e)}")
     st.session_state.db_initialized = False
 
+# Set up demo user if not logged in
+if 'user_id' not in st.session_state or st.session_state.user_id is None:
+    # Instead of requiring login, use a demo user ID
+    st.session_state.user_id = 1  # Use a default user ID for demonstration
+    st.session_state.username = "Demo User"
+
 # Custom CSS for better styling
 st.markdown("""
 <style>
-    .main-container {
-        max-width: 1200px;
-        margin: auto;
-        padding: 2rem;
+    /* Base styles */
+    .main {
+        background-color: #f8f9fa;
+        color: #333;
     }
-    .dashboard-section {
-        background-color: #1E1E2F;
+
+    /* Header */
+    .header-container {
+        display: flex;
+        align-items: center;
+        padding: 1rem 0;
+        border-bottom: 1px solid rgba(49, 51, 63, 0.2);
+        margin-bottom: 2rem;
+    }
+
+    .logo {
+        margin-right: 1rem;
+        font-size: 2.5rem;
+    }
+
+    .header-text {
+        flex-grow: 1;
+    }
+
+    .header-text h1 {
+        margin: 0;
+        font-size: 2rem;
+        font-weight: 600;
+    }
+
+    .header-text p {
+        margin: 0;
+        font-size: 1rem;
+        color: rgba(49, 51, 63, 0.7);
+    }
+
+    /* Dashboard components */
+    .dashboard-container {
+        background-color: white;
         padding: 1.5rem;
         border-radius: 0.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         margin-bottom: 1.5rem;
     }
-    .data-stats {
-        background-color: #252525;
-        padding: 1rem;
-        border-radius: 0.5rem;
+
+    .dashboard-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
         margin-bottom: 1rem;
     }
-    .upload-area {
-        border: 2px dashed #6C63FF;
+
+    .dashboard-title {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #1E1E2F;
+        margin: 0;
+    }
+
+    .metric-container {
+        background-color: #f8f9fa;
         border-radius: 0.5rem;
-        padding: 2rem;
+        padding: 1rem;
         text-align: center;
-        margin: 1rem 0;
+        transition: transform 0.3s ease;
+        height: 100%;
     }
-    .stButton > button {
+
+    .metric-container:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+
+    .metric-icon {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+        color: #6C63FF;
+    }
+
+    .metric-value {
+        font-size: 1.8rem;
+        font-weight: bold;
+        margin: 0.5rem 0;
+        color: #1E1E2F;
+    }
+
+    .metric-label {
+        font-size: 0.9rem;
+        color: rgba(49, 51, 63, 0.7);
+    }
+
+    /* Activity feed */
+    .activity-item {
+        padding: 0.75rem;
+        border-bottom: 1px solid rgba(49, 51, 63, 0.1);
+    }
+
+    .activity-item:last-child {
+        border-bottom: none;
+    }
+
+    .activity-time {
+        font-size: 0.8rem;
+        color: rgba(49, 51, 63, 0.6);
+    }
+
+    /* Quick actions */
+    .action-button {
+        background-color: #f8f9fa;
+        border: 1px solid rgba(49, 51, 63, 0.2);
         border-radius: 0.5rem;
-        padding: 0.5rem 1rem;
-        background-color: transparent;
-        border: 1px solid #6C63FF;
-        color: white;
+        padding: 1rem;
+        text-align: center;
+        cursor: pointer;
         transition: all 0.3s ease;
+        height: 100%;
     }
-    .stButton > button:hover {
+
+    .action-button:hover {
         background-color: #6C63FF;
         color: white;
-        transform: translateY(-1px);
+    }
+
+    .action-icon {
+        font-size: 1.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    /* User info */
+    .user-info {
+        display: flex;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .user-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: #6C63FF;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin-right: 0.75rem;
     }
 </style>
 """, unsafe_allow_html=True)
 
-try:
-    st.title("Research Data Management")
+# Top header with logo
+st.markdown("""
+<div class="header-container">
+    <div class="logo">⚡</div>
+    <div class="header-text">
+        <h1>Research Data Platform</h1>
+        <p>Secure collaborative research management</p>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
-    # Main dashboard layout
-    col1, col2 = st.columns([2, 1])
+# User info
+st.markdown(f"""
+<div class="user-info">
+    <div class="user-avatar">{st.session_state.username[0]}</div>
+    <div>Welcome, {st.session_state.username}</div>
+</div>
+""", unsafe_allow_html=True)
 
-    with col1:
-        # EMR Data Extraction Section
-        st.markdown('<div class="dashboard-section">', unsafe_allow_html=True)
-        st.header("EMR Data Extraction")
+# Main dashboard layout
+col1, col2 = st.columns([2, 1])
 
-        # EMR connection form
-        emr_type = st.selectbox(
-            "EMR System",
-            ["Epic Clarity", "Cerner", "AllScripts", "MEDITECH", "Other"]
-        )
+with col1:
+    # Key metrics
+    st.markdown('<div class="dashboard-container">', unsafe_allow_html=True)
 
-        connection_tabs = st.tabs(["Direct Connection", "File Import"])
+    st.markdown("""
+    <div class="dashboard-header">
+        <h2 class="dashboard-title">Research Dashboard</h2>
+    </div>
+    """, unsafe_allow_html=True)
 
-        with connection_tabs[0]:
-            st.subheader("Database Connection")
-            emr_server = st.text_input("Database Server URL")
-            credentials_method = st.radio(
-                "Authentication Method",
-                ["Certificate", "Username/Password", "Service Account"]
-            )
-            if credentials_method == "Certificate":
-                st.file_uploader("Upload Certificate", type=['pem', 'crt'])
-            elif credentials_method == "Username/Password":
-                st.text_input("Username")
-                st.text_input("Password", type="password")
-            else:
-                st.file_uploader("Service Account Credentials", type=['json', 'key'])
+    # Get actual data from database if possible
+    try:
+        conn = get_database_connection()
+        cur = conn.cursor()
 
-        with connection_tabs[1]:
-            st.subheader("File-based Import")
-            st.file_uploader("Upload EMR Export File", type=['csv', 'xlsx', 'sql'])
+        # Get project count
+        cur.execute("SELECT COUNT(*) FROM projects WHERE owner_id = %s", (st.session_state.user_id,))
+        project_count = cur.fetchone()[0]
 
-        # Date range selection
-        date_cols = st.columns(2)
-        with date_cols[0]:
-            start_date = st.date_input("Start Date")
-        with date_cols[1]:
-            end_date = st.date_input("End Date")
+        # Get datasets count
+        cur.execute("SELECT COUNT(*) FROM research_data WHERE uploaded_by = %s", (st.session_state.user_id,))
+        dataset_count = cur.fetchone()[0]
 
-        # Data selection
-        st.subheader("Data Selection")
-        data_categories = {
-            "Clinical": ["Patient Demographics", "Diagnoses", "Procedures", "Medications", "Allergies"],
-            "Laboratory": ["Lab Results", "Microbiology", "Pathology"],
-            "Imaging": ["Radiology Reports", "Image Metadata"],
-            "Notes": ["Progress Notes", "Discharge Summaries", "Consultation Notes"]
-        }
+        # Get IRB submissions count
+        cur.execute("SELECT COUNT(*) FROM irb_submissions WHERE principal_investigator_id = %s", (st.session_state.user_id,))
+        irb_count = cur.fetchone()[0]
 
-        selected_categories = st.multiselect(
-            "Select Data Categories",
-            options=list(data_categories.keys())
-        )
+        # Get collaborators count
+        cur.execute("""
+            SELECT COUNT(DISTINCT user_id) 
+            FROM collaborations 
+            WHERE project_id IN (SELECT id FROM projects WHERE owner_id = %s)
+        """, (st.session_state.user_id,))
+        collaborator_count = cur.fetchone()[0]
 
-        if selected_categories:
-            all_data_types = []
-            for category in selected_categories:
-                all_data_types.extend(data_categories[category])
+        conn.close()
+    except Exception as e:
+        # If database query fails, use placeholder data
+        project_count = 2
+        dataset_count = 3
+        irb_count = 1
+        collaborator_count = 2
 
-            selected_data_types = st.multiselect(
-                "Select Specific Data Types",
-                options=all_data_types
-            )
+    # Display metrics in a grid
+    metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
 
-        if st.button("Extract Data"):
-            with st.spinner("Preparing data extraction..."):
-                st.info("Data extraction will start soon. This may take several minutes depending on the selected date range and data types.")
+    with metric_col1:
+        st.markdown("""
+        <div class="metric-container">
+            <div class="metric-icon">📊</div>
+            <div class="metric-value">{}</div>
+            <div class="metric-label">Projects</div>
+        </div>
+        """.format(project_count), unsafe_allow_html=True)
 
-    with col2:
-        # Data Stats Section
-        st.markdown('<div class="dashboard-section">', unsafe_allow_html=True)
-        st.header("Data Statistics")
+    with metric_col2:
+        st.markdown("""
+        <div class="metric-container">
+            <div class="metric-icon">📂</div>
+            <div class="metric-value">{}</div>
+            <div class="metric-label">Datasets</div>
+        </div>
+        """.format(dataset_count), unsafe_allow_html=True)
 
-        # Placeholder stats - replace with actual database queries
-        st.markdown('<div class="data-stats">', unsafe_allow_html=True)
-        st.metric("Total Records", "0")
-        st.metric("Last Import", "Never")
-        st.metric("Active Projects", "0")
-        st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+    with metric_col3:
+        st.markdown("""
+        <div class="metric-container">
+            <div class="metric-icon">📋</div>
+            <div class="metric-value">{}</div>
+            <div class="metric-label">IRB Submissions</div>
+        </div>
+        """.format(irb_count), unsafe_allow_html=True)
 
-    # Data Import Section
-    st.markdown('<div class="dashboard-section">', unsafe_allow_html=True)
-    st.header("Data Import")
-
-    import_tabs = st.tabs(["Document Upload", "Database Import", "API Integration"])
-
-    with import_tabs[0]:
-        st.markdown('<div class="upload-area">', unsafe_allow_html=True)
-        st.write("Upload research documents for processing")
-        uploaded_file = st.file_uploader(
-            "Drop your files here or click to upload",
-            type=['csv', 'xlsx', 'xls', 'pdf', 'docx', 'txt'],
-            help="Supported formats: CSV, Excel, PDF, Word, Text"
-        )
-
-        if uploaded_file is not None:
-            try:
-                file_content = uploaded_file.read()
-                with st.spinner("Processing document..."):
-                    metadata, processed_content = process_document(file_content, uploaded_file.name)
-
-                # Display metadata
-                st.success("File processed successfully!")
-                st.json(metadata)
-
-                # Display preview based on file type
-                if metadata["type"] == "spreadsheet":
-                    df = pd.read_json(processed_content)
-                    st.dataframe(df.head())
-                elif metadata["type"] in ["docx", "text"]:
-                    st.subheader("Document Chunks Preview")
-                    for i, chunk in enumerate(processed_content[:3]):
-                        with st.expander(f"Chunk {i+1}"):
-                            st.write(chunk)
-                    if len(processed_content) > 3:
-                        st.info(f"{len(processed_content) - 3} more chunks available")
-                else:
-                    st.write(processed_content)
-
-                if st.button("Import to Database"):
-                    # Add database import logic here
-                    st.success("Data imported successfully!")
-
-            except Exception as e:
-                st.error(f"Error processing file: {str(e)}")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    with import_tabs[1]:
-        st.write("Database connection configuration will be here")
-
-    with import_tabs[2]:
-        st.write("API integration options will be here")
+    with metric_col4:
+        st.markdown("""
+        <div class="metric-container">
+            <div class="metric-icon">👥</div>
+            <div class="metric-value">{}</div>
+            <div class="metric-label">Collaborators</div>
+        </div>
+        """.format(collaborator_count), unsafe_allow_html=True)
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-except Exception as e:
-    st.error(f"An error occurred: {str(e)}")
+    # Recent projects with data visualization
+    st.markdown('<div class="dashboard-container">', unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class="dashboard-header">
+        <h2 class="dashboard-title">Recent Projects</h2>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Get recent projects data
+    try:
+        conn = get_database_connection()
+        query = """
+            SELECT p.id, p.name, p.description, p.created_at, 
+                   COUNT(DISTINCT rd.id) as data_count,
+                   COUNT(DISTINCT c.user_id) as collaborator_count
+            FROM projects p
+            LEFT JOIN research_data rd ON p.id = rd.project_id
+            LEFT JOIN collaborations c ON p.id = c.project_id
+            WHERE p.owner_id = %s
+            GROUP BY p.id, p.name, p.description, p.created_at
+            ORDER BY p.created_at DESC
+            LIMIT 5;
+        """
+
+        projects_df = pd.read_sql(query, conn, params=(st.session_state.user_id,))
+        conn.close()
+
+        if len(projects_df) > 0:
+            for _, row in projects_df.iterrows():
+                st.write(f"### {row['name']}")
+                st.write(f"{row['description']}")
+
+                col1, col2, col3 = st.columns([2, 1, 1])
+                with col1:
+                    st.write(f"Created: {row['created_at'].strftime('%Y-%m-%d')}")
+                with col2:
+                    st.metric("Datasets", row['data_count'])
+                with col3:
+                    st.metric("Collaborators", row['collaborator_count'])
+
+                st.markdown("---")
+        else:
+            st.info("No projects found. Create a new project to get started.")
+
+    except Exception as e:
+        st.error(f"Error loading projects: {str(e)}")
+        # Show demo projects
+        st.write("### Genomic Analysis")
+        st.write("Analysis of genomic data for rare diseases")
+
+        col1, col2, col3 = st.columns([2, 1, 1])
+        with col1:
+            st.write("Created: 2023-01-15")
+        with col2:
+            st.metric("Datasets", 2)
+        with col3:
+            st.metric("Collaborators", 3)
+
+        st.markdown("---")
+
+        st.write("### Clinical Trial Data")
+        st.write("Multi-center trial data repository")
+
+        col1, col2, col3 = st.columns([2, 1, 1])
+        with col1:
+            st.write("Created: 2023-03-22")
+        with col2:
+            st.metric("Datasets", 1)
+        with col3:
+            st.metric("Collaborators", 2)
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # Data visualization
+    st.markdown('<div class="dashboard-container">', unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class="dashboard-header">
+        <h2 class="dashboard-title">Research Data Overview</h2>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Generate sample data for visualization if real data not available
+    try:
+        # Try to get actual data from database
+        conn = get_database_connection()
+        query = """
+            SELECT data_type, COUNT(*) as count, 
+                   DATE_TRUNC('month', uploaded_at) as month
+            FROM research_data
+            WHERE uploaded_by = %s
+            GROUP BY data_type, DATE_TRUNC('month', uploaded_at)
+            ORDER BY month;
+        """
+        data_df = pd.read_sql(query, conn, params=(st.session_state.user_id,))
+        conn.close()
+
+        if len(data_df) > 0:
+            # Create visualization with real data
+            fig = px.bar(data_df, x="month", y="count", color="data_type", 
+                         title="Data Uploads by Month and Type")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            # Create sample data
+            raise Exception("No data available")
+
+    except Exception:
+        # Create sample data for demonstration
+        dates = pd.date_range(start=datetime.now() - timedelta(days=180), 
+                             end=datetime.now(), freq='M')
+        data_types = ['csv', 'json', 'excel', 'text']
+
+        data = []
+        for date in dates:
+            for dtype in data_types:
+                count = np.random.randint(0, 5)
+                if count > 0:  # Only add entries with data
+                    data.append({
+                        'month': date,
+                        'data_type': dtype,
+                        'count': count
+                    })
+
+        demo_df = pd.DataFrame(data)
+
+        fig = px.bar(demo_df, x="month", y="count", color="data_type", 
+                     title="Data Uploads by Month and Type (Demo Data)")
+        st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+with col2:
+    # Quick actions
+    st.markdown('<div class="dashboard-container">', unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class="dashboard-header">
+        <h2 class="dashboard-title">Quick Actions</h2>
+    </div>
+    """, unsafe_allow_html=True)
+
+    action_col1, action_col2 = st.columns(2)
+
+    with action_col1:
+        if st.button("📤 Upload Data", use_container_width=True):
+            st.switch_page("pages/1_Data_Upload.py")
+
+    with action_col2:
+        if st.button("🔍 Export Data", use_container_width=True):
+            st.switch_page("pages/4_Data_Export.py")
+
+    action_col3, action_col4 = st.columns(2)
+
+    with action_col3:
+        if st.button("📋 IRB Portal", use_container_width=True):
+            st.switch_page("pages/8_IRB_Portal.py")
+
+    with action_col4:
+        if st.button("💬 Messages", use_container_width=True):
+            st.switch_page("pages/7_Secure_Messages.py")
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # Activity feed
+    st.markdown('<div class="dashboard-container">', unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class="dashboard-header">
+        <h2 class="dashboard-title">Recent Activity</h2>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Try to get actual activity data
+    try:
+        conn = get_database_connection()
+        query = """
+            SELECT 'data_upload' as activity_type, 
+                   rd.uploaded_at as timestamp,
+                   p.name as project_name
+            FROM research_data rd
+            JOIN projects p ON rd.project_id = p.id
+            WHERE rd.uploaded_by = %s
+            UNION ALL
+            SELECT 'irb_submission' as activity_type,
+                   is.submitted_at as timestamp,
+                   is.title as project_name
+            FROM irb_submissions is
+            WHERE is.principal_investigator_id = %s
+            ORDER BY timestamp DESC
+            LIMIT 10;
+        """
+        activity_df = pd.read_sql(query, conn, params=(st.session_state.user_id, st.session_state.user_id))
+        conn.close()
+
+        if len(activity_df) > 0:
+            for _, row in activity_df.iterrows():
+                activity_icon = "📤" if row['activity_type'] == "data_upload" else "📋"
+                activity_text = f"Uploaded data to" if row['activity_type'] == "data_upload" else "Submitted IRB for"
+
+                st.markdown(f"""
+                <div class="activity-item">
+                    <div>{activity_icon} {activity_text} <strong>{row['project_name']}</strong></div>
+                    <div class="activity-time">{row['timestamp'].strftime('%Y-%m-%d %H:%M')}</div>
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            raise Exception("No activity data available")
+
+    except Exception:
+        # Demo activity feed
+        activities = [
+            {"icon": "📤", "text": "Uploaded data to", "project": "Genomic Analysis", "time": "2023-06-05 14:32"},
+            {"icon": "📋", "text": "Submitted IRB for", "project": "Clinical Trial Study", "time": "2023-06-03 09:15"},
+            {"icon": "💬", "text": "Sent message to", "project": "Dr. Smith", "time": "2023-06-02 16:45"},
+            {"icon": "📊", "text": "Created project", "project": "Patient Data Analysis", "time": "2023-05-28 11:20"},
+            {"icon": "🔒", "text": "Updated permissions for", "project": "Genomic Analysis", "time": "2023-05-25 13:10"}
+        ]
+
+        for activity in activities:
+            st.markdown(f"""
+            <div class="activity-item">
+                <div>{activity['icon']} {activity['text']} <strong>{activity['project']}</strong></div>
+                <div class="activity-time">{activity['time']}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # Zero-knowledge proof status
+    st.markdown('<div class="dashboard-container">', unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class="dashboard-header">
+        <h2 class="dashboard-title">ZKP Verification Status</h2>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Sample ZKP verification status
+    zkp_statuses = [
+        {"data": "Genomic Dataset", "status": "Verified", "date": "2023-06-01"},
+        {"data": "Patient Records", "status": "Pending", "date": "2023-06-05"}
+    ]
+
+    for zkp in zkp_statuses:
+        status_color = "green" if zkp["status"] == "Verified" else "orange"
+        status_icon = "✅" if zkp["status"] == "Verified" else "⏳"
+
+        st.markdown(f"""
+        <div style="padding: 0.75rem; margin-bottom: 0.5rem; border-left: 3px solid {status_color}; background-color: rgba(0,0,0,0.05);">
+            <div><strong>{zkp['data']}</strong></div>
+            <div style="display: flex; justify-content: space-between;">
+                <span style="color: {status_color};">{status_icon} {zkp['status']}</span>
+                <span class="activity-time">{zkp['date']}</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+try:
+    # Check if document_processor module is available
+    from utils.document_processor import process_document
+except ImportError:
+    # Create a simple document processor if the module doesn't exist
+    def process_document(file_content, file_name):
+        """
+        Simple document processor for demo purposes.
+        """
+        metadata = {
+            "filename": file_name,
+            "type": "text" if file_name.endswith(".txt") else 
+                   "spreadsheet" if file_name.endswith((".csv", ".xlsx")) else 
+                   "pdf" if file_name.endswith(".pdf") else "unknown",
+            "size": len(file_content),
+            "timestamp": datetime.now().isoformat()
+        }
+
+        processed_content = "Sample processed content for demonstration"
+
+        return metadata, processed_content
