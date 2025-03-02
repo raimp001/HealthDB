@@ -129,6 +129,33 @@ def irb_portal():
         .workflow-status {
             margin-left: 0.75rem;
         }
+        .protocol-header {
+            margin-bottom: 1rem;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+            padding-bottom: 0.5rem;
+        }
+        .protocol-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1rem;
+        }
+        .protocol-table th {
+            text-align: left;
+            background-color: #f1f1f1;
+            padding: 0.5rem;
+            font-weight: 500;
+            border: 1px solid #ddd;
+        }
+        .protocol-table td {
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+        }
+        .section-title {
+            font-weight: 600;
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+        }
     </style>
     """, unsafe_allow_html=True)
 
@@ -179,12 +206,30 @@ def irb_portal():
             # Create a default empty dataframe for demo purposes
             institutions = pd.DataFrame({'id': [1], 'name': ['Demo Institution']})
 
-        # IRB Submission Form
+        # IRB Submission Form - Updated with protocol template structure
         with st.form("irb_submission_form"):
-            st.markdown('<div class="form-section">', unsafe_allow_html=True)
-            st.subheader("Project Information")
+            st.markdown('<div class="form-section protocol-header">', unsafe_allow_html=True)
+            st.subheader("IRB Protocol Information")
 
-            title = st.text_input("Project Title")
+            # Protocol Header Table
+            col1, col2 = st.columns(2)
+            with col1:
+                title = st.text_input("Study Title", 
+                    help="Full title of the research project")
+                protocol_number = st.text_input("Protocol Number", 
+                    help="The unique identifier for this protocol")
+                version_number = st.text_input("Version Number", 
+                    placeholder="1.0")
+
+            with col2:
+                version_date = st.date_input("Version Date", 
+                    help="Date of this protocol version")
+                irb_number = st.text_input("IRB#", 
+                    help="Will be assigned after submission if approved")
+
+            # Principal Investigator and Institution
+            st.subheader("Principal Investigator Information")
+
             institution_id = st.selectbox(
                 "Primary Institution",
                 options=institutions['id'].tolist(),
@@ -208,7 +253,7 @@ def irb_portal():
                 help="Select institutions that are collaborating on this research project and need to provide IRB approval"
             )
 
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
 
             # Display workflow steps
             st.markdown('<div class="form-section">', unsafe_allow_html=True)
@@ -231,39 +276,173 @@ def irb_portal():
 
             st.markdown('</div>', unsafe_allow_html=True)
 
+            # Background and Rationale
             st.markdown('<div class="form-section">', unsafe_allow_html=True)
-            st.subheader("Project Details")
-            project_description = st.text_area(
-                "Project Description",
-                help="Provide a comprehensive overview of your research project"
+            st.subheader("1. BACKGROUND INFORMATION AND SCIENTIFIC RATIONALE")
+
+            background = st.text_area(
+                "Background Information",
+                help="Provide background information on the research area, including description of the condition/issue, current state of knowledge, and relevant previous findings",
+                height=150
             )
 
-            methodology = st.text_area(
-                "Research Methodology",
-                help="Describe your research methods, including data collection procedures"
+            rationale = st.text_area(
+                "Study Rationale",
+                help="Explain the scientific rationale for conducting this specific study, including purpose and potential contributions",
+                height=100
             )
             st.markdown('</div>', unsafe_allow_html=True)
 
+            # Study Design and Objectives
             st.markdown('<div class="form-section">', unsafe_allow_html=True)
-            st.subheader("Risk Assessment & Ethical Considerations")
-            risks_and_benefits = st.text_area(
-                "Risks and Benefits",
-                help="Detail potential risks to participants and expected benefits of the research"
+            st.subheader("2. STUDY DESIGN, OBJECTIVES AND ENDPOINTS")
+
+            primary_objective = st.text_area(
+                "Primary Objective and Endpoint",
+                help="State the primary objective of the study and the main outcome measure(s)",
+                height=100
             )
+
+            secondary_objectives = st.text_area(
+                "Secondary Objectives (Optional)",
+                help="List additional objectives of the study, if applicable",
+                height=100
+            )
+
+            col1, col2 = st.columns(2)
+            with col1:
+                study_type = st.selectbox(
+                    "Study Type",
+                    options=[
+                        "Retrospective cohort study", 
+                        "Prospective cohort", 
+                        "Randomized controlled trial",
+                        "Case-control study",
+                        "Cross-sectional study",
+                        "Observational study",
+                        "Other"
+                    ]
+                )
+
+            with col2:
+                study_setting = st.text_input(
+                    "Study Setting",
+                    help="Describe where the study will be conducted"
+                )
+
+            methodology = st.text_area(
+                "Research Methodology",
+                help="Describe your research methods, including data collection procedures",
+                height=150
+            )
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            # Study Population
+            st.markdown('<div class="form-section">', unsafe_allow_html=True)
+            st.subheader("3. STUDY POPULATION")
 
             participant_selection = st.text_area(
                 "Participant Selection",
-                help="Describe your participant selection criteria and recruitment process"
+                help="Describe your participant selection criteria and recruitment process",
+                height=100
+            )
+
+            inclusion_criteria = st.text_area(
+                "Inclusion Criteria",
+                help="List criteria that define who will be included in your study",
+                height=100
+            )
+
+            exclusion_criteria = st.text_area(
+                "Exclusion Criteria",
+                help="List criteria that would exclude an individual from participating",
+                height=100
+            )
+
+            vulnerable_populations = st.text_area(
+                "Vulnerable Populations",
+                help="State whether vulnerable populations will be included and provide justification if applicable",
+                height=100
+            )
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            # Study Procedures
+            st.markdown('<div class="form-section">', unsafe_allow_html=True)
+            st.subheader("4. STUDY PROCEDURES")
+
+            data_sources = st.text_area(
+                "Data Sources",
+                help="Specify the data sources that will be used",
+                height=100
+            )
+
+            case_ascertainment = st.text_area(
+                "Case Ascertainment",
+                help="Explain how cases will be identified and confirmed",
+                height=100
+            )
+
+            variable_abstraction = st.text_area(
+                "Variable Abstraction",
+                help="List the variables to be collected (demographics, clinical characteristics, laboratory data, outcome measures, etc.)",
+                height=100
+            )
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            # Statistical Considerations
+            st.markdown('<div class="form-section">', unsafe_allow_html=True)
+            st.subheader("5. STATISTICAL CONSIDERATIONS")
+
+            statistical_methods = st.text_area(
+                "Statistical Methods",
+                help="Provide information on descriptive analyses, primary/secondary analyses, and statistical software to be used",
+                height=100
+            )
+
+            sample_size = st.text_area(
+                "Sample Size Determination",
+                help="Explain how the sample size was determined, including power calculations if applicable",
+                height=100
+            )
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            # Risk and Ethical Considerations
+            st.markdown('<div class="form-section">', unsafe_allow_html=True)
+            st.subheader("6. RISK-BENEFIT ASSESSMENT & ETHICAL CONSIDERATIONS")
+
+            risks_and_benefits = st.text_area(
+                "Risks and Benefits",
+                help="Detail potential risks to participants and expected benefits of the research",
+                height=100
             )
 
             consent_process = st.text_area(
                 "Consent Process",
-                help="Explain how you will obtain informed consent from participants"
+                help="Explain how you will obtain informed consent from participants",
+                height=100
             )
 
             data_safety_plan = st.text_area(
                 "Data Safety and Privacy",
-                help="Describe how you will protect participant data and maintain confidentiality"
+                help="Describe how you will protect participant data and maintain confidentiality",
+                height=100
+            )
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            # Timeline and References
+            st.markdown('<div class="form-section">', unsafe_allow_html=True)
+            st.subheader("7. TIMELINE AND REFERENCES")
+
+            timeline = st.text_area(
+                "Project Timeline",
+                help="Present a timeline of project activities and expected completion dates",
+                height=100
+            )
+
+            references = st.text_area(
+                "References",
+                help="List all references cited in the protocol",
+                height=100
             )
             st.markdown('</div>', unsafe_allow_html=True)
 
@@ -274,11 +453,87 @@ def irb_portal():
                     # Include the list of collaborating institutions in the submission
                     all_institutions = [institution_id] + collaborating_institutions
 
+                    # Create a unified project description that includes all sections of the protocol
+                    full_project_description = f"""
+# {title}
+
+## Protocol Information
+- Protocol Number: {protocol_number}
+- Version: {version_number}
+- Date: {version_date}
+- IRB#: {irb_number}
+
+## 1. BACKGROUND INFORMATION AND SCIENTIFIC RATIONALE
+{background}
+
+### Study Rationale
+{rationale}
+
+## 2. STUDY DESIGN, OBJECTIVES AND ENDPOINTS
+### Primary Objective and Endpoint
+{primary_objective}
+
+### Secondary Objectives
+{secondary_objectives}
+
+### Study Design
+- Type: {study_type}
+- Setting: {study_setting}
+
+### Research Methodology
+{methodology}
+
+## 3. STUDY POPULATION
+### Participant Selection
+{participant_selection}
+
+### Inclusion Criteria
+{inclusion_criteria}
+
+### Exclusion Criteria
+{exclusion_criteria}
+
+### Vulnerable Populations
+{vulnerable_populations}
+
+## 4. STUDY PROCEDURES
+### Data Sources
+{data_sources}
+
+### Case Ascertainment
+{case_ascertainment}
+
+### Variable Abstraction
+{variable_abstraction}
+
+## 5. STATISTICAL CONSIDERATIONS
+{statistical_methods}
+
+### Sample Size Determination
+{sample_size}
+
+## 6. RISK-BENEFIT ASSESSMENT & ETHICAL CONSIDERATIONS
+{risks_and_benefits}
+
+### Consent Process
+{consent_process}
+
+### Data Safety and Privacy
+{data_safety_plan}
+
+## 7. TIMELINE AND REFERENCES
+### Timeline
+{timeline}
+
+### References
+{references}
+"""
+
                     submission_id = submit_irb_application(
                         title=title,
                         pi_id=st.session_state.user_id,
                         institution_id=institution_id,
-                        project_description=project_description,
+                        project_description=full_project_description,
                         methodology=methodology,
                         risks_and_benefits=risks_and_benefits,
                         participant_selection=participant_selection,
