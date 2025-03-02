@@ -48,11 +48,6 @@ st.markdown("""
         margin-bottom: 2rem;
     }
 
-    .logo {
-        margin-right: 1rem;
-        font-size: 2.5rem;
-    }
-
     .header-text {
         flex-grow: 1;
     }
@@ -112,12 +107,6 @@ st.markdown("""
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
 
-    .metric-icon {
-        font-size: 2rem;
-        margin-bottom: 0.5rem;
-        color: #6C63FF;
-    }
-
     .metric-value {
         font-size: 1.8rem;
         font-weight: bold;
@@ -138,7 +127,6 @@ render_navigation()
 # Top header with logo
 st.markdown("""
 <div class="header-container">
-    <div class="logo">⚡</div>
     <div class="header-text">
         <h1>Research Data Platform</h1>
         <p>Secure collaborative research management</p>
@@ -148,8 +136,7 @@ st.markdown("""
 
 # User info
 st.markdown(f"""
-<div class="user-info">
-    <div class="user-avatar">{st.session_state.username[0]}</div>
+<div style="margin-bottom: 1rem;">
     <div>Welcome, {st.session_state.username}</div>
 </div>
 """, unsafe_allow_html=True)
@@ -316,7 +303,6 @@ try:
         with col1:
             st.markdown("""
             <div class="metric-container">
-                <div class="metric-icon">📊</div>
                 <div class="metric-value">{}</div>
                 <div class="metric-label">Projects</div>
             </div>
@@ -325,7 +311,6 @@ try:
         with col2:
             st.markdown("""
             <div class="metric-container">
-                <div class="metric-icon">📂</div>
                 <div class="metric-value">{}</div>
                 <div class="metric-label">Datasets</div>
             </div>
@@ -335,7 +320,6 @@ try:
         with col3:
             st.markdown("""
             <div class="metric-container">
-                <div class="metric-icon">📋</div>
                 <div class="metric-value">{}</div>
                 <div class="metric-label">IRB Submissions</div>
             </div>
@@ -344,7 +328,6 @@ try:
         with col4:
             st.markdown("""
             <div class="metric-container">
-                <div class="metric-icon">🔒</div>
                 <div class="metric-value">4</div>
                 <div class="metric-label">ZKP Verifications</div>
             </div>
@@ -358,20 +341,20 @@ try:
 
         action_col1, action_col2 = st.columns(2)
         with action_col1:
-            if st.button("📤 Upload Data", use_container_width=True):
+            if st.button("Upload Data", use_container_width=True):
                 st.switch_page("pages/1_Data_Upload.py")
 
         with action_col2:
-            if st.button("🔍 Export Data", use_container_width=True):
+            if st.button("Export Data", use_container_width=True):
                 st.switch_page("pages/4_Data_Export.py")
 
         action_col3, action_col4 = st.columns(2)
         with action_col3:
-            if st.button("📋 IRB Portal", use_container_width=True):
+            if st.button("IRB Portal", use_container_width=True):
                 st.switch_page("pages/8_IRB_Portal.py")
 
         with action_col4:
-            if st.button("💬 Messages", use_container_width=True):
+            if st.button("Messages", use_container_width=True):
                 st.switch_page("pages/7_Secure_Messages.py")
 
         st.markdown('</div>', unsafe_allow_html=True)
@@ -382,16 +365,16 @@ try:
 
         # Demo activity feed
         activities = [
-            {"icon": "📤", "text": "Uploaded data to", "project": "Genomic Analysis", "time": "2023-06-05 14:32"},
-            {"icon": "📋", "text": "Submitted IRB for", "project": "Clinical Trial Study", "time": "2023-06-03 09:15"},
-            {"icon": "💬", "text": "Sent message to", "project": "Dr. Smith", "time": "2023-06-02 16:45"},
-            {"icon": "📊", "text": "Created project", "project": "Patient Data Analysis", "time": "2023-05-28 11:20"}
+            {"text": "Uploaded data to", "project": "Genomic Analysis", "time": "2023-06-05 14:32"},
+            {"text": "Submitted IRB for", "project": "Clinical Trial Study", "time": "2023-06-03 09:15"},
+            {"text": "Sent message to", "project": "Dr. Smith", "time": "2023-06-02 16:45"},
+            {"text": "Created project", "project": "Patient Data Analysis", "time": "2023-05-28 11:20"}
         ]
 
         for activity in activities:
             st.markdown(f"""
             <div style="padding: 0.75rem; border-bottom: 1px solid rgba(0,0,0,0.1);">
-                <div>{activity['icon']} {activity['text']} <strong>{activity['project']}</strong></div>
+                <div>{activity['text']} <strong>{activity['project']}</strong></div>
                 <div style="font-size: 0.8rem; color: rgba(0,0,0,0.6);">{activity['time']}</div>
             </div>
             """, unsafe_allow_html=True)
