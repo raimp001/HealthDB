@@ -1,0 +1,231 @@
+# IRB Protocol Template
+
++--------------------+-------------------------------------------------+
+| Study Title:       |                                                 |
++====================+=================================================+
+| Protocol Number:   |                                                 |
++--------------------+-------------------------------------------------+
+| Version Number:    |                                                 |
++--------------------+-------------------------------------------------+
+| Version Date:      |                                                 |
++--------------------+-------------------------------------------------+
+| IRB#:              |                                                 |
++--------------------+-------------------------------------------------+
+| Principal          |                                                 |
+| Investigator:      |                                                 |
++--------------------+-------------------------------------------------+
+|                    |                                                 |
++--------------------+-------------------------------------------------+
+| Participating      |                                                 |
+| Investigator(s):   |                                                 |
++--------------------+-------------------------------------------------+
+|                    |                                                 |
++--------------------+-------------------------------------------------+
+
+## SUMMARY OF CHANGES
+
+  ---------------------------------------------------------------------------
+  #    Section   Description of Change     Justification for Revision
+  ----- --------- ------------------------- ---------------------------------
+  1.                                       
+
+  2.                                       
+
+  3.                                       
+
+  4.                                       
+
+  5.                                       
+  ---------------------------------------------------------------------------
+
+## TABLE OF CONTENTS
+
+[Insert Table of Contents here]
+
+## LIST OF TABLES
+
+[Insert List of Tables here]
+
+## LIST OF FIGURES
+
+[Insert List of Figures here]
+
+# BACKGROUND INFORMATION AND SCIENTIFIC RATIONALE
+
+[Provide background information on the research area, including:
+- Description of the condition/issue being studied
+- Current state of knowledge and gaps
+- Relevant previous research findings
+- Importance and novelty of the current study]
+
+## Study Rationale
+
+[Explain the rationale for conducting this specific study, including:
+- Purpose of the investigation
+- Potential contributions to scientific knowledge
+- Clinical implications]
+
+# STUDY DESIGN, OBJECTIVES AND ENDPOINTS
+
+## Primary Objective and Endpoint
+
+[State the primary objective of the study and the main outcome measure(s)]
+
+## Secondary Objectives
+
+[List additional objectives of the study, if applicable]
+
+## Study Design
+
+Type: [e.g., Retrospective cohort study, Prospective cohort, Randomized controlled trial, etc.]
+
+Population: [Define the study population, including eligibility criteria]
+
+Data Source: [Specify the source(s) of data]
+
+[Include additional details about the study design, methodology, and procedures]
+
+## Study Setting
+
+[Describe where the study will be conducted]
+
+## Date Range of the Study
+
+[Specify the time period covered by the study]
+
+# STUDY POPULATION
+
+[Provide an overview of the study population, including estimated sample size]
+
+## Participant Inclusion Criteria
+
+To be eligible to participate in this study, an individual must meet all of the following criteria:
+- [List inclusion criteria]
+
+## Participant Exclusion Criteria
+
+An individual who meets any of the following criteria will be excluded from participation in this study:
+- [List exclusion criteria]
+
+## Vulnerable Populations
+
+[State whether vulnerable populations will be included and provide justification if applicable]
+
+## Recruitment Methods
+
+[Describe methods for identifying and recruiting participants, if applicable]
+
+# STUDY PROCEDURES
+
+[Provide an overview of study procedures]
+
+## Data Sources
+
+[Specify the data sources that will be used]
+
+## Case Ascertainment
+
+[Explain how cases will be identified and confirmed]
+
+## Variable Abstraction
+
+[List the variables to be collected, categorized as appropriate:
+- Demographics
+- Clinical Characteristics
+- Laboratory Data
+- Outcome Measures, etc.]
+
+# STATISTICAL CONSIDERATIONS
+
+## Primary and Secondary Endpoints
+
+[Reiterate the primary and secondary endpoints that will be analyzed]
+
+## Primary Objective
+
+[Describe the statistical approach for addressing the primary objective]
+
+## Secondary Objective
+
+[Describe the statistical approach for addressing secondary objectives]
+
+## Measures to Avoid Bias
+
+[Describe strategies to minimize bias in the study design and analysis]
+
+## Statistical Methods
+
+[Provide detailed information on:
+- Descriptive analyses
+- Primary analyses
+- Secondary analyses
+- Exploratory analyses
+- Statistical software to be used]
+
+## Sample Size Determination
+
+[Explain how the sample size was determined, including power calculations if applicable]
+
+# STUDY ADMINISTRATION
+
+## Data Collection and Management
+
+[Describe procedures for data collection, entry, validation, and storage]
+
+## Confidentiality
+
+[Explain measures to protect participant confidentiality]
+
+## Sharing of Results with Subjects
+
+[Specify whether and how results will be shared with study participants]
+
+## Data and Specimen Banking
+
+[Describe plans for data retention and future use, if applicable]
+
+## Regulatory and Ethical Considerations
+
+[Address regulatory requirements and ethical concerns]
+
+## Potential Risks
+
+[Identify and assess potential risks to participants]
+
+## Potential Benefits
+
+[Describe potential benefits to participants and/or society]
+
+## Risk-Benefit Assessment
+
+[Provide an assessment of how risks compare to potential benefits]
+
+## Reportable Events
+
+[Describe procedures for reporting adverse events or protocol violations]
+
+## Informed Consent/Assent and HIPAA Authorization
+
+### Obtaining Informed Consent
+
+[Describe the process for obtaining informed consent]
+
+### Waiver of Consent
+
+[If applicable, provide justification for waiver of consent]
+
+### Waiver of HIPAA Authorization
+
+[If applicable, provide justification for waiver of HIPAA Authorization]
+
+## Timeline and Milestones
+
+[Present a timeline of project activities and expected completion dates]
+
+## Protocol Review and Amendments
+
+[Explain procedures for protocol review and amendment approval]
+
+# REFERENCES
+
+[List all references cited in the protocol]
