@@ -1,6 +1,6 @@
 import streamlit as st
 import time
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 def show_validation_step(step: str, status: str, details: str = ""):
     """Display a single validation step with animation."""
@@ -17,10 +17,10 @@ def show_validation_step(step: str, status: str, details: str = ""):
         if details:
             st.error(details)
 
-def validation_progress_tracker(steps: List[Dict[str, str]] = None):
+def validation_progress_tracker(steps: Optional[List[Dict[str, str]]] = None):
     """
     Display an animated progress tracker for ZKP validation and blockchain confirmation.
-    
+
     Args:
         steps: List of dictionaries containing step information:
               [{"name": "Step Name", "status": "running/complete/error", "details": "Optional details"}]
@@ -33,7 +33,7 @@ def validation_progress_tracker(steps: List[Dict[str, str]] = None):
             {"name": "Storing on Blockchain", "status": "pending"},
             {"name": "Confirming Transaction", "status": "pending"}
         ]
-    
+
     st.markdown("""
         <style>
         .validation-step {
@@ -50,11 +50,11 @@ def validation_progress_tracker(steps: List[Dict[str, str]] = None):
         }
         </style>
     """, unsafe_allow_html=True)
-    
+
     with st.container():
         st.subheader("Validation Progress")
         progress_bar = st.progress(0)
-        
+
         for idx, step in enumerate(steps):
             progress = (idx + 1) / len(steps)
             with st.container():
@@ -64,6 +64,6 @@ def validation_progress_tracker(steps: List[Dict[str, str]] = None):
                     step.get("details", "")
                 )
             progress_bar.progress(progress)
-            
+
             if step["status"] == "error":
                 break
