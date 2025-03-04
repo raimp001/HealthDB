@@ -156,6 +156,41 @@ def irb_portal():
             margin-bottom: 0.5rem;
             font-size: 1.1rem;
         }
+        .required-field::after {
+            content: " *";
+            color: #F44336;
+        }
+        .form-navigation {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(0,0,0,0.1);
+        }
+        .progress-indicator {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 1rem;
+        }
+        .progress-step {
+            width: 0.75rem;
+            height: 0.75rem;
+            border-radius: 50%;
+            background-color: rgba(0,0,0,0.1);
+            margin: 0 0.25rem;
+        }
+        .progress-step.active {
+            background-color: #6C63FF;
+        }
+        .stButton > button {
+            padding: 0.5rem 1rem;
+            border-radius: 0.25rem;
+        }
+        .help-text {
+            font-size: 0.8rem;
+            color: rgba(0,0,0,0.6);
+            margin-top: 0.25rem;
+        }
     </style>
     """, unsafe_allow_html=True)
 
@@ -206,114 +241,186 @@ def irb_portal():
             # Create a default empty dataframe for demo purposes
             institutions = pd.DataFrame({'id': [1], 'name': ['Demo Institution']})
 
-        # IRB Submission Form - Updated with protocol template structure
-        with st.form("irb_submission_form"):
-            st.markdown('<div class="form-section protocol-header">', unsafe_allow_html=True)
-            st.subheader("IRB Protocol Information")
+        # Initialize form state if not present
+        if 'irb_form_step' not in st.session_state:
+            st.session_state.irb_form_step = 1
+            st.session_state.irb_form_data = {}
 
-            # Protocol Header Table
-            col1, col2 = st.columns(2)
-            with col1:
-                title = st.text_input("Study Title", 
-                    help="Full title of the research project")
-                protocol_number = st.text_input("Protocol Number", 
-                    help="The unique identifier for this protocol")
-                version_number = st.text_input("Version Number", 
-                    placeholder="1.0")
+        # Function to update form state
+        def update_form_state(step_direction):
+            current_step = st.session_state.irb_form_step
+            if step_direction == "next" and current_step < 7:
+                st.session_state.irb_form_step += 1
+            elif step_direction == "prev" and current_step > 1:
+                st.session_state.irb_form_step -= 1
+            elif step_direction == "reset":
+                st.session_state.irb_form_step = 1
+                st.session_state.irb_form_data = {}
 
-            with col2:
-                version_date = st.date_input("Version Date", 
-                    help="Date of this protocol version")
-                irb_number = st.text_input("IRB#", 
-                    help="Will be assigned after submission if approved")
+        # Display progress indicator
+        st.markdown('<div class="progress-indicator">', unsafe_allow_html=True)
+        for i in range(1, 8):
+            active_class = "active" if i <= st.session_state.irb_form_step else ""
+            st.markdown(f'<div class="progress-step {active_class}"></div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-            # Principal Investigator and Institution
-            st.subheader("Principal Investigator Information")
+        # IRB Submission Form - Updated with protocol template structure and multi-step form
+        with st.form(f"irb_submission_form_step_{st.session_state.irb_form_step}", clear_on_submit=False):
 
-            institution_id = st.selectbox(
-                "Primary Institution",
-                options=institutions['id'].tolist(),
-                format_func=lambda x: institutions[
-                    institutions['id'] == x
-                ]['name'].iloc[0]
-            )
+            # Step 1: Protocol Information
+            if st.session_state.irb_form_step == 1:
+                st.markdown('<div class="form-section protocol-header">', unsafe_allow_html=True)
+                st.subheader("Step 1: Protocol Information")
 
-            # Multi-institutional selection
-            st.subheader("Collaborating Institutions")
-            st.info("Select additional institutions that need to approve this IRB submission")
+                # Protocol Header Information
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.markdown('<label class="required-field">Study Title</label>', unsafe_allow_html=True)
+                    title = st.text_input(
+                        "Study Title", 
+                        value=st.session_state.irb_form_data.get("title", ""),
+                        label_visibility="collapsed",
+                        help="Full title of the research project"
+                    )
+                    st.session_state.irb_form_data["title"] = title
 
-            # Create a multi-select for additional institutions
-            other_institutions = institutions[institutions['id'] != institution_id]
-            collaborating_institutions = st.multiselect(
-                "Collaborating Institutions (Optional)",
-                options=other_institutions['id'].tolist(),
-                format_func=lambda x: other_institutions[
-                    other_institutions['id'] == x
-                ]['name'].iloc[0],
-                help="Select institutions that are collaborating on this research project and need to provide IRB approval"
-            )
+                    protocol_number = st.text_input(
+                        "Protocol Number", 
+                        value=st.session_state.irb_form_data.get("protocol_number", ""),
+                        help="The unique identifier for this protocol"
+                    )
+                    st.session_state.irb_form_data["protocol_number"] = protocol_number
 
-            st.markdown("</div>", unsafe_allow_html=True)
+                    version_number = st.text_input(
+                        "Version Number", 
+                        value=st.session_state.irb_form_data.get("version_number", "1.0"),
+                        placeholder="1.0"
+                    )
+                    st.session_state.irb_form_data["version_number"] = version_number
 
-            # Display workflow steps
-            st.markdown('<div class="form-section">', unsafe_allow_html=True)
-            st.subheader("Approval Workflow")
+                with col2:
+                    version_date = st.date_input(
+                        "Version Date", 
+                        value=st.session_state.irb_form_data.get("version_date", datetime.now()),
+                        help="Date of this protocol version"
+                    )
+                    st.session_state.irb_form_data["version_date"] = version_date
 
-            workflow_steps = [
-                "Submit IRB application to your primary institution", 
-                "Application is reviewed by your primary IRB committee",
-                "Collaborating institutions review the application",
-                "When all required approvals are received, the application status changes to 'Approved'"
-            ]
+                    irb_number = st.text_input(
+                        "IRB#", 
+                        value=st.session_state.irb_form_data.get("irb_number", ""),
+                        help="Will be assigned after submission if approved"
+                    )
+                    st.session_state.irb_form_data["irb_number"] = irb_number
 
-            for idx, step in enumerate(workflow_steps):
-                st.markdown(f"""
-                <div class="workflow-step">
-                    <div class="workflow-number">{idx+1}</div>
-                    <div class="workflow-text">{step}</div>
-                </div>
-                """, unsafe_allow_html=True)
+                # Principal Investigator and Institution
+                st.subheader("Principal Investigator Information")
 
-            st.markdown('</div>', unsafe_allow_html=True)
+                st.markdown('<label class="required-field">Primary Institution</label>', unsafe_allow_html=True)
+                institution_id = st.selectbox(
+                    "Primary Institution",
+                    options=institutions['id'].tolist(),
+                    format_func=lambda x: institutions[
+                        institutions['id'] == x
+                    ]['name'].iloc[0],
+                    index=0,
+                    label_visibility="collapsed"
+                )
+                st.session_state.irb_form_data["institution_id"] = institution_id
 
-            # Background and Rationale
-            st.markdown('<div class="form-section">', unsafe_allow_html=True)
-            st.subheader("1. BACKGROUND INFORMATION AND SCIENTIFIC RATIONALE")
+                # Multi-institutional selection
+                st.subheader("Collaborating Institutions")
+                st.info("Select additional institutions that need to approve this IRB submission")
 
-            background = st.text_area(
-                "Background Information",
-                help="Provide background information on the research area, including description of the condition/issue, current state of knowledge, and relevant previous findings",
-                height=150
-            )
+                # Create a multi-select for additional institutions
+                other_institutions = institutions[institutions['id'] != institution_id]
+                collaborating_institutions = st.multiselect(
+                    "Collaborating Institutions (Optional)",
+                    options=other_institutions['id'].tolist(),
+                    default=st.session_state.irb_form_data.get("collaborating_institutions", []),
+                    format_func=lambda x: other_institutions[
+                        other_institutions['id'] == x
+                    ]['name'].iloc[0],
+                    help="Select institutions that are collaborating on this research project and need to provide IRB approval"
+                )
+                st.session_state.irb_form_data["collaborating_institutions"] = collaborating_institutions
 
-            rationale = st.text_area(
-                "Study Rationale",
-                help="Explain the scientific rationale for conducting this specific study, including purpose and potential contributions",
-                height=100
-            )
-            st.markdown('</div>', unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True)
 
-            # Study Design and Objectives
-            st.markdown('<div class="form-section">', unsafe_allow_html=True)
-            st.subheader("2. STUDY DESIGN, OBJECTIVES AND ENDPOINTS")
+                # Display workflow steps
+                st.markdown('<div class="form-section">', unsafe_allow_html=True)
+                st.subheader("Approval Workflow")
 
-            primary_objective = st.text_area(
-                "Primary Objective and Endpoint",
-                help="State the primary objective of the study and the main outcome measure(s)",
-                height=100
-            )
+                workflow_steps = [
+                    "Submit IRB application to your primary institution", 
+                    "Application is reviewed by your primary IRB committee",
+                    "Collaborating institutions review the application",
+                    "When all required approvals are received, the application status changes to 'Approved'"
+                ]
 
-            secondary_objectives = st.text_area(
-                "Secondary Objectives (Optional)",
-                help="List additional objectives of the study, if applicable",
-                height=100
-            )
+                for idx, step in enumerate(workflow_steps):
+                    st.markdown(f"""
+                    <div class="workflow-step">
+                        <div class="workflow-number">{idx+1}</div>
+                        <div class="workflow-text">{step}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
 
-            col1, col2 = st.columns(2)
-            with col1:
-                study_type = st.selectbox(
-                    "Study Type",
-                    options=[
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            # Step 2: Background and Rationale
+            elif st.session_state.irb_form_step == 2:
+                st.markdown('<div class="form-section">', unsafe_allow_html=True)
+                st.subheader("Step 2: Background Information and Scientific Rationale")
+
+                st.markdown('<label class="required-field">Background Information</label>', unsafe_allow_html=True)
+                background = st.text_area(
+                    "Background Information",
+                    value=st.session_state.irb_form_data.get("background", ""),
+                    label_visibility="collapsed",
+                    help="Provide background information on the research area, including description of the condition/issue, current state of knowledge, and relevant previous findings",
+                    height=150
+                )
+                st.session_state.irb_form_data["background"] = background
+
+                st.markdown('<label class="required-field">Study Rationale</label>', unsafe_allow_html=True)
+                rationale = st.text_area(
+                    "Study Rationale",
+                    value=st.session_state.irb_form_data.get("rationale", ""),
+                    label_visibility="collapsed",
+                    help="Explain the scientific rationale for conducting this specific study, including purpose and potential contributions",
+                    height=100
+                )
+                st.session_state.irb_form_data["rationale"] = rationale
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            # Step 3: Study Design and Objectives
+            elif st.session_state.irb_form_step == 3:
+                st.markdown('<div class="form-section">', unsafe_allow_html=True)
+                st.subheader("Step 3: Study Design, Objectives and Endpoints")
+
+                st.markdown('<label class="required-field">Primary Objective and Endpoint</label>', unsafe_allow_html=True)
+                primary_objective = st.text_area(
+                    "Primary Objective and Endpoint",
+                    value=st.session_state.irb_form_data.get("primary_objective", ""),
+                    label_visibility="collapsed",
+                    help="State the primary objective of the study and the main outcome measure(s)",
+                    height=100
+                )
+                st.session_state.irb_form_data["primary_objective"] = primary_objective
+
+                secondary_objectives = st.text_area(
+                    "Secondary Objectives (Optional)",
+                    value=st.session_state.irb_form_data.get("secondary_objectives", ""),
+                    help="List additional objectives of the study, if applicable",
+                    height=100
+                )
+                st.session_state.irb_form_data["secondary_objectives"] = secondary_objectives
+
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.markdown('<label class="required-field">Study Type</label>', unsafe_allow_html=True)
+                    study_type_options = [
                         "Retrospective cohort study", 
                         "Prospective cohort", 
                         "Randomized controlled trial",
@@ -322,235 +429,413 @@ def irb_portal():
                         "Observational study",
                         "Other"
                     ]
+                    study_type_index = 0
+                    if "study_type" in st.session_state.irb_form_data:
+                        if st.session_state.irb_form_data["study_type"] in study_type_options:
+                            study_type_index = study_type_options.index(st.session_state.irb_form_data["study_type"])
+
+                    study_type = st.selectbox(
+                        "Study Type",
+                        options=study_type_options,
+                        index=study_type_index,
+                        label_visibility="collapsed"
+                    )
+                    st.session_state.irb_form_data["study_type"] = study_type
+
+                with col2:
+                    st.markdown('<label class="required-field">Study Setting</label>', unsafe_allow_html=True)
+                    study_setting = st.text_input(
+                        "Study Setting",
+                        value=st.session_state.irb_form_data.get("study_setting", ""),
+                        label_visibility="collapsed",
+                        help="Describe where the study will be conducted"
+                    )
+                    st.session_state.irb_form_data["study_setting"] = study_setting
+
+                st.markdown('<label class="required-field">Research Methodology</label>', unsafe_allow_html=True)
+                methodology = st.text_area(
+                    "Research Methodology",
+                    value=st.session_state.irb_form_data.get("methodology", ""),
+                    label_visibility="collapsed",
+                    help="Describe your research methods, including data collection procedures",
+                    height=150
                 )
+                st.session_state.irb_form_data["methodology"] = methodology
+                st.markdown('</div>', unsafe_allow_html=True)
 
-            with col2:
-                study_setting = st.text_input(
-                    "Study Setting",
-                    help="Describe where the study will be conducted"
+            # Step 4: Study Population
+            elif st.session_state.irb_form_step == 4:
+                st.markdown('<div class="form-section">', unsafe_allow_html=True)
+                st.subheader("Step 4: Study Population")
+
+                st.markdown('<label class="required-field">Participant Selection</label>', unsafe_allow_html=True)
+                participant_selection = st.text_area(
+                    "Participant Selection",
+                    value=st.session_state.irb_form_data.get("participant_selection", ""),
+                    label_visibility="collapsed",
+                    help="Describe your participant selection criteria and recruitment process",
+                    height=100
                 )
+                st.session_state.irb_form_data["participant_selection"] = participant_selection
 
-            methodology = st.text_area(
-                "Research Methodology",
-                help="Describe your research methods, including data collection procedures",
-                height=150
-            )
-            st.markdown('</div>', unsafe_allow_html=True)
+                st.markdown('<label class="required-field">Inclusion Criteria</label>', unsafe_allow_html=True)
+                inclusion_criteria = st.text_area(
+                    "Inclusion Criteria",
+                    value=st.session_state.irb_form_data.get("inclusion_criteria", ""),
+                    label_visibility="collapsed",
+                    help="List criteria that define who will be included in your study",
+                    height=100
+                )
+                st.session_state.irb_form_data["inclusion_criteria"] = inclusion_criteria
 
-            # Study Population
-            st.markdown('<div class="form-section">', unsafe_allow_html=True)
-            st.subheader("3. STUDY POPULATION")
+                st.markdown('<label class="required-field">Exclusion Criteria</label>', unsafe_allow_html=True)
+                exclusion_criteria = st.text_area(
+                    "Exclusion Criteria",
+                    value=st.session_state.irb_form_data.get("exclusion_criteria", ""),
+                    label_visibility="collapsed",
+                    help="List criteria that would exclude an individual from participating",
+                    height=100
+                )
+                st.session_state.irb_form_data["exclusion_criteria"] = exclusion_criteria
 
-            participant_selection = st.text_area(
-                "Participant Selection",
-                help="Describe your participant selection criteria and recruitment process",
-                height=100
-            )
+                vulnerable_populations = st.text_area(
+                    "Vulnerable Populations",
+                    value=st.session_state.irb_form_data.get("vulnerable_populations", ""),
+                    help="State whether vulnerable populations will be included and provide justification if applicable",
+                    height=100
+                )
+                st.session_state.irb_form_data["vulnerable_populations"] = vulnerable_populations
+                st.markdown('</div>', unsafe_allow_html=True)
 
-            inclusion_criteria = st.text_area(
-                "Inclusion Criteria",
-                help="List criteria that define who will be included in your study",
-                height=100
-            )
+            # Step 5: Study Procedures
+            elif st.session_state.irb_form_step == 5:
+                st.markdown('<div class="form-section">', unsafe_allow_html=True)
+                st.subheader("Step 5: Study Procedures")
 
-            exclusion_criteria = st.text_area(
-                "Exclusion Criteria",
-                help="List criteria that would exclude an individual from participating",
-                height=100
-            )
+                st.markdown('<label class="required-field">Data Sources</label>', unsafe_allow_html=True)
+                data_sources = st.text_area(
+                    "Data Sources",
+                    value=st.session_state.irb_form_data.get("data_sources", ""),
+                    label_visibility="collapsed",
+                    help="Specify the data sources that will be used",
+                    height=100
+                )
+                st.session_state.irb_form_data["data_sources"] = data_sources
 
-            vulnerable_populations = st.text_area(
-                "Vulnerable Populations",
-                help="State whether vulnerable populations will be included and provide justification if applicable",
-                height=100
-            )
-            st.markdown('</div>', unsafe_allow_html=True)
+                case_ascertainment = st.text_area(
+                    "Case Ascertainment",
+                    value=st.session_state.irb_form_data.get("case_ascertainment", ""),
+                    help="Explain how cases will be identified and confirmed",
+                    height=100
+                )
+                st.session_state.irb_form_data["case_ascertainment"] = case_ascertainment
 
-            # Study Procedures
-            st.markdown('<div class="form-section">', unsafe_allow_html=True)
-            st.subheader("4. STUDY PROCEDURES")
+                st.markdown('<label class="required-field">Variable Abstraction</label>', unsafe_allow_html=True)
+                variable_abstraction = st.text_area(
+                    "Variable Abstraction",
+                    value=st.session_state.irb_form_data.get("variable_abstraction", ""),
+                    label_visibility="collapsed",
+                    help="List the variables to be collected (demographics, clinical characteristics, laboratory data, outcome measures, etc.)",
+                    height=100
+                )
+                st.session_state.irb_form_data["variable_abstraction"] = variable_abstraction
+                st.markdown('</div>', unsafe_allow_html=True)
 
-            data_sources = st.text_area(
-                "Data Sources",
-                help="Specify the data sources that will be used",
-                height=100
-            )
+            # Step 6: Statistical Considerations and Risk Assessment
+            elif st.session_state.irb_form_step == 6:
+                st.markdown('<div class="form-section">', unsafe_allow_html=True)
+                st.subheader("Step 6: Statistical Considerations")
 
-            case_ascertainment = st.text_area(
-                "Case Ascertainment",
-                help="Explain how cases will be identified and confirmed",
-                height=100
-            )
+                st.markdown('<label class="required-field">Statistical Methods</label>', unsafe_allow_html=True)
+                statistical_methods = st.text_area(
+                    "Statistical Methods",
+                    value=st.session_state.irb_form_data.get("statistical_methods", ""),
+                    label_visibility="collapsed",
+                    help="Provide information on descriptive analyses, primary/secondary analyses, and statistical software to be used",
+                    height=100
+                )
+                st.session_state.irb_form_data["statistical_methods"] = statistical_methods
 
-            variable_abstraction = st.text_area(
-                "Variable Abstraction",
-                help="List the variables to be collected (demographics, clinical characteristics, laboratory data, outcome measures, etc.)",
-                height=100
-            )
-            st.markdown('</div>', unsafe_allow_html=True)
+                sample_size = st.text_area(
+                    "Sample Size Determination",
+                    value=st.session_state.irb_form_data.get("sample_size", ""),
+                    help="Explain how the sample size was determined, including power calculations if applicable",
+                    height=100
+                )
+                st.session_state.irb_form_data["sample_size"] = sample_size
+                st.markdown('</div>', unsafe_allow_html=True)
 
-            # Statistical Considerations
-            st.markdown('<div class="form-section">', unsafe_allow_html=True)
-            st.subheader("5. STATISTICAL CONSIDERATIONS")
+                st.markdown('<div class="form-section">', unsafe_allow_html=True)
+                st.subheader("Risk-Benefit Assessment & Ethical Considerations")
 
-            statistical_methods = st.text_area(
-                "Statistical Methods",
-                help="Provide information on descriptive analyses, primary/secondary analyses, and statistical software to be used",
-                height=100
-            )
+                st.markdown('<label class="required-field">Risks and Benefits</label>', unsafe_allow_html=True)
+                risks_and_benefits = st.text_area(
+                    "Risks and Benefits",
+                    value=st.session_state.irb_form_data.get("risks_and_benefits", ""),
+                    label_visibility="collapsed",
+                    help="Detail potential risks to participants and expected benefits of the research",
+                    height=100
+                )
+                st.session_state.irb_form_data["risks_and_benefits"] = risks_and_benefits
 
-            sample_size = st.text_area(
-                "Sample Size Determination",
-                help="Explain how the sample size was determined, including power calculations if applicable",
-                height=100
-            )
-            st.markdown('</div>', unsafe_allow_html=True)
+                st.markdown('<label class="required-field">Consent Process</label>', unsafe_allow_html=True)
+                consent_process = st.text_area(
+                    "Consent Process",
+                    value=st.session_state.irb_form_data.get("consent_process", ""),
+                    label_visibility="collapsed",
+                    help="Explain how you will obtain informed consent from participants",
+                    height=100
+                )
+                st.session_state.irb_form_data["consent_process"] = consent_process
 
-            # Risk and Ethical Considerations
-            st.markdown('<div class="form-section">', unsafe_allow_html=True)
-            st.subheader("6. RISK-BENEFIT ASSESSMENT & ETHICAL CONSIDERATIONS")
+                st.markdown('<label class="required-field">Data Safety and Privacy</label>', unsafe_allow_html=True)
+                data_safety_plan = st.text_area(
+                    "Data Safety and Privacy",
+                    value=st.session_state.irb_form_data.get("data_safety_plan", ""),
+                    label_visibility="collapsed",
+                    help="Describe how you will protect participant data and maintain confidentiality",
+                    height=100
+                )
+                st.session_state.irb_form_data["data_safety_plan"] = data_safety_plan
+                st.markdown('</div>', unsafe_allow_html=True)
 
-            risks_and_benefits = st.text_area(
-                "Risks and Benefits",
-                help="Detail potential risks to participants and expected benefits of the research",
-                height=100
-            )
+            # Step 7: Timeline, References and Final Submission
+            elif st.session_state.irb_form_step == 7:
+                st.markdown('<div class="form-section">', unsafe_allow_html=True)
+                st.subheader("Step 7: Timeline and References")
 
-            consent_process = st.text_area(
-                "Consent Process",
-                help="Explain how you will obtain informed consent from participants",
-                height=100
-            )
+                timeline = st.text_area(
+                    "Project Timeline",
+                    value=st.session_state.irb_form_data.get("timeline", ""),
+                    help="Present a timeline of project activities and expected completion dates",
+                    height=100
+                )
+                st.session_state.irb_form_data["timeline"] = timeline
 
-            data_safety_plan = st.text_area(
-                "Data Safety and Privacy",
-                help="Describe how you will protect participant data and maintain confidentiality",
-                height=100
-            )
-            st.markdown('</div>', unsafe_allow_html=True)
+                references = st.text_area(
+                    "References",
+                    value=st.session_state.irb_form_data.get("references", ""),
+                    help="List all references cited in the protocol",
+                    height=100
+                )
+                st.session_state.irb_form_data["references"] = references
+                st.markdown('</div>', unsafe_allow_html=True)
 
-            # Timeline and References
-            st.markdown('<div class="form-section">', unsafe_allow_html=True)
-            st.subheader("7. TIMELINE AND REFERENCES")
+                # Summary of submission
+                st.markdown('<div class="form-section">', unsafe_allow_html=True)
+                st.subheader("Summary of Submission")
 
-            timeline = st.text_area(
-                "Project Timeline",
-                help="Present a timeline of project activities and expected completion dates",
-                height=100
-            )
+                # Check for missing required fields
+                required_fields = {
+                    "title": "Study Title", 
+                    "institution_id": "Primary Institution",
+                    "background": "Background Information",
+                    "rationale": "Study Rationale",
+                    "primary_objective": "Primary Objective",
+                    "study_type": "Study Type",
+                    "study_setting": "Study Setting",
+                    "methodology": "Research Methodology",
+                    "participant_selection": "Participant Selection",
+                    "inclusion_criteria": "Inclusion Criteria",
+                    "exclusion_criteria": "Exclusion Criteria",
+                    "data_sources": "Data Sources",
+                    "variable_abstraction": "Variable Abstraction",
+                    "statistical_methods": "Statistical Methods",
+                    "risks_and_benefits": "Risks and Benefits",
+                    "consent_process": "Consent Process",
+                    "data_safety_plan": "Data Safety and Privacy"
+                }
 
-            references = st.text_area(
-                "References",
-                help="List all references cited in the protocol",
-                height=100
-            )
-            st.markdown('</div>', unsafe_allow_html=True)
+                missing_fields = []
+                for field, label in required_fields.items():
+                    if field not in st.session_state.irb_form_data or not st.session_state.irb_form_data[field]:
+                        missing_fields.append(label)
 
-            submitted = st.form_submit_button("Submit IRB Application")
+                if missing_fields:
+                    st.error(f"Please complete the following required fields before submitting: {', '.join(missing_fields)}")
+                else:
+                    st.success("All required fields are completed. You can now submit your IRB application.")
 
-            if submitted:
-                try:
-                    # Include the list of collaborating institutions in the submission
-                    all_institutions = [institution_id] + collaborating_institutions
+                    # Display submission overview
+                    with st.expander("View Complete Protocol (Click to expand)"):
+                        st.write(f"**Study Title:** {st.session_state.irb_form_data['title']}")
+                        st.write(f"**Protocol Number:** {st.session_state.irb_form_data['protocol_number']}")
+                        st.write(f"**Version:** {st.session_state.irb_form_data['version_number']}")
+                        st.write(f"**Date:** {st.session_state.irb_form_data['version_date']}")
 
-                    # Create a unified project description that includes all sections of the protocol
-                    full_project_description = f"""
-# {title}
+                        st.subheader("1. BACKGROUND INFORMATION AND SCIENTIFIC RATIONALE")
+                        st.write(st.session_state.irb_form_data['background'])
+
+                        st.write("**Study Rationale:**")
+                        st.write(st.session_state.irb_form_data['rationale'])
+
+                        st.subheader("2. STUDY DESIGN, OBJECTIVES AND ENDPOINTS")
+                        st.write("**Primary Objective and Endpoint:**")
+                        st.write(st.session_state.irb_form_data['primary_objective'])
+
+                        if st.session_state.irb_form_data['secondary_objectives']:
+                            st.write("**Secondary Objectives:**")
+                            st.write(st.session_state.irb_form_data['secondary_objectives'])
+
+                        st.write(f"**Study Type:** {st.session_state.irb_form_data['study_type']}")
+                        st.write(f"**Study Setting:** {st.session_state.irb_form_data['study_setting']}")
+
+                        st.write("**Research Methodology:**")
+                        st.write(st.session_state.irb_form_data['methodology'])
+
+                        # Continue with other sections...
+
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            # Navigation buttons
+            st.markdown('<div class="form-navigation">', unsafe_allow_html=True)
+
+            # Previous button (not on first step)
+            col1, col2, col3 = st.columns([1, 2, 1])
+
+            with col1:
+                if st.session_state.irb_form_step > 1:
+                    prev_button = st.form_submit_button("← Previous Step")
+                    if prev_button:
+                        update_form_state("prev")
+                        st.experimental_rerun()
+
+            # Submit button on last step or Next button on other steps
+            with col3:
+                if st.session_state.irb_form_step == 7:
+                    submit_button = st.form_submit_button("Submit Application")
+                    if submit_button:
+                        # Check for missing required fields
+                        missing_fields = []
+                        for field, label in required_fields.items():
+                            if field not in st.session_state.irb_form_data or not st.session_state.irb_form_data[field]:
+                                missing_fields.append(label)
+
+                        if missing_fields:
+                            st.error(f"Please complete all required fields before submitting")
+                        else:
+                            try:
+                                # Process submission
+                                form_data = st.session_state.irb_form_data
+
+                                # Include the list of collaborating institutions in the submission
+                                collaborating_institutions = form_data.get("collaborating_institutions", [])
+                                all_institutions = [form_data["institution_id"]] + collaborating_institutions
+
+                                # Create a unified project description that includes all sections of the protocol
+                                full_project_description = f"""
+# {form_data['title']}
 
 ## Protocol Information
-- Protocol Number: {protocol_number}
-- Version: {version_number}
-- Date: {version_date}
-- IRB#: {irb_number}
+- Protocol Number: {form_data.get('protocol_number', '')}
+- Version: {form_data.get('version_number', '1.0')}
+- Date: {form_data.get('version_date', datetime.now().date())}
+- IRB#: {form_data.get('irb_number', '')}
 
 ## 1. BACKGROUND INFORMATION AND SCIENTIFIC RATIONALE
-{background}
+{form_data.get('background', '')}
 
 ### Study Rationale
-{rationale}
+{form_data.get('rationale', '')}
 
 ## 2. STUDY DESIGN, OBJECTIVES AND ENDPOINTS
 ### Primary Objective and Endpoint
-{primary_objective}
+{form_data.get('primary_objective', '')}
 
 ### Secondary Objectives
-{secondary_objectives}
+{form_data.get('secondary_objectives', '')}
 
 ### Study Design
-- Type: {study_type}
-- Setting: {study_setting}
+- Type: {form_data.get('study_type', '')}
+- Setting: {form_data.get('study_setting', '')}
 
 ### Research Methodology
-{methodology}
+{form_data.get('methodology', '')}
 
 ## 3. STUDY POPULATION
 ### Participant Selection
-{participant_selection}
+{form_data.get('participant_selection', '')}
 
 ### Inclusion Criteria
-{inclusion_criteria}
+{form_data.get('inclusion_criteria', '')}
 
 ### Exclusion Criteria
-{exclusion_criteria}
+{form_data.get('exclusion_criteria', '')}
 
 ### Vulnerable Populations
-{vulnerable_populations}
+{form_data.get('vulnerable_populations', '')}
 
 ## 4. STUDY PROCEDURES
 ### Data Sources
-{data_sources}
+{form_data.get('data_sources', '')}
 
 ### Case Ascertainment
-{case_ascertainment}
+{form_data.get('case_ascertainment', '')}
 
 ### Variable Abstraction
-{variable_abstraction}
+{form_data.get('variable_abstraction', '')}
 
 ## 5. STATISTICAL CONSIDERATIONS
-{statistical_methods}
+{form_data.get('statistical_methods', '')}
 
 ### Sample Size Determination
-{sample_size}
+{form_data.get('sample_size', '')}
 
 ## 6. RISK-BENEFIT ASSESSMENT & ETHICAL CONSIDERATIONS
-{risks_and_benefits}
+{form_data.get('risks_and_benefits', '')}
 
 ### Consent Process
-{consent_process}
+{form_data.get('consent_process', '')}
 
 ### Data Safety and Privacy
-{data_safety_plan}
+{form_data.get('data_safety_plan', '')}
 
 ## 7. TIMELINE AND REFERENCES
 ### Timeline
-{timeline}
+{form_data.get('timeline', '')}
 
 ### References
-{references}
+{form_data.get('references', '')}
 """
 
-                    submission_id = submit_irb_application(
-                        title=title,
-                        pi_id=st.session_state.user_id,
-                        institution_id=institution_id,
-                        project_description=full_project_description,
-                        methodology=methodology,
-                        risks_and_benefits=risks_and_benefits,
-                        participant_selection=participant_selection,
-                        consent_process=consent_process,
-                        data_safety_plan=data_safety_plan,
-                        collaborating_institutions=all_institutions
-                    )
+                                submission_id = submit_irb_application(
+                                    title=form_data['title'],
+                                    pi_id=st.session_state.user_id,
+                                    institution_id=form_data['institution_id'],
+                                    project_description=full_project_description,
+                                    methodology=form_data['methodology'],
+                                    risks_and_benefits=form_data['risks_and_benefits'],
+                                    participant_selection=form_data['participant_selection'],
+                                    consent_process=form_data['consent_process'],
+                                    data_safety_plan=form_data['data_safety_plan'],
+                                    collaborating_institutions=all_institutions
+                                )
 
-                    st.success(f"""
-                        IRB application submitted successfully!
-                        Submission ID: {submission_id}
+                                st.success(f"""
+                                    IRB application submitted successfully!
+                                    Submission ID: {submission_id}
 
-                        Your application will be reviewed by {len(all_institutions)} institution(s).
-                    """)
+                                    Your application will be reviewed by {len(all_institutions)} institution(s).
+                                """)
 
-                except Exception as e:
-                    st.error(f"Error submitting IRB application: {str(e)}")
+                                # Reset form after successful submission
+                                update_form_state("reset")
+                                st.experimental_rerun()
+
+                            except Exception as e:
+                                st.error(f"Error submitting IRB application: {str(e)}")
+                else:
+                    next_button = st.form_submit_button("Next Step →")
+                    if next_button:
+                        update_form_state("next")
+                        st.experimental_rerun()
+
+            with col2:
+                if st.form_submit_button("Save Draft"):
+                    st.success("Your progress has been saved. You can continue later.")
+
+            st.markdown('</div>', unsafe_allow_html=True)
+
         st.markdown('</div>', unsafe_allow_html=True)
 
     with tab2:
@@ -825,60 +1110,14 @@ def irb_portal():
                                             else:
                                                 st.error("Failed to update approval status.")
                                         except Exception as e:
-                                            st.error(f"Error submitting institutional review: {str(e)}")
-                            else:
-                                st.error("Could not retrieve submission details.")
-
-                    else:
-                        # Show previous review details
-                        with st.expander("View Approval Details"):
-                            st.info(f"This submission has already been reviewed with status: {row['approval_status'].upper()}")
-
-                            if pd.notna(row['comments']):
-                                st.markdown("**Review Comments:**")
-                                st.write(row['comments'])
-
-                            # Add option to update the status if needed
-                            if st.button(f"Update approval status for #{row['id']}", key=f"update_{row['approval_id']}"):
-                                st.session_state[f"show_update_form_{row['approval_id']}"] = True
-
-                            if st.session_state.get(f"show_update_form_{row['approval_id']}", False):
-                                with st.form(f"update_form_{row['approval_id']}"):
-                                    new_comments = st.text_area(
-                                        "Updated Comments",
-                                        value=row['comments'] if pd.notna(row['comments']) else "",
-                                        key=f"update_comments_{row['approval_id']}"
-                                    )
-
-                                    new_status = st.radio(
-                                        "Updated Decision",
-                                        ["approved", "rejected", "pending"],
-                                        index=0 if row['approval_status'] == 'approved' else 
-                                              1 if row['approval_status'] == 'rejected' else 2,
-                                        key=f"update_status_{row['approval_id']}"
-                                    )
-
-                                    if st.form_submit_button("Update Approval"):
-                                        try:
-                                            updated = update_institutional_approval(
-                                                approval_id=row['approval_id'],
-                                                reviewer_id=st.session_state.user_id,
-                                                status=new_status,
-                                                comments=new_comments
-                                            )
-
-                                            if updated:
-                                                st.success("Approval status updated successfully!")
-                                                st.rerun()
-                                            else:
-                                                st.error("Failed to update approval status.")
-                                        except Exception as e:
-                                            st.error(f"Error updating approval status: {str(e)}")
+                                            st.error(f"Error updating institutional approval: {str(e)}")
 
         except Exception as e:
             st.error(f"Error loading institutional approvals: {str(e)}")
-
         st.markdown('</div>', unsafe_allow_html=True)
 
-if __name__ == "__main__":
+def main():
     irb_portal()
+
+if __name__ == "__main__":
+    main()
