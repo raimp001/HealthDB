@@ -8,6 +8,7 @@ from components.navigation import render_navigation
 import asyncio
 import json
 import time
+from sqlalchemy import create_engine
 
 # Blockchain Storage Function
 async def store_on_blockchain(data, metadata):
@@ -121,8 +122,67 @@ def data_upload_page():
                 st.error(f"Error processing file: {str(e)}")
 
     elif source_type == "Database":
-        st.write("Database extraction feature coming soon...")
-        # Future implementation: Add fields for database connection and query
+        st.subheader("Database Extraction")
+        db_type = st.selectbox("Database Type", ["SQL Server", "Oracle", "MySQL", "PostgreSQL"],
+                               help="Select the database type for your EMR (e.g., SQL Server for Epic Clarity)")
+        connection_string = st.text_input("Connection String",
+                                         help="Example: SERVER=your_server;DATABASE=your_db;UID=your_user;PWD=your_password")
+        sql_query = st.text_area("SQL Query", height=200,
+                                 help="Enter your SQL query, e.g., 'SELECT MRN, CAR_T_DATE FROM PAT_ENC'")
+
+        if st.button("Fetch Data"):
+            if not connection_string or not sql_query:
+                st.error("Please provide both a connection string and an SQL query.")
+            else:
+                try:
+                    # Map database type to SQLAlchemy dialect
+                    dialect_map = {
+                        "SQL Server": "mssql+pyodbc",
+                        "Oracle": "oracle+cx_oracle",
+                        "MySQL": "mysql+pymysql",
+                        "PostgreSQL": "postgresql+psycopg2"
+                    }
+                    # Create database engine
+                    engine = create_engine(f"{dialect_map[db_type]}://{connection_string}")
+                    # Fetch data
+                    df = pd.read_sql(sql_query, engine)
+                    st.write("Preview of extracted data:")
+                    st.dataframe(df.head())
+
+                    # Validate data
+                    validation_results = validate_data(df)
+                    st.subheader("Data Validation Results")
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.write("Missing Values:")
+                        st.write(validation_results['missing_values'])
+                    with col2:
+                        st.write("Duplicate Rows:", validation_results['duplicate_rows'])
+                        st.write("Column Types:")
+                        st.write(validation_results['column_types'])
+
+                    if st.button("Save Data", key="save_db_data"):
+                        try:
+                            metadata = generate_metadata(df)
+                            blockchain_result = asyncio.run(store_on_blockchain(
+                                df.to_json(orient='records'),
+                                metadata
+                            ))
+                            metadata_dict = json.loads(metadata)
+                            metadata_dict["blockchain"] = blockchain_result
+                            updated_metadata = json.dumps(metadata_dict)
+                            data_id = save_research_data(
+                                project_id=project_id,
+                                data_type="database_extraction",
+                                data_value=df.to_json(orient='records'),
+                                metadata=updated_metadata,
+                                user_id=st.session_state.user_id
+                            )
+                            st.success("Data saved successfully!")
+                        except Exception as e:
+                            st.error(f"Error saving data: {str(e)}")
+                except Exception as e:
+                    st.error(f"Error fetching data: {str(e)}")
 
     elif source_type == "API":
         st.write("API extraction feature coming soon...")
