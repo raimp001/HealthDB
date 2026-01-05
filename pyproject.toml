@@ -1,28 +1,16 @@
 [project]
-name = "repl-nix-workspace"
-version = "0.1.0"
-description = "Add your description here"
+name = "healthdb"
+version = "1.0.0"
+description = "HealthDB - Longitudinal Cancer Research Data Platform"
 requires-python = ">=3.11"
 dependencies = [
-    "face-recognition>=1.3.0",
-    "numpy<2.0.0",
-    "pandas<2.0.0",
-    "pillow>=11.1.0",
-    "plotly>=5.24.1",
-    "psycopg2-binary>=2.9.10",
-    "pybtex>=0.24.0",
-    "requests-html>=0.10.0",
-    "requests>=2.32.3",
-    "scholarly>=1.7.11",
-    "streamlit>=1.41.1",
-    "webauthn>=2.4.0",
-    "twilio>=9.4.1",
-    "openai>=1.59.5",
-    "pytesseract>=0.3.13",
-    "pdf2image>=1.17.0",
-    "python-docx>=1.1.2",
-    "spacy>=3.8.4",
-    "nltk>=3.9.1",
-    "chunkr>=0.3.1",
-    "pyarrow<12.0.0",
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "sqlalchemy>=2.0.25",
+    "psycopg2-binary>=2.9.9",
+    "python-jose[cryptography]>=3.3.0",
+    "passlib[bcrypt]>=1.7.4",
+    "python-multipart>=0.0.6",
+    "pydantic[email]>=2.5.3",
+    "aiofiles>=23.2.1",
 ]

@@ -1,6 +1,5 @@
 {
   "version": 2,
-  "name": "healthdb",
   "builds": [
     {
       "src": "api/main.py",
@@ -26,9 +25,5 @@
       "src": "/(.*)",
       "dest": "/build/$1"
     }
-  ],
-  "env": {
-    "DATABASE_URL": "@database_url",
-    "JWT_SECRET": "@jwt_secret"
-  }
+  ]
 }
