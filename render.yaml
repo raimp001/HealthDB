@@ -1,0 +1,44 @@
+# Render.com Blueprint for HealthDB
+# Deploy with: render blueprint apply
+
+services:
+  # Backend API
+  - type: web
+    name: healthdb-api
+    env: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn api.main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: healthdb-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: PYTHON_VERSION
+        value: "3.11"
+    autoDeploy: true
+
+  # Frontend Static Site
+  - type: web
+    name: healthdb-frontend
+    env: static
+    plan: starter
+    buildCommand: npm install && npm run build
+    staticPublishPath: build
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+    envVars:
+      - key: REACT_APP_API_URL
+        value: https://healthdb-api.onrender.com
+    autoDeploy: true
+
+databases:
+  - name: healthdb-db
+    databaseName: healthdb
+    plan: starter
+    ipAllowList: []
