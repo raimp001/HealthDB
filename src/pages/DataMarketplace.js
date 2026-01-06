@@ -14,7 +14,6 @@ const DataMarketplace = () => {
     fetch(`${API_URL}/api/marketplace/products`)
       .then(res => res.json())
       .then(data => {
-        // Transform API data to match component expectations
         const transformed = data.map(p => ({
           id: p.id,
           name: p.name,
@@ -40,7 +39,7 @@ const DataMarketplace = () => {
   }, []);
 
   const categories = [
-    { id: 'all', label: 'All Datasets' },
+    { id: 'all', label: 'All' },
     { id: 'Hematologic', label: 'Hematologic' },
     { id: 'Solid Tumor', label: 'Solid Tumor' },
     { id: 'Cell Therapy', label: 'Cell Therapy' },
@@ -63,237 +62,219 @@ const DataMarketplace = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-black flex items-center justify-center pt-20">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
-          <p className="text-slate-600">Loading datasets...</p>
+          <div className="w-8 h-8 border border-white/20 border-t-white/60 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white/40 text-sm">Loading datasets...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-black pt-20">
       {/* Header */}
-      <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h1 className="text-3xl font-bold mb-2">Data Marketplace</h1>
-          <p className="text-emerald-100">Access curated, analysis-ready oncology datasets</p>
+      <section className="py-20 px-6 border-b border-white/5">
+        <div className="max-w-6xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <p className="text-xs uppercase tracking-[0.3em] text-white/40 mb-4">
+              Platform
+            </p>
+            <h1 className="heading-display text-4xl md:text-5xl lg:text-6xl text-white/90 mb-6">
+              Data Marketplace
+            </h1>
+            <p className="text-white/40 text-lg max-w-2xl">
+              Access curated, analysis-ready oncology datasets for research.
+            </p>
+          </motion.div>
         </div>
-      </div>
+      </section>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Search and Filters */}
-        <div className="bg-white rounded-xl shadow-sm p-4 mb-8 flex flex-col md:flex-row gap-4">
-          <div className="flex-grow">
-            <input
-              type="text"
-              placeholder="Search datasets..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-            />
-          </div>
-          <div className="flex gap-2">
-            {categories.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => setSelectedCategory(cat.id)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  selectedCategory === cat.id
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                {cat.label}
-              </button>
-            ))}
+      {/* Search and Filters */}
+      <section className="py-8 px-6 border-b border-white/5">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex flex-col md:flex-row gap-6 items-start md:items-center justify-between">
+            <div className="relative w-full md:w-96">
+              <input
+                type="text"
+                placeholder="Search datasets..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 focus:border-white/30 focus:outline-none transition-colors"
+              />
+              <svg className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <div className="flex gap-2">
+              {categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setSelectedCategory(cat.id)}
+                  className={`px-4 py-2 text-xs uppercase tracking-wider transition-all ${
+                    selectedCategory === cat.id
+                      ? 'bg-white text-black'
+                      : 'bg-transparent text-white/50 border border-white/10 hover:border-white/30'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
+      </section>
 
-        {/* Featured Section */}
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold text-slate-900 mb-4">Featured Datasets</h2>
-          <div className="grid md:grid-cols-3 gap-6">
-            {filteredProducts.filter(p => p.isFeatured).map((product) => (
-              <motion.div
-                key={product.id}
-                whileHover={{ y: -4 }}
-                className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden cursor-pointer"
-                onClick={() => setSelectedProduct(product)}
-              >
-                <div className="bg-gradient-to-r from-emerald-500 to-teal-500 p-4">
-                  <span className="inline-flex items-center px-2 py-1 rounded-full bg-white/20 text-white text-xs font-medium">
-                    ⭐ Featured
-                  </span>
-                </div>
-                <div className="p-6">
-                  <h3 className="font-semibold text-slate-900 mb-2">{product.name}</h3>
-                  <p className="text-slate-600 text-sm mb-4 line-clamp-2">{product.description}</p>
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {product.cancerTypes.slice(0, 2).map((type) => (
-                      <span key={type} className="px-2 py-1 bg-slate-100 rounded text-xs text-slate-600">
-                        {type}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-                    <div>
-                      <span className="text-slate-500">Patients</span>
-                      <div className="font-semibold text-slate-900">{product.patientCount.toLocaleString()}</div>
+      {/* Products Grid */}
+      <section className="py-12 px-6">
+        <div className="max-w-6xl mx-auto">
+          {/* Featured */}
+          {filteredProducts.filter(p => p.isFeatured).length > 0 && (
+            <div className="mb-16">
+              <p className="text-xs uppercase tracking-[0.3em] text-white/40 mb-8">Featured Datasets</p>
+              <div className="grid md:grid-cols-3 gap-px bg-white/5">
+                {filteredProducts.filter(p => p.isFeatured).map((product, index) => (
+                  <motion.div
+                    key={product.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: index * 0.1 }}
+                    onClick={() => setSelectedProduct(product)}
+                    className="card-glass card-hover p-8 cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="w-2 h-2 bg-[#00d4aa] rounded-full"></span>
+                      <span className="text-xs text-[#00d4aa] uppercase tracking-wider">Featured</span>
                     </div>
-                    <div>
-                      <span className="text-slate-500">Completeness</span>
-                      <div className="font-semibold text-slate-900">{product.completeness}%</div>
+                    <h3 className="text-lg font-medium text-white mb-3 group-hover:text-[#00d4aa] transition-colors">
+                      {product.name}
+                    </h3>
+                    <p className="text-white/40 text-sm mb-6 line-clamp-2">{product.description}</p>
+                    <div className="flex justify-between items-end">
+                      <div>
+                        <p className="text-white/30 text-xs mb-1">Completeness</p>
+                        <p className="text-white font-mono">{product.completeness}%</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-white/30 text-xs mb-1">From</p>
+                        <p className="text-white font-mono">{formatPrice(product.priceFrom)}</p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-                    <div>
-                      <span className="text-slate-500 text-sm">From</span>
-                      <div className="font-bold text-emerald-600">{formatPrice(product.priceFrom)}</div>
-                    </div>
-                    <button className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700">
-                      View Details
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          )}
 
-        {/* All Products */}
-        <div>
-          <h2 className="text-xl font-semibold text-slate-900 mb-4">All Datasets</h2>
-          <div className="space-y-4">
-            {filteredProducts.map((product) => (
-              <motion.div
-                key={product.id}
-                whileHover={{ scale: 1.01 }}
-                className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 cursor-pointer"
-                onClick={() => setSelectedProduct(product)}
-              >
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div className="flex-grow">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="font-semibold text-slate-900">{product.name}</h3>
-                      <span className="px-2 py-1 bg-slate-100 rounded text-xs text-slate-600">
-                        {product.category}
-                      </span>
+          {/* All Products */}
+          <div>
+            <p className="text-xs uppercase tracking-[0.3em] text-white/40 mb-8">All Datasets</p>
+            <div className="space-y-px">
+              {filteredProducts.map((product, index) => (
+                <motion.div
+                  key={product.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.3, delay: index * 0.05 }}
+                  onClick={() => setSelectedProduct(product)}
+                  className="card-glass card-hover p-6 cursor-pointer group"
+                >
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex-grow">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="text-white font-medium group-hover:text-[#00d4aa] transition-colors">
+                          {product.name}
+                        </h3>
+                        <span className="px-2 py-0.5 text-xs text-white/40 border border-white/10">
+                          {product.category}
+                        </span>
+                      </div>
+                      <p className="text-white/40 text-sm">{product.description}</p>
                     </div>
-                    <p className="text-slate-600 text-sm mb-3">{product.description}</p>
-                    <div className="flex flex-wrap gap-4 text-sm">
-                      <span className="text-slate-500">
-                        <strong className="text-slate-900">{product.patientCount.toLocaleString()}</strong> patients
-                      </span>
-                      <span className="text-slate-500">
-                        <strong className="text-slate-900">{product.recordCount.toLocaleString()}</strong> records
-                      </span>
-                      <span className="text-slate-500">
-                        <strong className="text-slate-900">{product.completeness}%</strong> completeness
-                      </span>
-                      <span className="text-slate-500">
-                        <strong className="text-slate-900">{product.dateRange}</strong>
-                      </span>
+                    <div className="flex items-center gap-8 text-sm">
+                      <div>
+                        <p className="text-white/30 text-xs">Completeness</p>
+                        <p className="text-white font-mono">{product.completeness}%</p>
+                      </div>
+                      <div>
+                        <p className="text-white/30 text-xs">From</p>
+                        <p className="text-white font-mono">{formatPrice(product.priceFrom)}</p>
+                      </div>
+                      <button className="px-4 py-2 border border-white/20 text-white/60 text-xs uppercase tracking-wider hover:bg-white hover:text-black transition-all">
+                        View
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <span className="text-slate-500 text-sm">From</span>
-                      <div className="font-bold text-lg text-emerald-600">{formatPrice(product.priceFrom)}</div>
-                    </div>
-                    <button className="px-6 py-3 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700">
-                      Learn More
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Product Detail Modal */}
       {selectedProduct && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+            className="bg-black border border-white/10 max-w-3xl w-full max-h-[90vh] overflow-y-auto"
           >
-            <div className="bg-gradient-to-r from-emerald-500 to-teal-500 p-6 rounded-t-2xl">
+            <div className="p-8 border-b border-white/10">
               <div className="flex justify-between items-start">
                 <div>
-                  <span className="inline-flex items-center px-2 py-1 rounded-full bg-white/20 text-white text-xs font-medium mb-2">
-                    {selectedProduct.category}
-                  </span>
-                  <h2 className="text-2xl font-bold text-white">{selectedProduct.name}</h2>
+                  <span className="text-xs text-white/40 uppercase tracking-wider">{selectedProduct.category}</span>
+                  <h2 className="text-2xl font-medium text-white mt-2">{selectedProduct.name}</h2>
                 </div>
                 <button
                   onClick={() => setSelectedProduct(null)}
-                  className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                  className="p-2 hover:bg-white/10 transition-colors"
                 >
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <svg className="w-5 h-5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
             </div>
 
-            <div className="p-6">
-              <p className="text-slate-600 mb-6">{selectedProduct.description}</p>
+            <div className="p-8">
+              <p className="text-white/50 mb-8">{selectedProduct.description}</p>
 
-              {/* Stats Grid */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-slate-50 rounded-lg p-4 text-center">
-                  <div className="text-2xl font-bold text-slate-900">{selectedProduct.patientCount.toLocaleString()}</div>
-                  <div className="text-sm text-slate-500">Patients</div>
-                </div>
-                <div className="bg-slate-50 rounded-lg p-4 text-center">
-                  <div className="text-2xl font-bold text-slate-900">{selectedProduct.recordCount.toLocaleString()}</div>
-                  <div className="text-sm text-slate-500">Records</div>
-                </div>
-                <div className="bg-slate-50 rounded-lg p-4 text-center">
-                  <div className="text-2xl font-bold text-slate-900">{selectedProduct.completeness}%</div>
-                  <div className="text-sm text-slate-500">Completeness</div>
-                </div>
-                <div className="bg-slate-50 rounded-lg p-4 text-center">
-                  <div className="text-2xl font-bold text-slate-900">{selectedProduct.dateRange.split(' ')[0]}</div>
-                  <div className="text-sm text-slate-500">Data From</div>
-                </div>
+              <div className="grid grid-cols-4 gap-4 mb-8">
+                {[
+                  { label: 'Patients', value: selectedProduct.patientCount.toLocaleString() },
+                  { label: 'Records', value: selectedProduct.recordCount.toLocaleString() },
+                  { label: 'Completeness', value: `${selectedProduct.completeness}%` },
+                  { label: 'Range', value: selectedProduct.dateRange.split(' ')[0] },
+                ].map((stat) => (
+                  <div key={stat.label} className="p-4 bg-white/5 border border-white/5">
+                    <p className="text-white/30 text-xs mb-1">{stat.label}</p>
+                    <p className="text-white font-mono text-lg">{stat.value}</p>
+                  </div>
+                ))}
               </div>
 
-              {/* Data Categories */}
-              <div className="mb-6">
-                <h3 className="font-semibold text-slate-900 mb-3">Data Categories Included</h3>
-                <div className="flex flex-wrap gap-2">
-                  {selectedProduct.dataCategories.map((cat) => (
-                    <span key={cat} className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm">
-                      {cat}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Pricing Tiers */}
-              <div className="mb-6">
-                <h3 className="font-semibold text-slate-900 mb-3">Pricing Tiers</h3>
-                <div className="grid md:grid-cols-4 gap-4">
+              <div className="mb-8">
+                <p className="text-xs uppercase tracking-[0.2em] text-white/40 mb-4">Pricing Tiers</p>
+                <div className="grid grid-cols-4 gap-4">
                   {Object.entries(selectedProduct.pricingTiers).map(([tier, price]) => (
-                    <div key={tier} className="border border-slate-200 rounded-lg p-4 text-center">
-                      <div className="text-sm text-slate-500 capitalize mb-1">{tier}</div>
-                      <div className="text-xl font-bold text-slate-900">{formatPrice(price)}</div>
+                    <div key={tier} className="p-4 border border-white/10 text-center">
+                      <p className="text-white/40 text-xs uppercase mb-2">{tier}</p>
+                      <p className="text-white font-mono">{formatPrice(price)}</p>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* CTA */}
               <div className="flex gap-4">
-                <button className="flex-1 py-3 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition-all">
+                <button className="flex-1 py-3 bg-white text-black text-xs uppercase tracking-wider font-medium hover:bg-gray-100 transition-colors">
                   Request Access
                 </button>
-                <button className="flex-1 py-3 border border-slate-300 text-slate-700 rounded-lg font-semibold hover:bg-slate-50 transition-all">
+                <button className="flex-1 py-3 border border-white/20 text-white text-xs uppercase tracking-wider hover:bg-white/10 transition-colors">
                   Download Sample
                 </button>
               </div>
@@ -306,4 +287,3 @@ const DataMarketplace = () => {
 };
 
 export default DataMarketplace;
-

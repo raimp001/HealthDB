@@ -1,348 +1,318 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+
 const PatientPortal = () => {
-  const [activeTab, setActiveTab] = useState('dashboard');
-  
-  // Mock patient data
-  const patientData = {
-    points: 450,
-    cashValue: 4.50,
-    consentsActive: 3,
-    studiesContributing: 12,
-    dataAccesses: 8,
-  };
+  const [patientData, setPatientData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('overview');
 
-  const consents = [
-    { id: 1, type: 'General Research', status: 'active', signedDate: '2025-01-15', expiresAt: '2026-01-15' },
-    { id: 2, type: 'Commercial Research', status: 'active', signedDate: '2025-01-15', expiresAt: '2026-01-15' },
-    { id: 3, type: 'Genetic Research', status: 'pending', signedDate: null, expiresAt: null },
-  ];
-
-  const rewards = [
-    { date: '2026-01-03', activity: 'Data accessed by researcher', points: 50 },
-    { date: '2026-01-02', activity: 'Completed health survey', points: 15 },
-    { date: '2025-12-28', activity: 'Data contributed to study', points: 50 },
-    { date: '2025-12-20', activity: 'Profile verification bonus', points: 100 },
-    { date: '2025-12-15', activity: 'Initial consent bonus', points: 100 },
-  ];
-
-  const accessLog = [
-    { date: '2026-01-03', institution: 'Stanford Cancer Center', dataType: 'Treatment outcomes', purpose: 'Treatment optimization study' },
-    { date: '2025-12-28', institution: 'NIH Lymphoma Study', dataType: 'All de-identified', purpose: 'Longitudinal outcomes research' },
-    { date: '2025-12-15', institution: 'Mayo Clinic Research', dataType: 'Lab results', purpose: 'Biomarker analysis' },
-  ];
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    fetch(`${API_URL}/api/patient/dashboard`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(res => res.json())
+      .then(data => {
+        setPatientData(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Failed to fetch patient data:', err);
+        // Demo data for display
+        setPatientData({
+          consent_status: 'active',
+          rewards_points: 450,
+          last_contribution: '2024-01-15',
+          data_access_log: [],
+        });
+        setLoading(false);
+      });
+  }, []);
 
   const tabs = [
-    { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-    { id: 'consents', label: 'My Consents', icon: '📝' },
-    { id: 'rewards', label: 'Rewards', icon: '🎁' },
-    { id: 'access', label: 'Access Log', icon: '🔍' },
-    { id: 'data', label: 'My Data', icon: '💾' },
+    { id: 'overview', label: 'Overview' },
+    { id: 'consent', label: 'Consent' },
+    { id: 'data', label: 'My Data' },
+    { id: 'rewards', label: 'Rewards' },
   ];
 
-  return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold mb-2">Patient Portal</h1>
-              <p className="text-purple-100">Manage your data, earn rewards, and contribute to research</p>
-            </div>
-            <div className="hidden md:flex items-center space-x-4">
-              <div className="text-center bg-white/10 backdrop-blur rounded-xl px-6 py-3">
-                <div className="text-3xl font-bold">{patientData.points}</div>
-                <div className="text-sm text-purple-100">Points Balance</div>
-              </div>
-              <div className="text-center bg-white/10 backdrop-blur rounded-xl px-6 py-3">
-                <div className="text-3xl font-bold">${patientData.cashValue.toFixed(2)}</div>
-                <div className="text-sm text-purple-100">Cash Value</div>
-              </div>
-            </div>
-          </div>
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center pt-20">
+        <div className="text-center">
+          <div className="w-8 h-8 border border-white/20 border-t-white/60 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white/40 text-sm">Loading your data...</p>
         </div>
       </div>
+    );
+  }
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Sidebar */}
-          <div className="lg:w-64 flex-shrink-0">
-            <nav className="bg-white rounded-xl shadow-sm p-2">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`w-full flex items-center px-4 py-3 rounded-lg text-left text-sm font-medium transition-all ${
-                    activeTab === tab.id
-                      ? 'bg-purple-50 text-purple-600'
-                      : 'text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  <span className="text-xl mr-3">{tab.icon}</span>
-                  {tab.label}
-                </button>
-              ))}
-            </nav>
+  return (
+    <div className="min-h-screen bg-black pt-20">
+      {/* Header */}
+      <section className="py-16 px-6 border-b border-white/5">
+        <div className="max-w-6xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="flex flex-col md:flex-row md:items-end justify-between gap-6"
+          >
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-white/40 mb-4">
+                Patient Portal
+              </p>
+              <h1 className="heading-display text-4xl md:text-5xl text-white/90">
+                Your Dashboard
+              </h1>
+            </div>
+            <div className="flex items-center gap-6">
+              <div className="text-right">
+                <p className="text-white/40 text-xs mb-1">Consent Status</p>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-[#00d4aa] rounded-full"></span>
+                  <span className="text-[#00d4aa] uppercase text-sm tracking-wider">
+                    {patientData?.consent_status || 'Active'}
+                  </span>
+                </div>
+              </div>
+              <div className="h-8 w-px bg-white/10"></div>
+              <div className="text-right">
+                <p className="text-white/40 text-xs mb-1">Rewards</p>
+                <p className="text-white font-mono text-lg">
+                  {patientData?.rewards_points || 0} pts
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Tabs */}
+      <section className="border-b border-white/5">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="flex gap-1">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-6 py-4 text-xs uppercase tracking-wider transition-colors ${
+                  activeTab === tab.id
+                    ? 'text-white border-b-2 border-white'
+                    : 'text-white/40 hover:text-white/60'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
+        </div>
+      </section>
 
-          {/* Content Area */}
-          <div className="flex-grow">
-            {activeTab === 'dashboard' && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-6"
-              >
-                {/* Stats Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-white rounded-xl p-6 shadow-sm">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-slate-500 text-sm">Active Consents</p>
-                        <p className="text-3xl font-bold text-slate-900">{patientData.consentsActive}</p>
-                      </div>
-                      <div className="text-4xl">📝</div>
-                    </div>
+      {/* Content */}
+      <section className="py-12 px-6">
+        <div className="max-w-6xl mx-auto">
+          {activeTab === 'overview' && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              {/* Stats Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/5 mb-12">
+                {[
+                  { label: 'Data Points Shared', value: '2,847' },
+                  { label: 'Studies Contributing To', value: '12' },
+                  { label: 'Rewards Earned', value: `${patientData?.rewards_points || 450}` },
+                  { label: 'Data Requests', value: '3' },
+                ].map((stat) => (
+                  <div key={stat.label} className="card-glass p-6">
+                    <p className="text-white/40 text-xs uppercase tracking-wider mb-2">{stat.label}</p>
+                    <p className="text-2xl font-light text-white font-mono">{stat.value}</p>
                   </div>
-                  <div className="bg-white rounded-xl p-6 shadow-sm">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-slate-500 text-sm">Studies Contributing To</p>
-                        <p className="text-3xl font-bold text-slate-900">{patientData.studiesContributing}</p>
-                      </div>
-                      <div className="text-4xl">🔬</div>
-                    </div>
-                  </div>
-                  <div className="bg-white rounded-xl p-6 shadow-sm">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-slate-500 text-sm">Data Accesses</p>
-                        <p className="text-3xl font-bold text-slate-900">{patientData.dataAccesses}</p>
-                      </div>
-                      <div className="text-4xl">👁️</div>
-                    </div>
-                  </div>
-                </div>
+                ))}
+              </div>
 
-                {/* Recent Activity */}
-                <div className="bg-white rounded-xl p-6 shadow-sm">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Recent Activity</h3>
-                  <div className="space-y-4">
-                    {rewards.slice(0, 3).map((item, index) => (
-                      <div key={index} className="flex items-center justify-between border-b border-slate-100 pb-4 last:border-0">
-                        <div>
-                          <p className="text-slate-900 font-medium">{item.activity}</p>
-                          <p className="text-slate-500 text-sm">{item.date}</p>
-                        </div>
-                        <span className="text-green-600 font-semibold">+{item.points} pts</span>
+              {/* Recent Activity */}
+              <div className="mb-12">
+                <h2 className="text-lg font-medium text-white mb-6">Recent Activity</h2>
+                <div className="space-y-px">
+                  {[
+                    { action: 'Data accessed by Memorial Sloan Kettering', date: '2 hours ago', type: 'access' },
+                    { action: 'Treatment update added', date: '1 day ago', type: 'update' },
+                    { action: '+25 rewards points earned', date: '3 days ago', type: 'reward' },
+                    { action: 'New study invitation received', date: '1 week ago', type: 'invite' },
+                  ].map((activity, index) => (
+                    <div key={index} className="card-glass card-hover p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className={`w-2 h-2 rounded-full ${
+                          activity.type === 'access' ? 'bg-blue-400' :
+                          activity.type === 'reward' ? 'bg-[#00d4aa]' :
+                          activity.type === 'invite' ? 'bg-purple-400' : 'bg-white/40'
+                        }`}></div>
+                        <span className="text-white/70 text-sm">{activity.action}</span>
                       </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Quick Actions */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <button className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-xl p-6 text-left hover:from-purple-600 hover:to-indigo-600 transition-all">
-                    <span className="text-2xl">📋</span>
-                    <h3 className="text-lg font-semibold mt-2">Complete Health Survey</h3>
-                    <p className="text-purple-100 text-sm">Earn 50 points</p>
-                  </button>
-                  <button className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl p-6 text-left hover:from-emerald-600 hover:to-teal-600 transition-all">
-                    <span className="text-2xl">🎁</span>
-                    <h3 className="text-lg font-semibold mt-2">Redeem Rewards</h3>
-                    <p className="text-emerald-100 text-sm">{patientData.points} points available</p>
-                  </button>
-                </div>
-              </motion.div>
-            )}
-
-            {activeTab === 'consents' && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-white rounded-xl shadow-sm"
-              >
-                <div className="p-6 border-b border-slate-100">
-                  <h2 className="text-xl font-semibold text-slate-900">Manage Your Consents</h2>
-                  <p className="text-slate-500 mt-1">Control how your data is used in research</p>
-                </div>
-                <div className="divide-y divide-slate-100">
-                  {consents.map((consent) => (
-                    <div key={consent.id} className="p-6 flex items-center justify-between">
-                      <div>
-                        <h3 className="font-semibold text-slate-900">{consent.type}</h3>
-                        {consent.signedDate ? (
-                          <p className="text-slate-500 text-sm">
-                            Signed: {consent.signedDate} • Expires: {consent.expiresAt}
-                          </p>
-                        ) : (
-                          <p className="text-slate-500 text-sm">Not yet signed</p>
-                        )}
-                      </div>
-                      <div className="flex items-center space-x-4">
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                          consent.status === 'active'
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-yellow-100 text-yellow-700'
-                        }`}>
-                          {consent.status === 'active' ? 'Active' : 'Pending'}
-                        </span>
-                        {consent.status === 'pending' ? (
-                          <button className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700">
-                            Sign Now
-                          </button>
-                        ) : (
-                          <button className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-sm font-medium">
-                            Manage
-                          </button>
-                        )}
-                      </div>
+                      <span className="text-white/30 text-xs">{activity.date}</span>
                     </div>
                   ))}
                 </div>
-              </motion.div>
-            )}
+              </div>
 
-            {activeTab === 'rewards' && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-6"
-              >
-                {/* Rewards Summary */}
-                <div className="bg-gradient-to-r from-amber-400 to-orange-500 rounded-xl p-6 text-white">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-2xl font-bold mb-2">Your Rewards</h2>
-                      <p className="text-amber-100">Thank you for contributing to research!</p>
+              {/* Quick Actions */}
+              <div>
+                <h2 className="text-lg font-medium text-white mb-6">Quick Actions</h2>
+                <div className="grid md:grid-cols-3 gap-4">
+                  {[
+                    { title: 'Update My Data', description: 'Add new treatment or test results', icon: '📝' },
+                    { title: 'Manage Consent', description: 'Review and update sharing preferences', icon: '🔒' },
+                    { title: 'View Rewards', description: 'See earned points and redeem', icon: '🎁' },
+                  ].map((action) => (
+                    <button
+                      key={action.title}
+                      className="card-glass card-hover p-6 text-left group"
+                    >
+                      <span className="text-2xl mb-4 block">{action.icon}</span>
+                      <h3 className="text-white font-medium mb-2 group-hover:text-[#00d4aa] transition-colors">
+                        {action.title}
+                      </h3>
+                      <p className="text-white/40 text-sm">{action.description}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'consent' && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div className="max-w-2xl">
+                <h2 className="text-lg font-medium text-white mb-6">Consent Management</h2>
+                <p className="text-white/40 mb-8">
+                  Control how your de-identified data is shared with researchers.
+                </p>
+
+                <div className="space-y-4">
+                  {[
+                    { label: 'Share with academic researchers', enabled: true },
+                    { label: 'Share with pharmaceutical companies', enabled: false },
+                    { label: 'Allow use in AI/ML training', enabled: true },
+                    { label: 'Participate in clinical trial matching', enabled: true },
+                  ].map((option, index) => (
+                    <div key={index} className="card-glass p-4 flex items-center justify-between">
+                      <span className="text-white/70">{option.label}</span>
+                      <button
+                        className={`w-12 h-6 rounded-full transition-colors relative ${
+                          option.enabled ? 'bg-[#00d4aa]' : 'bg-white/20'
+                        }`}
+                      >
+                        <span
+                          className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                            option.enabled ? 'right-1' : 'left-1'
+                          }`}
+                        ></span>
+                      </button>
                     </div>
-                    <div className="text-right">
-                      <div className="text-4xl font-bold">{patientData.points}</div>
-                      <div className="text-amber-100">Points (${patientData.cashValue.toFixed(2)})</div>
+                  ))}
+                </div>
+
+                <button className="mt-8 px-6 py-3 bg-white text-black text-xs uppercase tracking-wider font-medium hover:bg-gray-100 transition-colors">
+                  Save Preferences
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'data' && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              <h2 className="text-lg font-medium text-white mb-6">Your Data</h2>
+              <p className="text-white/40 mb-8">
+                View and manage the de-identified data you've contributed.
+              </p>
+
+              <div className="space-y-px">
+                {[
+                  { category: 'Demographics', records: 1, updated: '2024-01-15' },
+                  { category: 'Diagnosis', records: 3, updated: '2024-01-10' },
+                  { category: 'Treatment History', records: 8, updated: '2024-01-15' },
+                  { category: 'Lab Results', records: 24, updated: '2024-01-12' },
+                  { category: 'Imaging', records: 6, updated: '2023-12-20' },
+                ].map((item) => (
+                  <div key={item.category} className="card-glass card-hover p-4 flex items-center justify-between">
+                    <div>
+                      <h3 className="text-white font-medium">{item.category}</h3>
+                      <p className="text-white/40 text-sm">{item.records} record(s)</p>
+                    </div>
+                    <div className="flex items-center gap-6">
+                      <span className="text-white/30 text-xs">Updated {item.updated}</span>
+                      <button className="px-4 py-2 border border-white/20 text-white/60 text-xs uppercase tracking-wider hover:bg-white hover:text-black transition-all">
+                        View
+                      </button>
                     </div>
                   </div>
-                  <button className="mt-4 px-6 py-2 bg-white text-orange-600 rounded-lg font-semibold hover:bg-orange-50 transition-all">
+                ))}
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'rewards' && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div className="grid md:grid-cols-2 gap-8">
+                <div>
+                  <h2 className="text-lg font-medium text-white mb-6">Your Rewards</h2>
+                  <div className="card-glass p-8 mb-8">
+                    <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Total Points</p>
+                    <p className="text-5xl font-light text-white font-mono mb-4">
+                      {patientData?.rewards_points || 450}
+                    </p>
+                    <p className="text-white/40 text-sm">
+                      ≈ ${((patientData?.rewards_points || 450) * 0.10).toFixed(2)} value
+                    </p>
+                  </div>
+                  <button className="w-full py-3 bg-white text-black text-xs uppercase tracking-wider font-medium hover:bg-gray-100 transition-colors">
                     Redeem Points
                   </button>
                 </div>
 
-                {/* History */}
-                <div className="bg-white rounded-xl shadow-sm">
-                  <div className="p-6 border-b border-slate-100">
-                    <h3 className="text-lg font-semibold text-slate-900">Points History</h3>
-                  </div>
-                  <div className="divide-y divide-slate-100">
-                    {rewards.map((item, index) => (
-                      <div key={index} className="p-6 flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-medium text-white mb-6">Earning History</h2>
+                  <div className="space-y-px">
+                    {[
+                      { action: 'Treatment update', points: '+25', date: '3 days ago' },
+                      { action: 'Monthly participation', points: '+100', date: '1 week ago' },
+                      { action: 'Survey completed', points: '+50', date: '2 weeks ago' },
+                      { action: 'Data quality bonus', points: '+75', date: '1 month ago' },
+                    ].map((item, index) => (
+                      <div key={index} className="card-glass p-4 flex items-center justify-between">
                         <div>
-                          <p className="font-medium text-slate-900">{item.activity}</p>
-                          <p className="text-slate-500 text-sm">{item.date}</p>
+                          <p className="text-white/70 text-sm">{item.action}</p>
+                          <p className="text-white/30 text-xs">{item.date}</p>
                         </div>
-                        <span className="text-green-600 font-bold text-lg">+{item.points}</span>
+                        <span className="text-[#00d4aa] font-mono">{item.points}</span>
                       </div>
                     ))}
                   </div>
                 </div>
-              </motion.div>
-            )}
-
-            {activeTab === 'access' && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-white rounded-xl shadow-sm"
-              >
-                <div className="p-6 border-b border-slate-100">
-                  <h2 className="text-xl font-semibold text-slate-900">Data Access Log</h2>
-                  <p className="text-slate-500 mt-1">See who has accessed your de-identified data</p>
-                </div>
-                <div className="divide-y divide-slate-100">
-                  {accessLog.map((item, index) => (
-                    <div key={index} className="p-6">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className="font-semibold text-slate-900">{item.institution}</h3>
-                          <p className="text-slate-600 mt-1">{item.purpose}</p>
-                          <p className="text-slate-500 text-sm mt-2">
-                            Data accessed: <span className="font-medium">{item.dataType}</span>
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-slate-500 text-sm">{item.date}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-
-            {activeTab === 'data' && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-6"
-              >
-                <div className="bg-white rounded-xl shadow-sm p-6">
-                  <h2 className="text-xl font-semibold text-slate-900 mb-4">Your Health Data</h2>
-                  <p className="text-slate-600 mb-6">
-                    View a summary of the de-identified data you're sharing with researchers.
-                    All identifying information has been removed or encrypted.
-                  </p>
-                  
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div className="border border-slate-200 rounded-lg p-4">
-                      <h3 className="font-semibold text-slate-700 mb-2">Demographics</h3>
-                      <ul className="space-y-2 text-sm text-slate-600">
-                        <li>Age Range: 50-60</li>
-                        <li>Sex: Male</li>
-                        <li>Region: Northeast US</li>
-                      </ul>
-                    </div>
-                    <div className="border border-slate-200 rounded-lg p-4">
-                      <h3 className="font-semibold text-slate-700 mb-2">Diagnosis</h3>
-                      <ul className="space-y-2 text-sm text-slate-600">
-                        <li>Cancer Type: Diffuse Large B-Cell Lymphoma</li>
-                        <li>Stage at Diagnosis: III</li>
-                        <li>Year Diagnosed: 2023</li>
-                      </ul>
-                    </div>
-                    <div className="border border-slate-200 rounded-lg p-4">
-                      <h3 className="font-semibold text-slate-700 mb-2">Treatments</h3>
-                      <ul className="space-y-2 text-sm text-slate-600">
-                        <li>R-CHOP (6 cycles)</li>
-                        <li>Response: Complete Remission</li>
-                      </ul>
-                    </div>
-                    <div className="border border-slate-200 rounded-lg p-4">
-                      <h3 className="font-semibold text-slate-700 mb-2">Follow-up</h3>
-                      <ul className="space-y-2 text-sm text-slate-600">
-                        <li>Status: In Remission</li>
-                        <li>Time Since Treatment: 18 months</li>
-                        <li>Last Scan: Negative</li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
-                  <h3 className="font-semibold text-blue-900 mb-2">🔒 Your Privacy is Protected</h3>
-                  <p className="text-blue-700 text-sm">
-                    Your data is de-identified using industry-standard techniques. Your name, 
-                    medical record number, and other identifiers are never shared with researchers.
-                  </p>
-                </div>
-              </motion.div>
-            )}
-          </div>
+              </div>
+            </motion.div>
+          )}
         </div>
-      </div>
+      </section>
     </div>
   );
 };
 
 export default PatientPortal;
-

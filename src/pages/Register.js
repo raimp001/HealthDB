@@ -9,10 +9,9 @@ const Register = () => {
   const initialType = searchParams.get('type') || 'researcher';
   
   const [userType, setUserType] = useState(initialType);
-  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [organization, setOrganization] = useState('');
+  const [institution, setInstitution] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -27,29 +26,19 @@ const Register = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name,
           email,
           password,
-          organization: userType === 'researcher' ? organization : null,
           user_type: userType,
+          institution: userType === 'researcher' ? institution : undefined,
         }),
       });
 
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.detail || 'Registration failed');
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Registration failed');
       }
 
-      const data = await response.json();
-      localStorage.setItem('token', data.access_token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-
-      // Redirect based on user type
-      if (userType === 'patient') {
-        navigate('/patient');
-      } else {
-        navigate('/research');
-      }
+      navigate('/login');
     } catch (err) {
       setError(err.message || 'Registration failed. Please try again.');
     } finally {
@@ -58,105 +47,96 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-black flex items-center justify-center py-20 px-6">
+      <div className="absolute inset-0 gradient-bg opacity-50" />
+      <div className="absolute inset-0 grid-pattern" />
+      
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="max-w-md w-full"
+        transition={{ duration: 0.6 }}
+        className="relative z-10 w-full max-w-md"
       >
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center space-x-2">
-            <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
-              <span className="text-white font-bold text-2xl">H</span>
-            </div>
+        {/* Header */}
+        <div className="text-center mb-12">
+          <Link to="/" className="inline-block text-2xl font-medium text-white mb-8">
+            HealthDB
           </Link>
-          <h2 className="mt-6 text-3xl font-bold text-slate-900">Create your account</h2>
-          <p className="mt-2 text-slate-600">Join the future of cancer research</p>
+          <h1 className="heading-display text-3xl text-white mb-2">Create account</h1>
+          <p className="text-white/40">Join the platform</p>
         </div>
 
         {/* Form */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+        <div className="border border-white/10 p-8">
           {/* User Type Toggle */}
-          <div className="mb-6">
-            <div className="flex rounded-xl bg-slate-100 p-1">
+          <div className="mb-8">
+            <label className="block text-xs uppercase tracking-wider text-white/40 mb-3">
+              Account Type
+            </label>
+            <div className="grid grid-cols-2 gap-px bg-white/10">
               <button
                 type="button"
                 onClick={() => setUserType('researcher')}
-                className={`flex-1 py-3 rounded-lg text-sm font-medium transition-all ${
+                className={`py-3 text-xs uppercase tracking-wider transition-colors ${
                   userType === 'researcher'
-                    ? 'bg-white text-indigo-600 shadow-sm'
-                    : 'text-slate-600'
+                    ? 'bg-white text-black'
+                    : 'bg-black text-white/50 hover:text-white'
                 }`}
               >
-                🔬 Researcher
+                Researcher
               </button>
               <button
                 type="button"
                 onClick={() => setUserType('patient')}
-                className={`flex-1 py-3 rounded-lg text-sm font-medium transition-all ${
+                className={`py-3 text-xs uppercase tracking-wider transition-colors ${
                   userType === 'patient'
-                    ? 'bg-white text-purple-600 shadow-sm'
-                    : 'text-slate-600'
+                    ? 'bg-white text-black'
+                    : 'bg-black text-white/50 hover:text-white'
                 }`}
               >
-                💜 Patient
+                Patient
               </button>
             </div>
           </div>
 
           {error && (
-            <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-600 rounded-lg text-sm">
+            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Full name
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Dr. Jane Smith"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Email address
+              <label className="block text-xs uppercase tracking-wider text-white/40 mb-2">
+                Email
               </label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="jane@institution.edu"
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 focus:border-white/30 focus:outline-none transition-colors"
+                placeholder="you@example.com"
               />
             </div>
 
             {userType === 'researcher' && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Institution / Organization
+                <label className="block text-xs uppercase tracking-wider text-white/40 mb-2">
+                  Institution
                 </label>
                 <input
                   type="text"
-                  value={organization}
-                  onChange={(e) => setOrganization(e.target.value)}
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  value={institution}
+                  onChange={(e) => setInstitution(e.target.value)}
+                  className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 focus:border-white/30 focus:outline-none transition-colors"
                   placeholder="Stanford University"
                 />
               </div>
             )}
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className="block text-xs uppercase tracking-wider text-white/40 mb-2">
                 Password
               </label>
               <input
@@ -165,76 +145,88 @@ const Register = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={8}
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 focus:border-white/30 focus:outline-none transition-colors"
                 placeholder="••••••••"
               />
-              <p className="mt-1 text-xs text-slate-500">Minimum 8 characters</p>
+              <p className="mt-2 text-xs text-white/30">Minimum 8 characters</p>
             </div>
 
-            <div className="flex items-start">
+            <div className="flex items-start gap-3">
               <input
                 type="checkbox"
                 required
-                className="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded"
+                className="mt-1 w-4 h-4 bg-white/5 border border-white/20 rounded-none"
               />
-              <label className="ml-2 text-sm text-slate-600">
+              <label className="text-sm text-white/40">
                 I agree to the{' '}
-                <a href="#" className="text-indigo-600 hover:text-indigo-700">
-                  Terms of Service
-                </a>{' '}
-                and{' '}
-                <a href="#" className="text-indigo-600 hover:text-indigo-700">
-                  Privacy Policy
-                </a>
+                <a href="#" className="text-white/60 hover:text-white">Terms</a>
+                {' '}and{' '}
+                <a href="#" className="text-white/60 hover:text-white">Privacy Policy</a>
               </label>
             </div>
 
             <button
               type="submit"
               disabled={isLoading}
-              className={`w-full py-3 rounded-lg font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-                userType === 'patient'
-                  ? 'bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white'
-                  : 'bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white'
-              }`}
+              className="w-full py-4 bg-white text-black text-xs uppercase tracking-wider font-medium hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? 'Creating account...' : 'Create account'}
             </button>
           </form>
 
-          {userType === 'patient' && (
-            <div className="mt-6 p-4 bg-purple-50 rounded-lg">
-              <h4 className="font-medium text-purple-900 mb-2">🎁 Patient Benefits</h4>
-              <ul className="text-sm text-purple-700 space-y-1">
-                <li>• Earn rewards for data sharing</li>
-                <li>• See who accesses your data</li>
-                <li>• Contribute to life-saving research</li>
-              </ul>
-            </div>
-          )}
-
+          {/* Benefits */}
           {userType === 'researcher' && (
-            <div className="mt-6 p-4 bg-indigo-50 rounded-lg">
-              <h4 className="font-medium text-indigo-900 mb-2">🔬 Researcher Benefits</h4>
-              <ul className="text-sm text-indigo-700 space-y-1">
-                <li>• Access 45,000+ patient records</li>
-                <li>• Build custom cohorts instantly</li>
-                <li>• AI-powered treatment insights</li>
+            <div className="mt-8 pt-8 border-t border-white/10">
+              <p className="text-xs uppercase tracking-wider text-white/40 mb-4">Researcher Benefits</p>
+              <ul className="space-y-2 text-sm text-white/50">
+                <li className="flex items-center gap-2">
+                  <span className="w-1 h-1 bg-[#00d4aa] rounded-full"></span>
+                  Access curated oncology datasets
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-1 h-1 bg-[#00d4aa] rounded-full"></span>
+                  Build custom research cohorts
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-1 h-1 bg-[#00d4aa] rounded-full"></span>
+                  Collaborate across institutions
+                </li>
               </ul>
             </div>
           )}
-        </div>
 
-        <p className="mt-8 text-center text-slate-600">
-          Already have an account?{' '}
-          <Link to="/login" className="text-indigo-600 font-medium hover:text-indigo-700">
-            Sign in
-          </Link>
-        </p>
+          {userType === 'patient' && (
+            <div className="mt-8 pt-8 border-t border-white/10">
+              <p className="text-xs uppercase tracking-wider text-white/40 mb-4">Patient Benefits</p>
+              <ul className="space-y-2 text-sm text-white/50">
+                <li className="flex items-center gap-2">
+                  <span className="w-1 h-1 bg-[#00d4aa] rounded-full"></span>
+                  Contribute to cancer research
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-1 h-1 bg-[#00d4aa] rounded-full"></span>
+                  Control your data sharing
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-1 h-1 bg-[#00d4aa] rounded-full"></span>
+                  Earn rewards for participation
+                </li>
+              </ul>
+            </div>
+          )}
+
+          <div className="mt-8 pt-8 border-t border-white/10">
+            <p className="text-center text-white/40 text-sm">
+              Already have an account?{' '}
+              <Link to="/login" className="text-white hover:text-[#00d4aa] transition-colors">
+                Sign in
+              </Link>
+            </p>
+          </div>
+        </div>
       </motion.div>
     </div>
   );
 };
 
 export default Register;
-
