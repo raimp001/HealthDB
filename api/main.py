@@ -60,8 +60,26 @@ JWT_ALGORITHM = "HS256"
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize database on startup"""
+    """Initialize database and seed data on startup"""
+    # Create all tables
     Base.metadata.create_all(bind=engine)
+    
+    # Seed initial data if tables are empty
+    db = next(get_db())
+    try:
+        from .seed import seed_institutions, seed_data_products
+        
+        # Check if data products exist
+        product_count = db.query(DataProduct).count()
+        if product_count == 0:
+            print("Seeding initial data...")
+            seed_institutions(db)
+            seed_data_products(db)
+            print("Seeding complete!")
+    except Exception as e:
+        print(f"Seed error (may be normal on first run): {e}")
+    finally:
+        db.close()
 
 
 # ============== Pydantic Models ==============
