@@ -11,7 +11,7 @@ from datetime import datetime, date, timedelta
 from decimal import Decimal
 from uuid import UUID
 import os
-import jwt
+from jose import jwt
 import hashlib
 
 from sqlalchemy.orm import Session
