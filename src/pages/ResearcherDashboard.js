@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 
 // Use relative URL in production (same origin), fallback to localhost in dev
 const API_URL = process.env.NODE_ENV === 'production' ? '' : (process.env.REACT_APP_API_URL || 'http://localhost:8000');
@@ -16,6 +17,9 @@ const ResearcherDashboard = () => {
   });
   const [cohortResult, setCohortResult] = useState(null);
   const [isBuilding, setIsBuilding] = useState(false);
+  const [savedCohorts, setSavedCohorts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   const cancerTypeOptions = [
     'DLBCL', 'AML', 'ALL', 'CLL', 'Multiple Myeloma', 'Hodgkin Lymphoma',
@@ -27,9 +31,42 @@ const ResearcherDashboard = () => {
 
   const tabs = [
     { id: 'cohort', label: 'Cohort Builder' },
-    { id: 'studies', label: 'My Studies' },
-    { id: 'requests', label: 'Data Requests' },
+    { id: 'studies', label: 'Saved Cohorts' },
   ];
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+
+    if (user.user_type === 'patient') {
+      navigate('/patient');
+      return;
+    }
+
+    // Fetch saved cohorts
+    const fetchCohorts = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/cohort/saved`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setSavedCohorts(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch cohorts:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCohorts();
+  }, [navigate]);
 
   const handleBuildCohort = async () => {
     setIsBuilding(true);
@@ -43,30 +80,73 @@ const ResearcherDashboard = () => {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          cancer_types: cohortCriteria.cancerTypes,
+          cancer_types: cohortCriteria.cancerTypes.length > 0 ? cohortCriteria.cancerTypes : null,
+          stages: cohortCriteria.diseaseStages.length > 0 ? cohortCriteria.diseaseStages : null,
           age_min: cohortCriteria.ageMin ? parseInt(cohortCriteria.ageMin) : null,
           age_max: cohortCriteria.ageMax ? parseInt(cohortCriteria.ageMax) : null,
-          disease_stages: cohortCriteria.diseaseStages,
-          treatment_types: cohortCriteria.treatmentTypes,
-          min_followup_months: cohortCriteria.minFollowup ? parseInt(cohortCriteria.minFollowup) : null,
+          treatment_types: cohortCriteria.treatmentTypes.length > 0 ? cohortCriteria.treatmentTypes : null,
+          min_follow_up_months: cohortCriteria.minFollowup ? parseInt(cohortCriteria.minFollowup) : null,
         }),
       });
 
-      const data = await response.json();
-      setCohortResult({
-        cohortSize: data.cohort_size || Math.floor(Math.random() * 5000) + 500,
-        estimatedCost: data.estimated_cost || Math.floor(Math.random() * 10000) + 2000,
-        criteria: cohortCriteria,
-      });
+      if (response.ok) {
+        const data = await response.json();
+        setCohortResult({
+          patient_count: data.patient_count,
+          data_points: data.data_points,
+          diagnosis_count: data.diagnosis_count,
+          treatment_count: data.treatment_count,
+          molecular_count: data.molecular_count,
+          criteria: cohortCriteria,
+        });
+      } else {
+        const errorData = await response.json();
+        alert(`Failed to build cohort: ${errorData.detail || 'Unknown error'}`);
+      }
     } catch (error) {
-      // Demo fallback
-      setCohortResult({
-        cohortSize: Math.floor(Math.random() * 5000) + 500,
-        estimatedCost: Math.floor(Math.random() * 10000) + 2000,
-        criteria: cohortCriteria,
-      });
+      console.error('Failed to build cohort:', error);
+      alert('Failed to build cohort. Please try again.');
     } finally {
       setIsBuilding(false);
+    }
+  };
+
+  const handleSaveCohort = async () => {
+    if (!cohortResult) return;
+
+    const name = prompt('Enter a name for this cohort:');
+    if (!name) return;
+
+    const token = localStorage.getItem('token');
+
+    try {
+      const response = await fetch(`${API_URL}/api/cohort/save`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name,
+          description: `Cancer types: ${cohortCriteria.cancerTypes.join(', ') || 'Any'}`,
+          criteria: {
+            cancer_types: cohortCriteria.cancerTypes.length > 0 ? cohortCriteria.cancerTypes : null,
+            stages: cohortCriteria.diseaseStages.length > 0 ? cohortCriteria.diseaseStages : null,
+            age_min: cohortCriteria.ageMin ? parseInt(cohortCriteria.ageMin) : null,
+            age_max: cohortCriteria.ageMax ? parseInt(cohortCriteria.ageMax) : null,
+            treatment_types: cohortCriteria.treatmentTypes.length > 0 ? cohortCriteria.treatmentTypes : null,
+          },
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSavedCohorts(prev => [data, ...prev]);
+        alert('Cohort saved successfully!');
+      }
+    } catch (error) {
+      console.error('Failed to save cohort:', error);
+      alert('Failed to save cohort. Please try again.');
     }
   };
 
@@ -135,7 +215,8 @@ const ResearcherDashboard = () => {
                   <div>
                     <h2 className="text-lg font-medium text-white mb-6">Build Your Cohort</h2>
                     <p className="text-white/40 mb-8">
-                      Define criteria to identify patient populations for your research.
+                      Define criteria to identify patient populations for your research. 
+                      Results reflect actual de-identified data in the platform.
                     </p>
                   </div>
 
@@ -262,14 +343,28 @@ const ResearcherDashboard = () => {
                         <div>
                           <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Matching Patients</p>
                           <p className="text-4xl font-light text-white font-mono">
-                            {cohortResult.cohortSize.toLocaleString()}
+                            {cohortResult.patient_count.toLocaleString()}
                           </p>
                         </div>
                         <div>
-                          <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Estimated Cost</p>
+                          <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Total Data Points</p>
                           <p className="text-2xl font-light text-white font-mono">
-                            ${cohortResult.estimatedCost.toLocaleString()}
+                            {cohortResult.data_points.toLocaleString()}
                           </p>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 text-center">
+                          <div className="card-glass p-3">
+                            <p className="text-white/40 text-xs mb-1">Diagnoses</p>
+                            <p className="text-white font-mono">{cohortResult.diagnosis_count}</p>
+                          </div>
+                          <div className="card-glass p-3">
+                            <p className="text-white/40 text-xs mb-1">Treatments</p>
+                            <p className="text-white font-mono">{cohortResult.treatment_count}</p>
+                          </div>
+                          <div className="card-glass p-3">
+                            <p className="text-white/40 text-xs mb-1">Molecular</p>
+                            <p className="text-white font-mono">{cohortResult.molecular_count}</p>
+                          </div>
                         </div>
                         <div className="pt-6 border-t border-white/10">
                           <p className="text-white/40 text-xs uppercase tracking-wider mb-3">Selected Criteria</p>
@@ -284,11 +379,21 @@ const ResearcherDashboard = () => {
                                 Age: {cohortResult.criteria.ageMin || '0'} - {cohortResult.criteria.ageMax || '100'}
                               </p>
                             )}
+                            {cohortResult.criteria.diseaseStages.length > 0 && (
+                              <p className="text-white/60 text-sm">
+                                Stages: {cohortResult.criteria.diseaseStages.join(', ')}
+                              </p>
+                            )}
                           </div>
                         </div>
-                        <button className="w-full py-3 bg-[#00d4aa] text-black text-xs uppercase tracking-wider font-medium hover:bg-[#00d4aa]/90 transition-colors">
-                          Request Access
-                        </button>
+                        {cohortResult.patient_count > 0 && (
+                          <button 
+                            onClick={handleSaveCohort}
+                            className="w-full py-3 bg-[#00d4aa] text-black text-xs uppercase tracking-wider font-medium hover:bg-[#00d4aa]/90 transition-colors"
+                          >
+                            Save Cohort
+                          </button>
+                        )}
                       </div>
                     ) : (
                       <div className="text-center py-8">
@@ -309,69 +414,54 @@ const ResearcherDashboard = () => {
               animate={{ opacity: 1 }}
               transition={{ duration: 0.3 }}
             >
-              <h2 className="text-lg font-medium text-white mb-6">My Studies</h2>
-              <div className="space-y-px">
-                {[
-                  { name: 'DLBCL CAR-T Response Analysis', status: 'Active', patients: 234, created: '2024-01-10' },
-                  { name: 'AML Treatment Outcomes', status: 'Pending IRB', patients: 0, created: '2024-01-05' },
-                  { name: 'Multiple Myeloma Cohort', status: 'Completed', patients: 567, created: '2023-11-20' },
-                ].map((study, index) => (
-                  <div key={index} className="card-glass card-hover p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="text-white font-medium mb-1">{study.name}</h3>
-                        <p className="text-white/40 text-sm">Created {study.created}</p>
-                      </div>
-                      <div className="flex items-center gap-6">
-                        <div className="text-right">
-                          <p className="text-white/30 text-xs">Patients</p>
-                          <p className="text-white font-mono">{study.patients}</p>
+              <h2 className="text-lg font-medium text-white mb-6">Saved Cohorts</h2>
+              
+              {loading ? (
+                <div className="text-center py-12">
+                  <div className="w-8 h-8 border border-white/20 border-t-white/60 rounded-full animate-spin mx-auto mb-4"></div>
+                  <p className="text-white/40 text-sm">Loading...</p>
+                </div>
+              ) : savedCohorts.length > 0 ? (
+                <div className="space-y-px">
+                  {savedCohorts.map((cohort) => (
+                    <div key={cohort.id} className="card-glass card-hover p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-white font-medium mb-1">{cohort.name}</h3>
+                          <p className="text-white/40 text-sm">
+                            {cohort.description || 'No description'}
+                          </p>
+                          <p className="text-white/30 text-xs mt-2">
+                            Created {new Date(cohort.created_at).toLocaleDateString()}
+                          </p>
                         </div>
-                        <span className={`px-3 py-1 text-xs uppercase tracking-wider ${
-                          study.status === 'Active' ? 'bg-[#00d4aa]/20 text-[#00d4aa]' :
-                          study.status === 'Completed' ? 'bg-white/10 text-white/60' :
-                          'bg-yellow-500/20 text-yellow-500'
-                        }`}>
-                          {study.status}
-                        </span>
+                        <div className="flex items-center gap-6">
+                          <div className="text-right">
+                            <p className="text-white/30 text-xs">Patients</p>
+                            <p className="text-white font-mono">{cohort.patient_count}</p>
+                          </div>
+                          <button className="px-4 py-2 border border-white/20 text-white/60 text-xs uppercase tracking-wider hover:bg-white hover:text-black transition-all">
+                            View
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
-
-          {activeTab === 'requests' && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.3 }}
-            >
-              <h2 className="text-lg font-medium text-white mb-6">Data Requests</h2>
-              <div className="space-y-px">
-                {[
-                  { dataset: 'Comprehensive DLBCL Registry', status: 'Approved', date: '2024-01-12' },
-                  { dataset: 'AML Treatment Response', status: 'Under Review', date: '2024-01-08' },
-                  { dataset: 'CAR-T Outcomes Dataset', status: 'Pending Payment', date: '2024-01-05' },
-                ].map((request, index) => (
-                  <div key={index} className="card-glass card-hover p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="text-white font-medium mb-1">{request.dataset}</h3>
-                        <p className="text-white/40 text-sm">Requested {request.date}</p>
-                      </div>
-                      <span className={`px-3 py-1 text-xs uppercase tracking-wider ${
-                        request.status === 'Approved' ? 'bg-[#00d4aa]/20 text-[#00d4aa]' :
-                        request.status === 'Under Review' ? 'bg-blue-500/20 text-blue-400' :
-                        'bg-yellow-500/20 text-yellow-500'
-                      }`}>
-                        {request.status}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="card-glass p-12 text-center">
+                  <p className="text-white/40 mb-4">No saved cohorts yet</p>
+                  <p className="text-white/30 text-sm mb-6">
+                    Build a cohort using the Cohort Builder and save it to access it here.
+                  </p>
+                  <button
+                    onClick={() => setActiveTab('cohort')}
+                    className="px-6 py-3 bg-white text-black text-xs uppercase tracking-wider font-medium hover:bg-gray-100 transition-colors"
+                  >
+                    Build Cohort
+                  </button>
+                </div>
+              )}
             </motion.div>
           )}
         </div>
