@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+// Use relative URL in production (same origin), fallback to localhost in dev
+const API_URL = process.env.NODE_ENV === 'production' ? '' : (process.env.REACT_APP_API_URL || 'http://localhost:8000');
 
 const ResearcherDashboard = () => {
   const [activeTab, setActiveTab] = useState('cohort');

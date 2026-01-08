@@ -2,13 +2,15 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+// Use relative URL in production (same origin), fallback to localhost in dev
+const API_URL = process.env.NODE_ENV === 'production' ? '' : (process.env.REACT_APP_API_URL || 'http://localhost:8000');
 
 const Register = () => {
   const [searchParams] = useSearchParams();
   const initialType = searchParams.get('type') || 'researcher';
   
   const [userType, setUserType] = useState(initialType);
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [institution, setInstitution] = useState('');
@@ -28,8 +30,9 @@ const Register = () => {
         body: JSON.stringify({
           email,
           password,
+          name,
           user_type: userType,
-          institution: userType === 'researcher' ? institution : undefined,
+          organization: userType === 'researcher' ? institution : undefined,
         }),
       });
 
@@ -106,6 +109,20 @@ const Register = () => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="block text-xs uppercase tracking-wider text-white/40 mb-2">
+                Full Name
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 focus:border-white/30 focus:outline-none transition-colors"
+                placeholder="John Doe"
+              />
+            </div>
+
             <div>
               <label className="block text-xs uppercase tracking-wider text-white/40 mb-2">
                 Email
