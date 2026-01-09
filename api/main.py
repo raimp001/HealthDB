@@ -60,24 +60,21 @@ JWT_ALGORITHM = "HS256"
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize database and seed data on startup"""
+    """Initialize database on startup"""
     # Create all tables
     Base.metadata.create_all(bind=engine)
     
-    # Seed initial data if tables are empty
+    # Clean up any placeholder/mock data products (no real patient data)
     db = next(get_db())
     try:
-        from .seed import seed_institutions, seed_data_products
-        
-        # Check if data products exist
-        product_count = db.query(DataProduct).count()
-        if product_count == 0:
-            print("Seeding initial data...")
-            seed_institutions(db)
-            seed_data_products(db)
-            print("Seeding complete!")
+        # Remove data products with 0 patients (placeholder data)
+        deleted = db.query(DataProduct).filter(DataProduct.patient_count == 0).delete()
+        if deleted > 0:
+            print(f"Removed {deleted} placeholder data products")
+            db.commit()
     except Exception as e:
-        print(f"Seed error (may be normal on first run): {e}")
+        print(f"Cleanup note: {e}")
+        db.rollback()
     finally:
         db.close()
 

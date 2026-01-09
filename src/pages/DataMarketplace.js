@@ -133,87 +133,157 @@ const DataMarketplace = () => {
       {/* Products Grid */}
       <section className="py-12 px-6">
         <div className="max-w-6xl mx-auto">
-          {/* Featured */}
-          {filteredProducts.filter(p => p.isFeatured).length > 0 && (
-            <div className="mb-16">
-              <p className="text-xs uppercase tracking-[0.3em] text-white/40 mb-8">Featured Datasets</p>
-              <div className="grid md:grid-cols-3 gap-px bg-white/5">
-                {filteredProducts.filter(p => p.isFeatured).map((product, index) => (
-                  <motion.div
-                    key={product.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, delay: index * 0.1 }}
-                    onClick={() => setSelectedProduct(product)}
-                    className="card-glass card-hover p-8 cursor-pointer group"
-                  >
-                    <div className="flex items-center gap-2 mb-4">
-                      <span className="w-2 h-2 bg-[#00d4aa] rounded-full"></span>
-                      <span className="text-xs text-[#00d4aa] uppercase tracking-wider">Featured</span>
-                    </div>
-                    <h3 className="text-lg font-medium text-white mb-3 group-hover:text-[#00d4aa] transition-colors">
-                      {product.name}
-                    </h3>
-                    <p className="text-white/40 text-sm mb-6 line-clamp-2">{product.description}</p>
-                    <div className="flex justify-between items-end">
-                      <div>
-                        <p className="text-white/30 text-xs mb-1">Completeness</p>
-                        <p className="text-white font-mono">{product.completeness}%</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-white/30 text-xs mb-1">From</p>
-                        <p className="text-white font-mono">{formatPrice(product.priceFrom)}</p>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
+          {filteredProducts.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="text-center py-20"
+            >
+              <div className="w-16 h-16 border border-white/10 rounded-full flex items-center justify-center mx-auto mb-8">
+                <svg className="w-8 h-8 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                </svg>
               </div>
-            </div>
-          )}
-
-          {/* All Products */}
-          <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-white/40 mb-8">All Datasets</p>
-            <div className="space-y-px">
-              {filteredProducts.map((product, index) => (
-                <motion.div
-                  key={product.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.3, delay: index * 0.05 }}
-                  onClick={() => setSelectedProduct(product)}
-                  className="card-glass card-hover p-6 cursor-pointer group"
+              <h2 className="text-2xl font-light text-white mb-4">No Datasets Available Yet</h2>
+              <p className="text-white/40 max-w-md mx-auto mb-8">
+                We're building partnerships with leading cancer centers to bring you 
+                high-quality, de-identified oncology datasets. Check back soon.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <a 
+                  href="/register?type=institution"
+                  className="px-6 py-3 bg-white text-black text-xs uppercase tracking-wider font-medium hover:bg-gray-100 transition-colors"
                 >
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex-grow">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-white font-medium group-hover:text-[#00d4aa] transition-colors">
+                  Partner With Us
+                </a>
+                <a 
+                  href="/register?type=patient"
+                  className="px-6 py-3 border border-white/20 text-white text-xs uppercase tracking-wider hover:bg-white/10 transition-colors"
+                >
+                  Contribute Your Data
+                </a>
+              </div>
+            </motion.div>
+          ) : (
+            <>
+              {/* Featured */}
+              {filteredProducts.filter(p => p.isFeatured && p.patientCount > 0).length > 0 && (
+                <div className="mb-16">
+                  <p className="text-xs uppercase tracking-[0.3em] text-white/40 mb-8">Featured Datasets</p>
+                  <div className="grid md:grid-cols-3 gap-px bg-white/5">
+                    {filteredProducts.filter(p => p.isFeatured && p.patientCount > 0).map((product, index) => (
+                      <motion.div
+                        key={product.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4, delay: index * 0.1 }}
+                        onClick={() => setSelectedProduct(product)}
+                        className="card-glass card-hover p-8 cursor-pointer group"
+                      >
+                        <div className="flex items-center gap-2 mb-4">
+                          <span className="w-2 h-2 bg-[#00d4aa] rounded-full"></span>
+                          <span className="text-xs text-[#00d4aa] uppercase tracking-wider">Featured</span>
+                        </div>
+                        <h3 className="text-lg font-medium text-white mb-3 group-hover:text-[#00d4aa] transition-colors">
                           {product.name}
                         </h3>
-                        <span className="px-2 py-0.5 text-xs text-white/40 border border-white/10">
-                          {product.category}
-                        </span>
-                      </div>
-                      <p className="text-white/40 text-sm">{product.description}</p>
-                    </div>
-                    <div className="flex items-center gap-8 text-sm">
-                      <div>
-                        <p className="text-white/30 text-xs">Completeness</p>
-                        <p className="text-white font-mono">{product.completeness}%</p>
-                      </div>
-                      <div>
-                        <p className="text-white/30 text-xs">From</p>
-                        <p className="text-white font-mono">{formatPrice(product.priceFrom)}</p>
-                      </div>
-                      <button className="px-4 py-2 border border-white/20 text-white/60 text-xs uppercase tracking-wider hover:bg-white hover:text-black transition-all">
-                        View
-                      </button>
-                    </div>
+                        <p className="text-white/40 text-sm mb-6 line-clamp-2">{product.description}</p>
+                        <div className="flex justify-between items-end">
+                          <div>
+                            <p className="text-white/30 text-xs mb-1">Patients</p>
+                            <p className="text-white font-mono">{product.patientCount.toLocaleString()}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-white/30 text-xs mb-1">From</p>
+                            <p className="text-white font-mono">{formatPrice(product.priceFrom)}</p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* All Products - only show those with actual data */}
+              {filteredProducts.filter(p => p.patientCount > 0).length > 0 ? (
+                <div>
+                  <p className="text-xs uppercase tracking-[0.3em] text-white/40 mb-8">All Datasets</p>
+                  <div className="space-y-px">
+                    {filteredProducts.filter(p => p.patientCount > 0).map((product, index) => (
+                      <motion.div
+                        key={product.id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.3, delay: index * 0.05 }}
+                        onClick={() => setSelectedProduct(product)}
+                        className="card-glass card-hover p-6 cursor-pointer group"
+                      >
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                          <div className="flex-grow">
+                            <div className="flex items-center gap-3 mb-2">
+                              <h3 className="text-white font-medium group-hover:text-[#00d4aa] transition-colors">
+                                {product.name}
+                              </h3>
+                              <span className="px-2 py-0.5 text-xs text-white/40 border border-white/10">
+                                {product.category}
+                              </span>
+                            </div>
+                            <p className="text-white/40 text-sm">{product.description}</p>
+                          </div>
+                          <div className="flex items-center gap-8 text-sm">
+                            <div>
+                              <p className="text-white/30 text-xs">Patients</p>
+                              <p className="text-white font-mono">{product.patientCount.toLocaleString()}</p>
+                            </div>
+                            <div>
+                              <p className="text-white/30 text-xs">From</p>
+                              <p className="text-white font-mono">{formatPrice(product.priceFrom)}</p>
+                            </div>
+                            <button className="px-4 py-2 border border-white/20 text-white/60 text-xs uppercase tracking-wider hover:bg-white hover:text-black transition-all">
+                              View
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6 }}
+                  className="text-center py-20"
+                >
+                  <div className="w-16 h-16 border border-white/10 rounded-full flex items-center justify-center mx-auto mb-8">
+                    <svg className="w-8 h-8 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                    </svg>
+                  </div>
+                  <h2 className="text-2xl font-light text-white mb-4">No Datasets Available Yet</h2>
+                  <p className="text-white/40 max-w-md mx-auto mb-8">
+                    We're building partnerships with leading cancer centers to bring you 
+                    high-quality, de-identified oncology datasets. Check back soon.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                    <a 
+                      href="/register?type=institution"
+                      className="px-6 py-3 bg-white text-black text-xs uppercase tracking-wider font-medium hover:bg-gray-100 transition-colors"
+                    >
+                      Partner With Us
+                    </a>
+                    <a 
+                      href="/register?type=patient"
+                      className="px-6 py-3 border border-white/20 text-white text-xs uppercase tracking-wider hover:bg-white/10 transition-colors"
+                    >
+                      Contribute Your Data
+                    </a>
                   </div>
                 </motion.div>
-              ))}
-            </div>
-          </div>
+              )}
+            </>
+          )}
         </div>
       </section>
 
