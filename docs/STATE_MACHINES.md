@@ -662,3 +662,242 @@ stateDiagram-v2
     Saved --> CriteriaSelection: continue
 ```
 
+---
+
+## 8. Enhanced Consent Flow State Machine
+
+### 8.1 Consent Lifecycle
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                              CONSENT LIFECYCLE                                           │
+├─────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                         │
+│    ┌──────────────┐                                                                     │
+│    │   NO_CONSENT │ ◄─────────────────────────────────────────────┐                     │
+│    │              │                                               │                     │
+│    │ consents=[]  │                                               │                     │
+│    └──────┬───────┘                                               │                     │
+│           │                                                       │                     │
+│           │ [view templates]                                      │                     │
+│           ▼                                                       │                     │
+│    ┌──────────────────┐                                           │                     │
+│    │  VIEW_TEMPLATES  │                                           │                     │
+│    │                  │                                           │                     │
+│    │ • Research Data  │                                           │                     │
+│    │ • Trial Match    │                                           │                     │
+│    │ • AI/ML Training │                                           │                     │
+│    └──────┬───────────┘                                           │                     │
+│           │                                                       │                     │
+│           │ [click Review & Sign]                                 │                     │
+│           ▼                                                       │                     │
+│    ┌──────────────────┐                                           │                     │
+│    │   MODAL_OPEN     │                                           │                     │
+│    │                  │                                           │                     │
+│    │ selectedTemplate │                                           │                     │
+│    │ showing content  │                                           │                     │
+│    └──────┬───────────┘                                           │                     │
+│           │                                                       │                     │
+│           ├────────────────────────┬──────────────────────┐       │                     │
+│           │                        │                      │       │                     │
+│           ▼                        ▼                      │       │                     │
+│    ┌──────────────┐         ┌──────────────┐              │       │                     │
+│    │    CANCEL    │         │   SIGNING    │              │       │                     │
+│    │              │         │              │              │       │                     │
+│    │ close modal  │─────────│isSubmitting  │              │       │                     │
+│    └──────────────┘    ▲    │  =true       │              │       │                     │
+│                        │    └──────┬───────┘              │       │                     │
+│                        │           │                      │       │                     │
+│                        │           ├──────────────────────┤       │                     │
+│                        │           │                      │       │                     │
+│                        │           ▼                      ▼       │                     │
+│                        │    ┌──────────────┐       ┌──────────────┐                     │
+│                        │    │   SUCCESS    │       │    ERROR     │                     │
+│                        │    │              │       │              │                     │
+│                        └────│ +50 points   │       │ show message │                     │
+│                             │ consent      │       └──────────────┘                     │
+│                             │  active      │                                            │
+│                             └──────┬───────┘                                            │
+│                                    │                                                    │
+│                                    ▼                                                    │
+│                             ┌──────────────────┐                                        │
+│                             │  CONSENT_ACTIVE  │                                        │
+│                             │                  │                                        │
+│                             │ status="active"  │                                        │
+│                             │ expires_at=date  │                                        │
+│                             └──────┬───────────┘                                        │
+│                                    │                                                    │
+│                                    ├─────────────────────────────────┐                  │
+│                                    │                                 │                  │
+│                                    ▼                                 ▼                  │
+│                             ┌──────────────┐                  ┌──────────────┐          │
+│                             │   REVOKED    │                  │   EXPIRED    │          │
+│                             │              │                  │              │          │
+│                             │ user clicked │                  │ time elapsed │──────────┘
+│                             │ revoke btn   │──────────────────│              │           
+│                             └──────────────┘                  └──────────────┘           
+│                                                                                         │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 8.2 Consent Types
+
+| Type | Description | Duration | Data Categories | Points |
+|------|-------------|----------|-----------------|--------|
+| **research_data_sharing** | Share de-identified data for research | 24 months | demographics, diagnosis, treatment, lab_results, outcomes | 50 |
+| **clinical_trial_matching** | Allow trial eligibility matching | 12 months | demographics, diagnosis, treatment | 50 |
+| **ai_ml_training** | Anonymized data for AI model training | 36 months | demographics, diagnosis, treatment, molecular, outcomes | 50 |
+
+---
+
+## 9. Medical Records Connection State Machine
+
+### 9.1 Connection Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                        MEDICAL RECORDS CONNECTION FLOW                                   │
+├─────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                         │
+│    ┌─────────────────┐                                                                  │
+│    │  NO_CONSENT     │ ───────────────────────────────────────┐                         │
+│    │                 │                                        │                         │
+│    │ "Sign consent   │                                        │                         │
+│    │  first"         │                                        │                         │
+│    └─────────────────┘                                        │                         │
+│           ▲                                                   │                         │
+│           │ [consent not active]                              │                         │
+│           │                                                   │                         │
+│    ┌─────────────────┐                                        │                         │
+│    │   HAS_CONSENT   │ ◄──────────────────────────────────────┘                         │
+│    │                 │                                                                  │
+│    │ research_data_  │                                                                  │
+│    │ sharing=active  │                                                                  │
+│    └────────┬────────┘                                                                  │
+│             │                                                                           │
+│             │ [click Connect Records]                                                   │
+│             ▼                                                                           │
+│    ┌─────────────────┐                                                                  │
+│    │  SOURCE_SELECT  │                                                                  │
+│    │                 │                                                                  │
+│    │ • Epic MyChart  │                                                                  │
+│    │ • Cerner        │                                                                  │
+│    │ • Manual Upload │                                                                  │
+│    └────────┬────────┘                                                                  │
+│             │                                                                           │
+│             │ [select source]                                                           │
+│             ▼                                                                           │
+│    ┌─────────────────┐                                                                  │
+│    │   CONNECTING    │                                                                  │
+│    │                 │                                                                  │
+│    │ status=pending  │                                                                  │
+│    │ (API call)      │                                                                  │
+│    └────────┬────────┘                                                                  │
+│             │                                                                           │
+│             │ [background task started]                                                 │
+│             ▼                                                                           │
+│    ┌─────────────────────┐                                                              │
+│    │   DATA_EXTRACTING   │                                                              │
+│    │                     │                                                              │
+│    │ De-identification   │                                                              │
+│    │ in progress...      │                                                              │
+│    │ (async background)  │                                                              │
+│    └─────────┬───────────┘                                                              │
+│              │                                                                          │
+│              ├─────────────────────────────────────────┐                                │
+│              │                                         │                                │
+│              ▼                                         ▼                                │
+│    ┌─────────────────────┐                   ┌─────────────────┐                        │
+│    │     CONNECTED       │                   │      ERROR      │                        │
+│    │                     │                   │                 │                        │
+│    │ status=connected    │                   │ error_message   │                        │
+│    │ records_synced=N    │                   │ displayed       │                        │
+│    │ +100 points         │                   └─────────────────┘                        │
+│    └─────────┬───────────┘                                                              │
+│              │                                                                          │
+│              ▼                                                                          │
+│    ┌─────────────────────┐                                                              │
+│    │   DATA_AVAILABLE    │                                                              │
+│    │                     │                                                              │
+│    │ • Demographics      │                                                              │
+│    │ • Diagnosis         │                                                              │
+│    │ • Treatment         │                                                              │
+│    │ • Lab Results       │                                                              │
+│    │ • Molecular Data    │                                                              │
+│    │                     │                                                              │
+│    │ completeness_score  │                                                              │
+│    │ data_quality_score  │                                                              │
+│    └─────────────────────┘                                                              │
+│                                                                                         │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 9.2 De-identified Data Categories
+
+| Category | Data Type | Sample De-identified Fields |
+|----------|-----------|----------------------------|
+| **demographics** | age_range | age_range: "45-54", sex: "M", race: "White" |
+| **diagnosis** | cancer_diagnosis | cancer_type: "DLBCL", stage: "Stage III", diagnosis_year: 2021 |
+| **treatment** | chemotherapy | regimen: "R-CHOP", cycles: 6, status: "completed" |
+| **lab_results** | blood_counts | wbc_range: "4.5-11.0", hemoglobin_range: "12-16" |
+| **molecular** | genomic_testing | test_type: "NGS", genes_tested: 500, mutations_found: 3 |
+
+### 9.3 Points Rewards System
+
+| Action | Points Earned |
+|--------|---------------|
+| Sign up | 100 (welcome bonus) |
+| Sign consent | 50 per consent |
+| Connect medical records | 100 per source |
+| Data used in research | 10 per access |
+| Complete profile | 25 |
+
+---
+
+## 10. Mermaid: Enhanced Patient Flow
+
+```mermaid
+stateDiagram-v2
+    [*] --> Init
+    
+    Init --> NoAuth: no token
+    Init --> Loading: has token
+    NoAuth --> Login: redirect
+    
+    Loading --> Ready: fetch success
+    Loading --> Error: fetch failed
+    
+    state Ready {
+        [*] --> Overview
+        
+        state Overview {
+            [*] --> CheckConsent
+            CheckConsent --> NoConsentAlert: no active consent
+            CheckConsent --> ShowStats: has consent
+        }
+        
+        state Consent {
+            [*] --> ViewTemplates
+            ViewTemplates --> ReviewModal: click template
+            ReviewModal --> Signing: click I Agree
+            Signing --> ConsentActive: success
+            Signing --> SignError: failure
+        }
+        
+        state Data {
+            [*] --> CheckConsentRequired
+            CheckConsentRequired --> Locked: no consent
+            CheckConsentRequired --> Connections: has consent
+            Connections --> ConnectModal: click Connect
+            ConnectModal --> Extracting: select source
+            Extracting --> DataSummary: extraction complete
+        }
+        
+        state Rewards {
+            [*] --> ShowBalance
+            ShowBalance --> EarnInfo: view how to earn
+            ShowBalance --> RedeemFlow: click redeem (if >= 500)
+        }
+    }
+```
+
