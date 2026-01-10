@@ -121,6 +121,8 @@ class PatientProfile(Base):
     consents = relationship("Consent", back_populates="patient")
     rewards = relationship("RewardsTransaction", back_populates="patient")
     data_access_logs = relationship("DataAccessLog", back_populates="patient")
+    medical_connections = relationship("MedicalRecordConnection", back_populates="patient")
+    extracted_data = relationship("ExtractedMedicalData", back_populates="patient")
 
 
 class Consent(Base):
@@ -326,6 +328,68 @@ class DataAccessLog(Base):
     # Relationships
     user = relationship("User", back_populates="data_access_logs")
     patient = relationship("PatientProfile", back_populates="data_access_logs")
+
+
+# ============== Medical Records Connection Models ==============
+
+class MedicalRecordConnection(Base):
+    """Tracks patient connections to medical record sources"""
+    __tablename__ = "medical_record_connections"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    patient_id = Column(String(36), ForeignKey("patient_profiles.id"), nullable=False)
+    source_type = Column(String(100), nullable=False)  # epic_mychart, cerner_patient_portal, fhir_api, manual
+    source_name = Column(String(255))  # Hospital/provider name
+    connection_status = Column(String(50), default="pending")  # pending, connected, disconnected, error
+    last_sync = Column(DateTime)
+    records_synced = Column(Integer, default=0)
+    error_message = Column(Text)
+    credentials_encrypted = Column(Text)  # Encrypted OAuth tokens or credentials
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, onupdate=datetime.utcnow)
+
+    # Relationships
+    patient = relationship("PatientProfile", back_populates="medical_connections")
+    extracted_data = relationship("ExtractedMedicalData", back_populates="connection")
+
+
+class ExtractedMedicalData(Base):
+    """De-identified medical data extracted from connected records"""
+    __tablename__ = "extracted_medical_data"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    connection_id = Column(String(36), ForeignKey("medical_record_connections.id"), nullable=False)
+    patient_id = Column(String(36), ForeignKey("patient_profiles.id"), nullable=False)
+    data_category = Column(String(100), nullable=False)  # demographics, diagnosis, treatment, lab_results, imaging, medications
+    data_type = Column(String(100))  # Specific type within category
+    extracted_date = Column(DateTime, default=datetime.utcnow)
+    original_date = Column(Date)  # Date from the medical record
+    deidentified_data = Column(JSON)  # De-identified structured data
+    data_quality_score = Column(Float)  # 0-100 quality/completeness score
+    is_verified = Column(Boolean, default=False)
+    verification_date = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    connection = relationship("MedicalRecordConnection", back_populates="extracted_data")
+    patient = relationship("PatientProfile", back_populates="extracted_data")
+
+
+class ConsentTemplate(Base):
+    """Pre-defined consent templates"""
+    __tablename__ = "consent_templates"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    consent_type = Column(String(100), nullable=False)  # research_data_sharing, clinical_trial_matching, commercial_use
+    version = Column(String(50), nullable=False)
+    content = Column(Text, nullable=False)  # Full consent text
+    data_categories = Column(JSON)  # What data this consent covers
+    duration_months = Column(Integer)  # How long consent is valid
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, onupdate=datetime.utcnow)
 
 
 # ============== Research Models ==============

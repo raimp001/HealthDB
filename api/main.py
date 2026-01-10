@@ -19,8 +19,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from .database import get_db, init_db, engine
 from .models import (
-    Base, User, PatientProfile, Consent,
-    CancerDiagnosis, Treatment, DataProduct, DataAccessLog, ResearchCohort
+    Base, User, PatientProfile, Consent, ConsentTemplate,
+    CancerDiagnosis, Treatment, DataProduct, DataAccessLog, ResearchCohort,
+    MedicalRecordConnection, ExtractedMedicalData, RewardsTransaction
 )
 from .repositories import (
     UserRepository, PatientRepository, ClinicalDataRepository,
@@ -183,6 +184,54 @@ class ContactRequest(BaseModel):
     organization: str
     message: str
     interest_type: str
+
+
+# ============== Consent & Medical Records Models ==============
+
+class ConsentTemplateResponse(BaseModel):
+    id: str
+    name: str
+    description: Optional[str]
+    consent_type: str
+    version: str
+    content: str
+    data_categories: List[str]
+    duration_months: Optional[int]
+
+class SignConsentRequest(BaseModel):
+    template_id: str
+    signature: str  # Base64 encoded signature or typed name
+    consent_options: Dict[str, bool]  # Granular consent choices
+
+class MedicalConnectionRequest(BaseModel):
+    source_type: str  # epic_mychart, cerner, manual_upload
+    source_name: str  # Hospital/provider name
+    access_code: Optional[str] = None  # OAuth code or auth token
+
+class MedicalConnectionResponse(BaseModel):
+    id: str
+    source_type: str
+    source_name: str
+    connection_status: str
+    last_sync: Optional[datetime]
+    records_synced: int
+    created_at: datetime
+
+class ExtractedDataResponse(BaseModel):
+    id: str
+    data_category: str
+    data_type: Optional[str]
+    extracted_date: datetime
+    original_date: Optional[date]
+    data_quality_score: Optional[float]
+    summary: Dict[str, Any]  # De-identified summary for patient view
+
+class PatientDataSummary(BaseModel):
+    total_records: int
+    categories: Dict[str, int]
+    last_sync: Optional[datetime]
+    completeness_score: float
+    connections: List[MedicalConnectionResponse]
 
 
 # ============== Helper Functions ==============
@@ -469,6 +518,539 @@ async def get_data_access_log(
         }
         for log in logs
     ]
+
+
+# ============== Enhanced Consent Endpoints ==============
+
+@app.get("/api/consent/templates", response_model=List[ConsentTemplateResponse])
+async def get_consent_templates(
+    db: Session = Depends(get_db)
+):
+    """Get available consent templates"""
+    templates = db.query(ConsentTemplate).filter(ConsentTemplate.is_active == True).all()
+    
+    # If no templates exist, create default ones
+    if not templates:
+        default_templates = [
+            {
+                "name": "Research Data Sharing",
+                "description": "Allow your de-identified health data to be used for cancer research",
+                "consent_type": "research_data_sharing",
+                "version": "1.0",
+                "content": """
+# Research Data Sharing Consent
+
+By signing this consent, you agree to share your de-identified health information with qualified researchers for the purpose of advancing cancer research.
+
+## What data will be shared?
+- Diagnosis information (cancer type, stage, date)
+- Treatment history (medications, procedures, outcomes)
+- Lab results and biomarkers
+- Demographic information (age range, not exact date of birth)
+
+## What will NOT be shared?
+- Your name or contact information
+- Social Security Number
+- Exact dates (only month/year)
+- Any information that could directly identify you
+
+## Your Rights
+- You can revoke this consent at any time
+- You can request a list of who accessed your data
+- You earn rewards for contributing to research
+
+## Duration
+This consent is valid for 24 months from signing date.
+                """,
+                "data_categories": ["demographics", "diagnosis", "treatment", "lab_results", "outcomes"],
+                "duration_months": 24,
+            },
+            {
+                "name": "Clinical Trial Matching",
+                "description": "Allow researchers to contact you about relevant clinical trials",
+                "consent_type": "clinical_trial_matching",
+                "version": "1.0",
+                "content": """
+# Clinical Trial Matching Consent
+
+By signing this consent, you allow HealthDB to match your profile against available clinical trials and notify you of potential opportunities.
+
+## What this means
+- Your medical profile will be compared against trial eligibility criteria
+- You will receive notifications about matching trials
+- Researchers may request to contact you through our platform
+
+## Your Control
+- You choose whether to respond to any trial invitation
+- You can opt out at any time
+- Your identity is protected until you choose to reveal it
+
+## Duration
+This consent is valid for 12 months from signing date.
+                """,
+                "data_categories": ["demographics", "diagnosis", "treatment"],
+                "duration_months": 12,
+            },
+            {
+                "name": "AI/ML Training Data",
+                "description": "Allow your anonymized data to be used for training AI models",
+                "consent_type": "ai_ml_training",
+                "version": "1.0",
+                "content": """
+# AI/ML Training Data Consent
+
+By signing this consent, you agree to allow your fully anonymized health data to be used for training artificial intelligence and machine learning models.
+
+## Purpose
+These AI models are designed to:
+- Predict treatment outcomes
+- Identify patterns in cancer progression
+- Assist doctors in making treatment decisions
+
+## Data Protection
+- Data is fully anonymized before use
+- No individual patient can be re-identified
+- Models are validated for fairness and bias
+
+## Duration
+This consent is valid for 36 months from signing date.
+                """,
+                "data_categories": ["demographics", "diagnosis", "treatment", "molecular", "outcomes"],
+                "duration_months": 36,
+            },
+        ]
+        
+        for t in default_templates:
+            template = ConsentTemplate(**t)
+            db.add(template)
+        db.commit()
+        
+        templates = db.query(ConsentTemplate).filter(ConsentTemplate.is_active == True).all()
+    
+    return [
+        ConsentTemplateResponse(
+            id=str(t.id),
+            name=t.name,
+            description=t.description,
+            consent_type=t.consent_type,
+            version=t.version,
+            content=t.content,
+            data_categories=t.data_categories or [],
+            duration_months=t.duration_months,
+        )
+        for t in templates
+    ]
+
+
+@app.post("/api/consent/sign")
+async def sign_consent_template(
+    request: Request,
+    consent_req: SignConsentRequest,
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Sign a consent from a template"""
+    patient_repo = PatientRepository(db)
+    profile = patient_repo.get_profile(UUID(token_data["sub"]))
+    
+    if not profile:
+        raise HTTPException(status_code=404, detail="Patient profile not found")
+    
+    # Get the template
+    template = db.query(ConsentTemplate).filter(ConsentTemplate.id == consent_req.template_id).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="Consent template not found")
+    
+    # Check if already has active consent of this type
+    existing = db.query(Consent).filter(
+        Consent.patient_id == profile.id,
+        Consent.consent_type == template.consent_type,
+        Consent.status == "active"
+    ).first()
+    
+    if existing:
+        raise HTTPException(status_code=400, detail="You already have an active consent of this type")
+    
+    # Calculate expiration
+    expires_at = None
+    if template.duration_months:
+        expires_at = datetime.utcnow() + timedelta(days=template.duration_months * 30)
+    
+    # Create the consent
+    new_consent = Consent(
+        patient_id=profile.id,
+        consent_type=template.consent_type,
+        consent_version=template.version,
+        status="active",
+        consent_options=consent_req.consent_options,
+        signed_date=datetime.utcnow(),
+        expires_at=expires_at,
+        signature=consent_req.signature,
+        ip_address=get_client_ip(request),
+    )
+    db.add(new_consent)
+    
+    # Award points for signing consent
+    points_earned = 50  # Base points for consent
+    reward = RewardsTransaction(
+        patient_id=profile.id,
+        transaction_type="earn",
+        points=points_earned,
+        description=f"Signed {template.name} consent",
+        reference_type="consent",
+        reference_id=str(new_consent.id),
+    )
+    db.add(reward)
+    
+    # Update patient points
+    profile.points_balance += points_earned
+    profile.total_points_earned += points_earned
+    
+    db.commit()
+    
+    return {
+        "success": True,
+        "consent_id": str(new_consent.id),
+        "consent_type": new_consent.consent_type,
+        "status": new_consent.status,
+        "expires_at": expires_at.isoformat() if expires_at else None,
+        "points_earned": points_earned,
+        "message": f"Consent signed successfully! You earned {points_earned} points.",
+    }
+
+
+@app.post("/api/consent/{consent_id}/revoke")
+async def revoke_consent(
+    consent_id: str,
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Revoke an active consent"""
+    patient_repo = PatientRepository(db)
+    profile = patient_repo.get_profile(UUID(token_data["sub"]))
+    
+    if not profile:
+        raise HTTPException(status_code=404, detail="Patient profile not found")
+    
+    consent = db.query(Consent).filter(
+        Consent.id == consent_id,
+        Consent.patient_id == profile.id
+    ).first()
+    
+    if not consent:
+        raise HTTPException(status_code=404, detail="Consent not found")
+    
+    if consent.status != "active":
+        raise HTTPException(status_code=400, detail="Consent is not active")
+    
+    consent.status = "revoked"
+    consent.revoked_at = datetime.utcnow()
+    db.commit()
+    
+    return {
+        "success": True,
+        "message": "Consent has been revoked. Your data will no longer be shared under this consent.",
+    }
+
+
+# ============== Medical Records Connection Endpoints ==============
+
+@app.get("/api/patient/connections", response_model=List[MedicalConnectionResponse])
+async def get_medical_connections(
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Get patient's medical record connections"""
+    patient_repo = PatientRepository(db)
+    profile = patient_repo.get_profile(UUID(token_data["sub"]))
+    
+    if not profile:
+        raise HTTPException(status_code=404, detail="Patient profile not found")
+    
+    connections = db.query(MedicalRecordConnection).filter(
+        MedicalRecordConnection.patient_id == profile.id
+    ).all()
+    
+    return [
+        MedicalConnectionResponse(
+            id=str(c.id),
+            source_type=c.source_type,
+            source_name=c.source_name,
+            connection_status=c.connection_status,
+            last_sync=c.last_sync,
+            records_synced=c.records_synced,
+            created_at=c.created_at,
+        )
+        for c in connections
+    ]
+
+
+@app.post("/api/patient/connections")
+async def connect_medical_records(
+    connection_req: MedicalConnectionRequest,
+    background_tasks: BackgroundTasks,
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Connect to a medical records source"""
+    patient_repo = PatientRepository(db)
+    profile = patient_repo.get_profile(UUID(token_data["sub"]))
+    
+    if not profile:
+        raise HTTPException(status_code=404, detail="Patient profile not found")
+    
+    # Check for active consent
+    active_consent = db.query(Consent).filter(
+        Consent.patient_id == profile.id,
+        Consent.consent_type == "research_data_sharing",
+        Consent.status == "active"
+    ).first()
+    
+    if not active_consent:
+        raise HTTPException(
+            status_code=400, 
+            detail="You must sign the Research Data Sharing consent before connecting medical records"
+        )
+    
+    # Create connection record
+    connection = MedicalRecordConnection(
+        patient_id=profile.id,
+        source_type=connection_req.source_type,
+        source_name=connection_req.source_name,
+        connection_status="pending",
+    )
+    db.add(connection)
+    db.commit()
+    db.refresh(connection)
+    
+    # Simulate async data extraction (in production, this would be a real EMR integration)
+    background_tasks.add_task(
+        simulate_data_extraction,
+        connection_id=str(connection.id),
+        patient_id=str(profile.id),
+    )
+    
+    return {
+        "success": True,
+        "connection_id": str(connection.id),
+        "status": "pending",
+        "message": "Connection initiated. Data extraction will begin shortly.",
+    }
+
+
+async def simulate_data_extraction(connection_id: str, patient_id: str):
+    """Simulate extracting de-identified data from medical records"""
+    import asyncio
+    import random
+    
+    # Simulate processing time
+    await asyncio.sleep(2)
+    
+    # Get fresh database session
+    from .database import SessionLocal
+    db = SessionLocal()
+    
+    try:
+        connection = db.query(MedicalRecordConnection).filter(
+            MedicalRecordConnection.id == connection_id
+        ).first()
+        
+        if not connection:
+            return
+        
+        # Update connection status
+        connection.connection_status = "connected"
+        connection.last_sync = datetime.utcnow()
+        
+        # Generate simulated de-identified data categories
+        data_categories = [
+            ("demographics", "age_range", {"age_range": "45-54", "sex": "M", "race": "White"}),
+            ("diagnosis", "cancer_diagnosis", {
+                "cancer_type": random.choice(["DLBCL", "AML", "Breast Cancer", "NSCLC"]),
+                "stage": random.choice(["Stage II", "Stage III", "Stage IV"]),
+                "diagnosis_year": random.randint(2018, 2024),
+                "icd10": random.choice(["C83.3", "C92.0", "C50.9", "C34.9"]),
+            }),
+            ("treatment", "chemotherapy", {
+                "regimen": random.choice(["R-CHOP", "7+3", "AC-T", "Pembrolizumab"]),
+                "cycles": random.randint(4, 8),
+                "start_year": random.randint(2019, 2024),
+                "status": random.choice(["completed", "ongoing"]),
+            }),
+            ("lab_results", "blood_counts", {
+                "wbc_range": "4.5-11.0",
+                "hemoglobin_range": "12-16",
+                "platelet_range": "150-400",
+                "test_count": random.randint(10, 50),
+            }),
+            ("molecular", "genomic_testing", {
+                "test_type": random.choice(["NGS", "FISH", "IHC"]),
+                "genes_tested": random.randint(50, 500),
+                "mutations_found": random.randint(0, 5),
+                "has_actionable": random.choice([True, False]),
+            }),
+        ]
+        
+        records_count = 0
+        for category, data_type, data in data_categories:
+            extracted = ExtractedMedicalData(
+                connection_id=connection_id,
+                patient_id=patient_id,
+                data_category=category,
+                data_type=data_type,
+                original_date=date.today() - timedelta(days=random.randint(30, 365)),
+                deidentified_data=data,
+                data_quality_score=random.uniform(75, 98),
+                is_verified=True,
+                verification_date=datetime.utcnow(),
+            )
+            db.add(extracted)
+            records_count += 1
+        
+        connection.records_synced = records_count
+        
+        # Award points for connecting records
+        profile = db.query(PatientProfile).filter(PatientProfile.id == patient_id).first()
+        if profile:
+            points_earned = 100  # Points for connecting records
+            reward = RewardsTransaction(
+                patient_id=patient_id,
+                transaction_type="earn",
+                points=points_earned,
+                description=f"Connected medical records from {connection.source_name}",
+                reference_type="connection",
+                reference_id=connection_id,
+            )
+            db.add(reward)
+            profile.points_balance += points_earned
+            profile.total_points_earned += points_earned
+        
+        db.commit()
+        
+    except Exception as e:
+        print(f"Error in data extraction: {e}")
+        if connection:
+            connection.connection_status = "error"
+            connection.error_message = str(e)
+            db.commit()
+    finally:
+        db.close()
+
+
+@app.get("/api/patient/extracted-data", response_model=List[ExtractedDataResponse])
+async def get_extracted_data(
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Get patient's extracted de-identified data"""
+    patient_repo = PatientRepository(db)
+    profile = patient_repo.get_profile(UUID(token_data["sub"]))
+    
+    if not profile:
+        raise HTTPException(status_code=404, detail="Patient profile not found")
+    
+    extracted = db.query(ExtractedMedicalData).filter(
+        ExtractedMedicalData.patient_id == profile.id
+    ).order_by(ExtractedMedicalData.extracted_date.desc()).all()
+    
+    return [
+        ExtractedDataResponse(
+            id=str(e.id),
+            data_category=e.data_category,
+            data_type=e.data_type,
+            extracted_date=e.extracted_date,
+            original_date=e.original_date,
+            data_quality_score=e.data_quality_score,
+            summary=e.deidentified_data or {},
+        )
+        for e in extracted
+    ]
+
+
+@app.get("/api/patient/data-summary", response_model=PatientDataSummary)
+async def get_patient_data_summary(
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Get summary of patient's contributed data"""
+    patient_repo = PatientRepository(db)
+    profile = patient_repo.get_profile(UUID(token_data["sub"]))
+    
+    if not profile:
+        raise HTTPException(status_code=404, detail="Patient profile not found")
+    
+    # Get connections
+    connections = db.query(MedicalRecordConnection).filter(
+        MedicalRecordConnection.patient_id == profile.id
+    ).all()
+    
+    # Get extracted data counts by category
+    extracted = db.query(ExtractedMedicalData).filter(
+        ExtractedMedicalData.patient_id == profile.id
+    ).all()
+    
+    categories = {}
+    for e in extracted:
+        categories[e.data_category] = categories.get(e.data_category, 0) + 1
+    
+    # Calculate completeness
+    expected_categories = ["demographics", "diagnosis", "treatment", "lab_results", "molecular"]
+    completeness = (len(categories) / len(expected_categories)) * 100 if expected_categories else 0
+    
+    # Get last sync
+    last_sync = None
+    for c in connections:
+        if c.last_sync and (not last_sync or c.last_sync > last_sync):
+            last_sync = c.last_sync
+    
+    return PatientDataSummary(
+        total_records=len(extracted),
+        categories=categories,
+        last_sync=last_sync,
+        completeness_score=min(completeness, 100),
+        connections=[
+            MedicalConnectionResponse(
+                id=str(c.id),
+                source_type=c.source_type,
+                source_name=c.source_name,
+                connection_status=c.connection_status,
+                last_sync=c.last_sync,
+                records_synced=c.records_synced,
+                created_at=c.created_at,
+            )
+            for c in connections
+        ],
+    )
+
+
+@app.delete("/api/patient/connections/{connection_id}")
+async def disconnect_medical_records(
+    connection_id: str,
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Disconnect a medical records source"""
+    patient_repo = PatientRepository(db)
+    profile = patient_repo.get_profile(UUID(token_data["sub"]))
+    
+    if not profile:
+        raise HTTPException(status_code=404, detail="Patient profile not found")
+    
+    connection = db.query(MedicalRecordConnection).filter(
+        MedicalRecordConnection.id == connection_id,
+        MedicalRecordConnection.patient_id == profile.id
+    ).first()
+    
+    if not connection:
+        raise HTTPException(status_code=404, detail="Connection not found")
+    
+    connection.connection_status = "disconnected"
+    db.commit()
+    
+    return {
+        "success": True,
+        "message": "Medical records connection has been disconnected.",
+    }
 
 
 # ============== Data Marketplace Endpoints ==============
