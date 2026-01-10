@@ -9,6 +9,8 @@ import ResearcherDashboard from './pages/ResearcherDashboard';
 import DataMarketplace from './pages/DataMarketplace';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForPatients from './pages/ForPatients';
+import ForResearchers from './pages/ForResearchers';
 
 // Components
 import Navbar from './components/Navbar';
@@ -22,8 +24,13 @@ function App() {
         <main className="flex-grow">
           <Routes>
             <Route path="/" element={<LandingPage />} />
+            {/* Public info pages */}
+            <Route path="/patients" element={<ForPatients />} />
+            <Route path="/researchers" element={<ForResearchers />} />
+            {/* Authenticated dashboards */}
             <Route path="/patient" element={<PatientPortal />} />
             <Route path="/research" element={<ResearcherDashboard />} />
+            {/* Other pages */}
             <Route path="/marketplace" element={<DataMarketplace />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />

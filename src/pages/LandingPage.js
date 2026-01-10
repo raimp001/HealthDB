@@ -287,8 +287,8 @@ const LandingPage = () => {
               <p className="text-xs uppercase tracking-[0.2em] text-white/30 mb-4">Platform</p>
               <ul className="space-y-3">
                 <li><Link to="/marketplace" className="text-white/50 hover:text-white text-sm transition-colors">Data Marketplace</Link></li>
-                <li><Link to="/research" className="text-white/50 hover:text-white text-sm transition-colors">For Researchers</Link></li>
-                <li><Link to="/patient" className="text-white/50 hover:text-white text-sm transition-colors">Patient Portal</Link></li>
+                <li><Link to="/researchers" className="text-white/50 hover:text-white text-sm transition-colors">For Researchers</Link></li>
+                <li><Link to="/patients" className="text-white/50 hover:text-white text-sm transition-colors">For Patients</Link></li>
               </ul>
             </div>
             <div>
