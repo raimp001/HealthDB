@@ -7,6 +7,7 @@ import LandingPage from './pages/LandingPage';
 import PatientPortal from './pages/PatientPortal';
 import ResearcherDashboard from './pages/ResearcherDashboard';
 import DataMarketplace from './pages/DataMarketplace';
+import CohortBuilder from './pages/CohortBuilder';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ForPatients from './pages/ForPatients';
@@ -33,6 +34,7 @@ function App() {
             {/* Authenticated dashboards */}
             <Route path="/patient" element={<PatientPortal />} />
             <Route path="/research" element={<ResearcherDashboard />} />
+            <Route path="/cohort-builder" element={<CohortBuilder />} />
             {/* Other pages */}
             <Route path="/marketplace" element={<DataMarketplace />} />
             <Route path="/resources" element={<Resources />} />
