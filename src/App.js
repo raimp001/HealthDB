@@ -12,6 +12,7 @@ import Register from './pages/Register';
 import ForPatients from './pages/ForPatients';
 import ForResearchers from './pages/ForResearchers';
 import Resources from './pages/Resources';
+import PlatformPage from './pages/PlatformPage';
 
 // Components
 import Navbar from './components/Navbar';
@@ -26,6 +27,7 @@ function App() {
           <Routes>
             <Route path="/" element={<LandingPage />} />
             {/* Public info pages */}
+            <Route path="/platform" element={<PlatformPage />} />
             <Route path="/patients" element={<ForPatients />} />
             <Route path="/researchers" element={<ForResearchers />} />
             {/* Authenticated dashboards */}

@@ -36,8 +36,9 @@ const LandingPage = () => {
             </h1>
             
             <p className="text-lg md:text-xl text-white/50 max-w-2xl mx-auto mb-12 font-light">
-              A secure platform for longitudinal cancer research data. 
-              EMR integration. De-identification. Real-world evidence.
+              Longitudinal health data platform enabling voluntary patient contribution,
+              researcher collaboration, and ethical data monetization.
+              IRB management • EMR integration • HIPAA compliance.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -86,18 +87,18 @@ const LandingPage = () => {
             {[
               {
                 number: '01',
-                title: 'EMR Integration',
-                description: 'Direct connections to Epic, Cerner, and other electronic medical record systems via FHIR APIs and secure database links.',
+                title: 'MRN-Based EMR Extraction',
+                description: 'Query EMRs by cohort criteria or MRN list. Automatic extraction from Epic, Cerner, AllScripts with FHIR mapping and consent verification.',
               },
               {
                 number: '02',
-                title: 'De-identification',
-                description: 'HIPAA-compliant data anonymization with cryptographic hashing, ensuring patient privacy while preserving research utility.',
+                title: 'Multi-Site IRB Coordination',
+                description: 'Streamlined IRB approval across institutions with single IRB model support, reliance agreements, and compliance tracking.',
               },
               {
                 number: '03',
-                title: 'Longitudinal Tracking',
-                description: 'Follow patient journeys across diagnosis, treatment lines, responses, and outcomes over extended time periods.',
+                title: 'Data Sharing Agreements',
+                description: 'Automated DUA generation, negotiation workflows, and compliance monitoring with institutional revenue sharing.',
               },
             ].map((item, index) => (
               <motion.div
@@ -150,18 +151,23 @@ const LandingPage = () => {
               {[
                 {
                   step: '01',
-                  title: 'Connect',
-                  description: 'Healthcare institutions connect their EMR systems through secure, encrypted channels.',
+                  title: 'Patient Consent',
+                  description: 'Patients voluntarily contribute health data with granular consent controls, biometric signing, and blockchain anchoring for immutability.',
                 },
                 {
                   step: '02',
-                  title: 'Transform',
-                  description: 'Patient data is de-identified and standardized into a common research-ready format.',
+                  title: 'IRB & DSA',
+                  description: 'Researchers submit protocols through integrated IRB portal. Multi-site coordination and data sharing agreements managed automatically.',
                 },
                 {
                   step: '03',
-                  title: 'Analyze',
-                  description: 'Researchers query aggregated datasets to build cohorts and conduct retrospective studies.',
+                  title: 'Data Extraction',
+                  description: 'Define cohort criteria (e.g., disease, stage, age). System queries EMRs, validates MRNs, extracts variables, and de-identifies data.',
+                },
+                {
+                  step: '04',
+                  title: 'Analysis & Revenue',
+                  description: 'Researchers access de-identified data. Patients earn 30% revenue share. All access logged and transparent to patients.',
                 },
               ].map((item, index) => (
                 <motion.div
