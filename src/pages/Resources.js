@@ -230,20 +230,6 @@ const Resources = () => {
         </div>
       </section>
 
-      {/* Partners/Press Logos */}
-      <section className="py-16 border-t border-neutral-800">
-        <div className="max-w-6xl mx-auto px-6">
-          <p className="text-center text-sm text-neutral-500 mb-8">
-            Featured in
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-12 opacity-40">
-            <span className="text-xl font-semibold tracking-tight">Nature Medicine</span>
-            <span className="text-xl font-semibold tracking-tight">NEJM Catalyst</span>
-            <span className="text-xl font-semibold tracking-tight">STAT News</span>
-            <span className="text-xl font-semibold tracking-tight">Healthcare IT News</span>
-          </div>
-        </div>
-      </section>
     </div>
   );
 };

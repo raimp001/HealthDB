@@ -236,7 +236,7 @@ const ForResearchers = () => {
                 <ul className="space-y-2">
                   {item.features.map((f) => (
                     <li key={f} className="text-white/50 text-xs flex items-center gap-2">
-                      <span className="text-blue-400">→</span> {f}
+                      <span className="w-1 h-1 rounded-full bg-blue-400 flex-shrink-0"></span> {f}
                     </li>
                   ))}
                 </ul>
