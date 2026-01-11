@@ -51,13 +51,13 @@ const ForResearchers = () => {
               <h3 className="text-white font-medium mb-6">Platform Capabilities</h3>
               <div className="space-y-4">
                 {[
-                  { icon: '🔬', label: 'Cohort Builder', desc: 'Build patient cohorts with precise criteria' },
-                  { icon: '📋', label: 'IRB Management', desc: 'Streamlined ethics approval workflow' },
-                  { icon: '🏥', label: 'Multi-Center Studies', desc: 'Collaborate across institutions' },
-                  { icon: '📊', label: 'Real-World Evidence', desc: 'Longitudinal outcomes data' },
+                  {  label: 'Cohort Builder', desc: 'Build patient cohorts with precise criteria' },
+                  {  label: 'IRB Management', desc: 'Streamlined ethics approval workflow' },
+                  {  label: 'Multi-Center Studies', desc: 'Collaborate across institutions' },
+                  {  label: 'Real-World Evidence', desc: 'Longitudinal outcomes data' },
                 ].map((item) => (
                   <div key={item.label} className="flex items-center gap-4 p-3 bg-white/5">
-                    <span className="text-2xl">{item.icon}</span>
+                    
                     <div>
                       <p className="text-white font-medium">{item.label}</p>
                       <p className="text-white/40 text-sm">{item.desc}</p>
@@ -94,25 +94,25 @@ const ForResearchers = () => {
                 step: '01',
                 title: 'Define Study',
                 description: 'Create your research protocol with study objectives, inclusion/exclusion criteria, and endpoints.',
-                icon: '📝',
+                
               },
               {
                 step: '02',
                 title: 'IRB Approval',
                 description: 'Submit your protocol for institutional review board approval. We provide templates and guidance.',
-                icon: '✅',
+                
               },
               {
                 step: '03',
                 title: 'Build Cohort',
                 description: 'Use our cohort builder to identify eligible patients based on diagnosis, treatment, and outcomes.',
-                icon: '👥',
+                
               },
               {
                 step: '04',
                 title: 'Analyze & Publish',
                 description: 'Access de-identified data, run analyses, and generate insights for your research publications.',
-                icon: '📈',
+                
               },
             ].map((item, index) => (
               <motion.div
@@ -124,7 +124,7 @@ const ForResearchers = () => {
                 className="card-glass p-8"
               >
                 <div className="flex items-center gap-3 mb-4">
-                  <span className="text-2xl">{item.icon}</span>
+                  
                   <span className="text-xs font-mono text-white/30">{item.step}</span>
                 </div>
                 <h3 className="text-lg font-medium text-white mb-3">{item.title}</h3>
@@ -204,19 +204,19 @@ const ForResearchers = () => {
           <div className="grid md:grid-cols-3 gap-8">
             {[
               {
-                icon: '📋',
+                
                 title: 'Protocol Templates',
                 description: 'Pre-approved protocol templates for common study types to accelerate your IRB submission.',
                 features: ['Retrospective chart review', 'Real-world evidence', 'Registry studies'],
               },
               {
-                icon: '⚡',
+                
                 title: 'Fast-Track Approval',
                 description: 'Our standardized data use agreements and de-identification methods qualify for expedited review.',
                 features: ['Minimal risk designation', 'HIPAA Safe Harbor', 'Pre-negotiated DUAs'],
               },
               {
-                icon: '🏛️',
+                
                 title: 'Central IRB',
                 description: 'For multi-center studies, use our central IRB partnership for streamlined approval.',
                 features: ['Single submission', 'All institutions covered', 'Faster turnaround'],
@@ -230,7 +230,7 @@ const ForResearchers = () => {
                 viewport={{ once: true }}
                 className="card-glass p-8"
               >
-                <span className="text-3xl mb-4 block">{item.icon}</span>
+                
                 <h3 className="text-lg font-medium text-white mb-3">{item.title}</h3>
                 <p className="text-white/40 text-sm mb-4">{item.description}</p>
                 <ul className="space-y-2">
@@ -429,7 +429,7 @@ const ForResearchers = () => {
                 <ul className="space-y-3 mb-8">
                   {item.features.map((f) => (
                     <li key={f} className="text-white/50 text-sm flex items-center gap-2">
-                      <span className="text-blue-400">✓</span> {f}
+                      {f}
                     </li>
                   ))}
                 </ul>

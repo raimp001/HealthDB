@@ -106,22 +106,22 @@ const DataMarketplace = () => {
           <div className="grid md:grid-cols-4 gap-4 mt-12">
             {[
               {
-                icon: '🤝',
+                
                 title: 'Consent-First',
                 description: 'All data comes from patients who voluntarily chose to contribute',
               },
               {
-                icon: '🔒',
+                
                 title: 'Privacy Protected',
                 description: 'HIPAA-compliant de-identification protects patient identity',
               },
               {
-                icon: '⚖️',
+                
                 title: 'Ethically Governed',
                 description: 'IRB approval required for all research access',
               },
               {
-                icon: '🔄',
+                
                 title: 'Feedback Loop',
                 description: 'Insights shared back to improve patient care',
               },
@@ -167,7 +167,7 @@ const DataMarketplace = () => {
                   'Patients receive compensation for their contributions',
                 ].map((item, i) => (
                   <div key={i} className="flex items-start gap-3">
-                    <span className="text-[#00d4aa] mt-1">✓</span>
+                    
                     <span className="text-white/60 text-sm">{item}</span>
                   </div>
                 ))}
@@ -176,7 +176,7 @@ const DataMarketplace = () => {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="card-glass p-6">
-                <span className="text-3xl mb-3 block">🏥</span>
+                
                 <h3 className="text-white font-medium mb-2">For Institutions</h3>
                 <p className="text-white/40 text-sm mb-4">Partner with us to contribute data and participate in multi-center studies</p>
                 <a href="mailto:partnerships@healthdb.ai" className="text-[#00d4aa] text-sm hover:underline">
@@ -184,7 +184,7 @@ const DataMarketplace = () => {
                 </a>
               </div>
               <div className="card-glass p-6">
-                <span className="text-3xl mb-3 block">🔬</span>
+                
                 <h3 className="text-white font-medium mb-2">For Researchers</h3>
                 <p className="text-white/40 text-sm mb-4">Access ethically-sourced data for your IRB-approved studies</p>
                 <Link to="/researchers" className="text-[#00d4aa] text-sm hover:underline">
@@ -192,7 +192,7 @@ const DataMarketplace = () => {
                 </Link>
               </div>
               <div className="card-glass p-6">
-                <span className="text-3xl mb-3 block">💊</span>
+                
                 <h3 className="text-white font-medium mb-2">For Industry</h3>
                 <p className="text-white/40 text-sm mb-4">Real-world evidence to inform drug development and outcomes research</p>
                 <a href="mailto:enterprise@healthdb.ai" className="text-[#00d4aa] text-sm hover:underline">
@@ -200,7 +200,7 @@ const DataMarketplace = () => {
                 </a>
               </div>
               <div className="card-glass p-6">
-                <span className="text-3xl mb-3 block">👤</span>
+                
                 <h3 className="text-white font-medium mb-2">For Patients</h3>
                 <p className="text-white/40 text-sm mb-4">Contribute your data to help advance research and earn rewards</p>
                 <Link to="/patients" className="text-[#00d4aa] text-sm hover:underline">
@@ -236,17 +236,17 @@ const DataMarketplace = () => {
           <div className="grid md:grid-cols-3 gap-8">
             {[
               {
-                icon: '📊',
+                
                 title: 'Real-World Evidence',
                 description: 'Clinical trial data only tells part of the story. Real-world data reveals how treatments perform across diverse patient populations in actual clinical practice.',
               },
               {
-                icon: '⚡',
+                
                 title: 'Faster Discovery',
                 description: 'Aggregated data from thousands of patients helps researchers identify patterns and validate hypotheses faster than traditional methods.',
               },
               {
-                icon: '🔄',
+                
                 title: 'Industry Feedback',
                 description: 'Pharmaceutical and biotech companies use insights to improve drug development, identify unmet needs, and create better therapies.',
               },
@@ -259,7 +259,7 @@ const DataMarketplace = () => {
                 viewport={{ once: true }}
                 className="text-left p-6 border border-white/10"
               >
-                <span className="text-3xl mb-4 block">{item.icon}</span>
+                
                 <h3 className="text-white font-medium mb-3">{item.title}</h3>
                 <p className="text-white/40 text-sm leading-relaxed">{item.description}</p>
               </motion.div>
@@ -323,7 +323,7 @@ const DataMarketplace = () => {
               className="text-center py-16 border border-white/10"
             >
               <div className="w-16 h-16 border border-white/10 rounded-full flex items-center justify-center mx-auto mb-8">
-                <span className="text-3xl">🌱</span>
+                
               </div>
               <h2 className="text-2xl font-light text-white mb-4">Building Our Data Network</h2>
               <p className="text-white/40 max-w-lg mx-auto mb-4">
@@ -451,7 +451,7 @@ const DataMarketplace = () => {
                 ].map((item, i) => (
                   <div key={i} className="flex items-center gap-3">
                     <span className={item.allowed ? 'text-[#00d4aa]' : 'text-red-400'}>
-                      {item.allowed ? '✓' : '✕'}
+                      {item.allowed ? '✓' : '✓'}
                     </span>
                     <span className={`text-sm ${item.allowed ? 'text-white/60' : 'text-white/40'}`}>
                       {item.text}

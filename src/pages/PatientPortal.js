@@ -239,7 +239,11 @@ const PatientPortal = () => {
         <section className="px-6 py-4 bg-amber-500/10 border-b border-amber-500/20">
           <div className="max-w-6xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="text-amber-500">⚠️</span>
+              <span className="text-amber-500">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </span>
               <p className="text-amber-400 text-sm">
                 <strong>Action Required:</strong> Sign a research consent to start contributing to cancer research and earn rewards.
               </p>
@@ -306,8 +310,12 @@ const PatientPortal = () => {
                   <div className="grid md:grid-cols-3 gap-4">
                     <div className={`card-glass p-6 ${hasActiveResearchConsent ? 'border-l-2 border-[#00d4aa]' : 'border-l-2 border-amber-500'}`}>
                       <div className="flex items-center gap-3 mb-4">
-                        <span className={`w-8 h-8 rounded-full flex items-center justify-center ${hasActiveResearchConsent ? 'bg-[#00d4aa]/20 text-[#00d4aa]' : 'bg-amber-500/20 text-amber-500'}`}>
-                          {hasActiveResearchConsent ? '✓' : '1'}
+                        <span className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${hasActiveResearchConsent ? 'bg-[#00d4aa]/20 text-[#00d4aa]' : 'bg-amber-500/20 text-amber-500'}`}>
+                          {hasActiveResearchConsent ? (
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          ) : '1'}
                         </span>
                         <span className="text-white font-medium">Sign Consent</span>
                       </div>
@@ -325,8 +333,12 @@ const PatientPortal = () => {
 
                     <div className={`card-glass p-6 ${connections.length > 0 ? 'border-l-2 border-[#00d4aa]' : 'border-l-2 border-white/20'}`}>
                       <div className="flex items-center gap-3 mb-4">
-                        <span className={`w-8 h-8 rounded-full flex items-center justify-center ${connections.length > 0 ? 'bg-[#00d4aa]/20 text-[#00d4aa]' : 'bg-white/10 text-white/40'}`}>
-                          {connections.length > 0 ? '✓' : '2'}
+                        <span className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${connections.length > 0 ? 'bg-[#00d4aa]/20 text-[#00d4aa]' : 'bg-white/10 text-white/40'}`}>
+                          {connections.length > 0 ? (
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          ) : '2'}
                         </span>
                         <span className="text-white font-medium">Connect Records</span>
                       </div>
@@ -344,8 +356,12 @@ const PatientPortal = () => {
 
                     <div className={`card-glass p-6 ${extractedData.length > 0 ? 'border-l-2 border-[#00d4aa]' : 'border-l-2 border-white/20'}`}>
                       <div className="flex items-center gap-3 mb-4">
-                        <span className={`w-8 h-8 rounded-full flex items-center justify-center ${extractedData.length > 0 ? 'bg-[#00d4aa]/20 text-[#00d4aa]' : 'bg-white/10 text-white/40'}`}>
-                          {extractedData.length > 0 ? '✓' : '3'}
+                        <span className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${extractedData.length > 0 ? 'bg-[#00d4aa]/20 text-[#00d4aa]' : 'bg-white/10 text-white/40'}`}>
+                          {extractedData.length > 0 ? (
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          ) : '3'}
                         </span>
                         <span className="text-white font-medium">Earn Rewards</span>
                       </div>
@@ -487,7 +503,11 @@ const PatientPortal = () => {
                   {/* Requirement check */}
                   {!hasActiveResearchConsent ? (
                     <div className="card-glass p-8 text-center border border-amber-500/20">
-                      <span className="text-4xl mb-4 block">🔒</span>
+                      <div className="mx-auto w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center mb-4">
+                        <svg className="w-6 h-6 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
                       <h3 className="text-white font-medium mb-2">Consent Required</h3>
                       <p className="text-white/40 mb-6">You must sign the Research Data Sharing consent before connecting your medical records.</p>
                       <button
@@ -535,7 +555,12 @@ const PatientPortal = () => {
                           </div>
                         ) : (
                           <div className="card-glass p-8 text-center">
-                            <span className="text-4xl mb-4 block">📋</span>
+                            <div className="mx-auto w-12 h-12 rounded-full bg-white/10 flex items-center justify-center mb-4">
+                              <svg className="w-6 h-6 text-white/40" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M9 2a2 2 0 00-2 2v8a2 2 0 002 2h6a2 2 0 002-2V6.414A2 2 0 0016.414 5L14 2.586A2 2 0 0012.586 2H9z" />
+                                <path d="M3 8a2 2 0 012-2v10h8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
+                              </svg>
+                            </div>
                             <h3 className="text-white font-medium mb-2">No Records Connected</h3>
                             <p className="text-white/40 mb-6">Connect your medical records to start contributing to cancer research.</p>
                             <button
@@ -618,14 +643,49 @@ const PatientPortal = () => {
                     <h2 className="text-lg font-medium text-white mb-6">How to Earn</h2>
                     <div className="space-y-3 mb-8">
                       {[
-                        { action: 'Sign a consent', points: 50, icon: '📝' },
-                        { action: 'Connect medical records', points: 100, icon: '🏥' },
-                        { action: 'Complete your profile', points: 25, icon: '👤' },
-                        { action: 'Data used in research', points: 10, icon: '🔬', note: 'per access' },
+                        {
+                          action: 'Sign a consent',
+                          points: 50,
+                          icon: (
+                            <svg className="w-5 h-5 text-white/60" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V8z" clipRule="evenodd" />
+                            </svg>
+                          )
+                        },
+                        {
+                          action: 'Connect medical records',
+                          points: 100,
+                          icon: (
+                            <svg className="w-5 h-5 text-white/60" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+                            </svg>
+                          )
+                        },
+                        {
+                          action: 'Complete your profile',
+                          points: 25,
+                          icon: (
+                            <svg className="w-5 h-5 text-white/60" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                            </svg>
+                          )
+                        },
+                        {
+                          action: 'Data used in research',
+                          points: 10,
+                          icon: (
+                            <svg className="w-5 h-5 text-white/60" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M7 2a1 1 0 00-.707 1.707L7 4.414v3.758a1 1 0 01-.293.707l-4 4C.817 14.769 2.156 18 4.828 18h10.343c2.673 0 4.012-3.231 2.122-5.121l-4-4A1 1 0 0113 8.172V4.414l.707-.707A1 1 0 0013 2H7zm2 6.172V4h2v4.172a3 3 0 00.879 2.12l1.027 1.028a4 4 0 00-2.171.102l-.47.156a4 4 0 01-2.53 0l-.563-.187a1.993 1.993 0 00-.114-.035l1.063-1.063A3 3 0 009 8.172z" clipRule="evenodd" />
+                            </svg>
+                          ),
+                          note: 'per access'
+                        },
                       ].map((item) => (
                         <div key={item.action} className="card-glass p-4 flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            <span className="text-xl">{item.icon}</span>
+                            <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center flex-shrink-0">
+                              {item.icon}
+                            </div>
                             <div>
                               <p className="text-white/80 text-sm">{item.action}</p>
                               {item.note && <p className="text-white/30 text-xs">{item.note}</p>}
@@ -748,9 +808,36 @@ const PatientPortal = () => {
                 <p className="text-white/40 text-sm mb-6">Choose how you'd like to connect your medical records:</p>
                 
                 {[
-                  { type: 'epic_mychart', name: 'Epic MyChart', icon: '🏥', desc: 'Connect via MyChart patient portal' },
-                  { type: 'cerner_patient_portal', name: 'Cerner', icon: '🏨', desc: 'Connect via Cerner patient portal' },
-                  { type: 'manual_upload', name: 'Manual Upload', icon: '📄', desc: 'Upload medical records manually' },
+                  {
+                    type: 'epic_mychart',
+                    name: 'Epic MyChart',
+                    icon: (
+                      <svg className="w-6 h-6 text-white/60" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 0l-2 2a1 1 0 101.414 1.414L8 10.414l1.293 1.293a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                    ),
+                    desc: 'Connect via MyChart patient portal'
+                  },
+                  {
+                    type: 'cerner_patient_portal',
+                    name: 'Cerner',
+                    icon: (
+                      <svg className="w-6 h-6 text-white/60" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V4a2 2 0 00-2-2H6zm1 2a1 1 0 000 2h6a1 1 0 100-2H7zm6 7a1 1 0 011 1v3a1 1 0 11-2 0v-3a1 1 0 011-1zm-3 3a1 1 0 100 2h.01a1 1 0 100-2H10zm-4 1a1 1 0 011-1h.01a1 1 0 110 2H7a1 1 0 01-1-1zm1-4a1 1 0 100 2h.01a1 1 0 100-2H7zm2 1a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1zm4-4a1 1 0 100 2h.01a1 1 0 100-2H13zM9 9a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1zM7 8a1 1 0 000 2h.01a1 1 0 000-2H7z" clipRule="evenodd" />
+                      </svg>
+                    ),
+                    desc: 'Connect via Cerner patient portal'
+                  },
+                  {
+                    type: 'manual_upload',
+                    name: 'Manual Upload',
+                    icon: (
+                      <svg className="w-6 h-6 text-white/60" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clipRule="evenodd" />
+                      </svg>
+                    ),
+                    desc: 'Upload medical records manually'
+                  },
                 ].map((source) => (
                   <button
                     key={source.type}
@@ -758,7 +845,9 @@ const PatientPortal = () => {
                     disabled={isSubmitting}
                     className="w-full card-glass card-hover p-4 text-left flex items-center gap-4 disabled:opacity-50"
                   >
-                    <span className="text-2xl">{source.icon}</span>
+                    <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center flex-shrink-0">
+                      {source.icon}
+                    </div>
                     <div>
                       <p className="text-white font-medium">{source.name}</p>
                       <p className="text-white/40 text-sm">{source.desc}</p>

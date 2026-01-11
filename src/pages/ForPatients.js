@@ -49,16 +49,12 @@ const ForPatients = () => {
           >
             <div className="grid grid-cols-2 gap-4">
               {[
-                { value: '100%', label: 'Voluntary', icon: '🤝' },
-                { value: 'Your', label: 'Control', icon: '🔒' },
-                { value: 'Earn', label: 'Rewards', icon: '🎁' },
-                { value: 'Help', label: 'Research', icon: '🔬' },
               ].map((item, index) => (
                 <div
                   key={item.label}
                   className="card-glass p-6 text-center"
                 >
-                  <span className="text-3xl mb-3 block">{item.icon}</span>
+                  
                   <p className="text-2xl font-light text-white mb-1">{item.value}</p>
                   <p className="text-white/40 text-sm">{item.label}</p>
                 </div>
@@ -89,17 +85,17 @@ const ForPatients = () => {
           <div className="grid md:grid-cols-3 gap-px bg-white/5">
             {[
               {
-                icon: '🧬',
+                
                 title: 'Advance Research',
                 description: 'Your health journey data helps researchers understand cancer better, identify patterns, and develop more effective treatments.',
               },
               {
-                icon: '👥',
+                
                 title: 'Help Future Patients',
                 description: 'The insights from your data may help doctors make better treatment decisions for patients facing similar diagnoses.',
               },
               {
-                icon: '💰',
+                
                 title: 'Earn Rewards',
                 description: 'Receive points for contributing data that can be redeemed for gift cards, donations to cancer charities, or direct payments.',
               },
@@ -112,7 +108,7 @@ const ForPatients = () => {
                 viewport={{ once: true }}
                 className="card-glass p-10"
               >
-                <span className="text-4xl mb-6 block">{item.icon}</span>
+                
                 <h3 className="text-xl font-medium text-white mb-4">{item.title}</h3>
                 <p className="text-white/40 text-sm leading-relaxed">{item.description}</p>
               </motion.div>
@@ -217,22 +213,22 @@ const ForPatients = () => {
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
               {
-                icon: '🔐',
+                
                 title: 'HIPAA Compliant',
                 description: 'We follow strict healthcare privacy regulations.',
               },
               {
-                icon: '🎭',
+                
                 title: 'De-identification',
                 description: 'Your identity is cryptographically protected.',
               },
               {
-                icon: '✋',
+                
                 title: 'Your Control',
                 description: 'Revoke consent and delete data anytime.',
               },
               {
-                icon: '👁️',
+                
                 title: 'Full Transparency',
                 description: 'See exactly who accessed your data.',
               },
@@ -245,7 +241,7 @@ const ForPatients = () => {
                 viewport={{ once: true }}
                 className="text-center p-6"
               >
-                <span className="text-3xl mb-4 block">{item.icon}</span>
+                
                 <h3 className="text-white font-medium mb-2">{item.title}</h3>
                 <p className="text-white/40 text-sm">{item.description}</p>
               </motion.div>
@@ -272,7 +268,7 @@ const ForPatients = () => {
                 'Provider names',
               ].map((item) => (
                 <div key={item} className="flex items-center gap-2 text-white/60">
-                  <span className="text-red-400">✕</span>
+                  ✗
                   {item}
                 </div>
               ))}
@@ -327,13 +323,13 @@ const ForPatients = () => {
               <h3 className="text-white font-medium mb-6">Redeem your points for:</h3>
               <div className="space-y-4">
                 {[
-                  { icon: '💳', title: 'Gift Cards', desc: 'Amazon, Visa, and more' },
-                  { icon: '💖', title: 'Charity Donations', desc: 'American Cancer Society, St. Jude' },
-                  { icon: '💵', title: 'Direct Payment', desc: 'PayPal or bank transfer' },
-                  { icon: '🏥', title: 'Medical Bill Credits', desc: 'Apply to your healthcare costs' },
+                  {  title: 'Gift Cards', desc: 'Amazon, Visa, and more' },
+                  {  title: 'Charity Donations', desc: 'American Cancer Society, St. Jude' },
+                  {  title: 'Direct Payment', desc: 'PayPal or bank transfer' },
+                  {  title: 'Medical Bill Credits', desc: 'Apply to your healthcare costs' },
                 ].map((item) => (
                   <div key={item.title} className="flex items-center gap-4 p-3 bg-white/5 rounded">
-                    <span className="text-2xl">{item.icon}</span>
+                    
                     <div>
                       <p className="text-white font-medium">{item.title}</p>
                       <p className="text-white/40 text-sm">{item.desc}</p>
