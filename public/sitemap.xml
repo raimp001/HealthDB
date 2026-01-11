@@ -60,4 +60,20 @@
     <priority>0.8</priority>
   </url>
   
+  <!-- Pricing -->
+  <url>
+    <loc>https://www.healthdb.ai/pricing</loc>
+    <lastmod>2026-01-11</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  
+  <!-- About -->
+  <url>
+    <loc>https://www.healthdb.ai/about</loc>
+    <lastmod>2026-01-11</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  
 </urlset>

@@ -12,6 +12,8 @@ import Register from './pages/Register';
 import ForPatients from './pages/ForPatients';
 import ForResearchers from './pages/ForResearchers';
 import Resources from './pages/Resources';
+import Pricing from './pages/Pricing';
+import About from './pages/About';
 
 // Components
 import Navbar from './components/Navbar';
@@ -34,6 +36,8 @@ function App() {
             {/* Other pages */}
             <Route path="/marketplace" element={<DataMarketplace />} />
             <Route path="/resources" element={<Resources />} />
+            <Route path="/pricing" element={<Pricing />} />
+            <Route path="/about" element={<About />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
           </Routes>
