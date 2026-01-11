@@ -18,9 +18,9 @@ const LandingPage = () => {
             transition={{ duration: 0.8 }}
           >
             <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6">
-              Cancer Research Data
+              Revolutionize
               <br />
-              <span className="text-white/50">Faster</span>
+              <span className="text-white/50">Health Care Research</span>
             </h1>
             
             <p className="text-lg text-white/40 max-w-xl mx-auto mb-10">
