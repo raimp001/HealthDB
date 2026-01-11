@@ -34,6 +34,9 @@ const LandingPage = () => {
               <Link to="/patients" className="px-8 py-4 border border-white/20 hover:bg-white/5 transition-colors">
                 For Patients
               </Link>
+              <Link to="/institutions" className="px-8 py-4 border border-white/20 hover:bg-white/5 transition-colors">
+                For Institutions
+              </Link>
             </div>
 
             <div className="flex justify-center gap-16">

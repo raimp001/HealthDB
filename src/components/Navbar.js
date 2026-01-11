@@ -37,10 +37,10 @@ const Navbar = () => {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-1">
-            <NavLink to="/marketplace">About</NavLink>
             <NavLink to="/researchers">Researchers</NavLink>
             <NavLink to="/patients">Patients</NavLink>
-            <NavLink to="/resources">Resources</NavLink>
+            <NavLink to="/institutions">Institutions</NavLink>
+            <NavLink to="/about">About</NavLink>
           </div>
 
           {/* Right Side */}
@@ -93,10 +93,10 @@ const Navbar = () => {
         }`}
       >
         <div className="px-6 py-8 space-y-6">
-          <MobileNavLink to="/marketplace">About</MobileNavLink>
           <MobileNavLink to="/researchers">Researchers</MobileNavLink>
           <MobileNavLink to="/patients">Patients</MobileNavLink>
-          <MobileNavLink to="/resources">Resources</MobileNavLink>
+          <MobileNavLink to="/institutions">Institutions</MobileNavLink>
+          <MobileNavLink to="/about">About</MobileNavLink>
           <div className="pt-6 border-t border-white/10 space-y-4">
             <Link
               to="/login"

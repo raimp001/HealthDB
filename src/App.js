@@ -12,6 +12,8 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import ForPatients from './pages/ForPatients';
 import ForResearchers from './pages/ForResearchers';
+import ForInstitutions from './pages/ForInstitutions';
+import InstitutionDashboard from './pages/InstitutionDashboard';
 import Resources from './pages/Resources';
 import Pricing from './pages/Pricing';
 import About from './pages/About';
@@ -31,9 +33,11 @@ function App() {
             {/* Public info pages */}
             <Route path="/patients" element={<ForPatients />} />
             <Route path="/researchers" element={<ForResearchers />} />
+            <Route path="/institutions" element={<ForInstitutions />} />
             {/* Authenticated dashboards */}
             <Route path="/patient" element={<PatientPortal />} />
             <Route path="/research" element={<ResearcherDashboard />} />
+            <Route path="/institution" element={<InstitutionDashboard />} />
             <Route path="/cohort-builder" element={<CohortBuilder />} />
             {/* Other pages */}
             <Route path="/marketplace" element={<DataMarketplace />} />
