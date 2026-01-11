@@ -409,4 +409,99 @@ class ResearchCohort(Base):
 
     # Relationships
     user = relationship("User", back_populates="cohorts")
+    studies = relationship("Study", back_populates="cohort")
+
+
+class Study(Base):
+    """Research study with regulatory tracking"""
+    __tablename__ = "studies"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=False)
+    cohort_id = Column(String(36), ForeignKey("research_cohorts.id"))
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    principal_investigator = Column(String(255))
+    status = Column(String(50), default="draft")  # draft, pending_approval, approved, active, completed, archived
+    patient_count = Column(Integer)
+    selected_variables = Column(JSON)  # List of selected data variables
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, onupdate=datetime.utcnow)
+
+    # Relationships
+    cohort = relationship("ResearchCohort", back_populates="studies")
+    regulatory_submissions = relationship("RegulatorySubmission", back_populates="study")
+    extraction_jobs = relationship("ExtractionJob", back_populates="study")
+
+
+class RegulatorySubmission(Base):
+    """Track IRB, DUA, and site reliance agreements"""
+    __tablename__ = "regulatory_submissions"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    study_id = Column(String(36), ForeignKey("studies.id"), nullable=False)
+    institution_id = Column(String(36), ForeignKey("institutions.id"))
+    document_type = Column(String(50), nullable=False)  # irb_protocol, dua, reliance_agreement, amendment
+    status = Column(String(50), default="draft")  # draft, submitted, under_review, approved, revision_required, signed, expired
+    protocol_number = Column(String(100))
+    version = Column(String(50), default="1.0")
+    submitted_at = Column(DateTime)
+    approved_at = Column(DateTime)
+    expires_at = Column(DateTime)
+    document_url = Column(Text)  # Link to PDF/document storage
+    signatory_name = Column(String(255))
+    signatory_email = Column(String(255))
+    notes = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, onupdate=datetime.utcnow)
+
+    # Relationships
+    study = relationship("Study", back_populates="regulatory_submissions")
+    institution = relationship("Institution")
+
+
+class ExtractionJob(Base):
+    """Data extraction job tracking"""
+    __tablename__ = "extraction_jobs"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    study_id = Column(String(36), ForeignKey("studies.id"), nullable=False)
+    job_name = Column(String(255))
+    status = Column(String(50), default="queued")  # queued, running, completed, failed, cancelled
+    patient_count = Column(Integer)
+    variable_count = Column(Integer)
+    output_format = Column(String(50), default="csv")  # csv, redcap, fhir
+    deidentification_level = Column(String(50), default="limited_dataset")  # limited_dataset, safe_harbor, expert_determination
+    estimated_completion = Column(DateTime)
+    completed_at = Column(DateTime)
+    download_url = Column(Text)
+    download_expires_at = Column(DateTime)
+    error_message = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    study = relationship("Study", back_populates="extraction_jobs")
+
+
+class EMRConnection(Base):
+    """Institution-level EMR connection configuration"""
+    __tablename__ = "emr_connections"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    institution_id = Column(String(36), ForeignKey("institutions.id"), nullable=False)
+    emr_vendor = Column(String(100))  # epic, cerner, meditech, athena, other
+    connection_type = Column(String(50))  # fhir_r4, bulk_fhir, sftp, api
+    fhir_base_url = Column(String(500))
+    client_id = Column(String(255))
+    client_secret_encrypted = Column(Text)  # Encrypted
+    status = Column(String(50), default="setup")  # setup, pending_baa, active, inactive, error
+    last_sync = Column(DateTime)
+    sync_frequency_hours = Column(Integer, default=24)
+    patient_count = Column(Integer, default=0)
+    data_completeness_score = Column(Float, default=0.0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, onupdate=datetime.utcnow)
+
+    # Relationships
+    institution = relationship("Institution")
 

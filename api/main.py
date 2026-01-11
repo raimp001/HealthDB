@@ -10,6 +10,7 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime, date, timedelta
 from decimal import Decimal
 from uuid import UUID
+import uuid
 import os
 from jose import jwt
 import hashlib
@@ -21,7 +22,8 @@ from .database import get_db, init_db, engine
 from .models import (
     Base, User, PatientProfile, Consent, ConsentTemplate,
     CancerDiagnosis, Treatment, DataProduct, DataAccessLog, ResearchCohort,
-    MedicalRecordConnection, ExtractedMedicalData, RewardsTransaction
+    MedicalRecordConnection, ExtractedMedicalData, RewardsTransaction,
+    Study, RegulatorySubmission, ExtractionJob, EMRConnection, Institution
 )
 from .repositories import (
     UserRepository, PatientRepository, ClinicalDataRepository,
@@ -184,6 +186,66 @@ class ContactRequest(BaseModel):
     organization: str
     message: str
     interest_type: str
+
+
+# ============== Study & Regulatory Models ==============
+
+class CreateStudyRequest(BaseModel):
+    name: str
+    description: Optional[str] = None
+    cohort_id: Optional[str] = None
+    principal_investigator: Optional[str] = None
+    selected_variables: Optional[List[str]] = None
+
+class StudyResponse(BaseModel):
+    id: str
+    name: str
+    description: Optional[str]
+    status: str
+    patient_count: Optional[int]
+    created_at: datetime
+    regulatory_status: Dict[str, str]
+
+class RegulatorySubmissionResponse(BaseModel):
+    id: str
+    document_type: str
+    status: str
+    protocol_number: Optional[str]
+    institution_name: Optional[str]
+    submitted_at: Optional[datetime]
+    approved_at: Optional[datetime]
+    expires_at: Optional[datetime]
+
+class CreateRegulatoryRequest(BaseModel):
+    study_id: str
+    document_type: str  # irb_protocol, dua, reliance_agreement
+    institution_id: Optional[str] = None
+
+class ExtractionJobRequest(BaseModel):
+    study_id: str
+    variables: List[str]
+    output_format: str = "csv"
+    deidentification_level: str = "limited_dataset"
+
+class ExtractionJobResponse(BaseModel):
+    id: str
+    job_name: str
+    status: str
+    patient_count: Optional[int]
+    variable_count: Optional[int]
+    output_format: str
+    estimated_completion: Optional[datetime]
+    download_url: Optional[str]
+    created_at: datetime
+
+class EMRConnectionResponse(BaseModel):
+    id: str
+    institution_name: str
+    emr_vendor: str
+    status: str
+    last_sync: Optional[datetime]
+    patient_count: int
+    data_completeness_score: float
 
 
 # ============== Consent & Medical Records Models ==============
@@ -1240,6 +1302,381 @@ async def get_cohort_summary(
         raise HTTPException(status_code=404, detail="Cohort not found")
 
     return summary
+
+
+# ============== Study & Regulatory Endpoints ==============
+
+@app.post("/api/researcher/studies", response_model=StudyResponse)
+async def create_study(
+    request: CreateStudyRequest,
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Create a new research study"""
+    user_id = token_data["sub"]
+    
+    # Get cohort patient count if cohort_id provided
+    patient_count = 0
+    if request.cohort_id:
+        cohort = db.query(ResearchCohort).filter(ResearchCohort.id == request.cohort_id).first()
+        if cohort:
+            patient_count = cohort.patient_count or 0
+    
+    study = Study(
+        user_id=user_id,
+        cohort_id=request.cohort_id,
+        name=request.name,
+        description=request.description,
+        principal_investigator=request.principal_investigator,
+        patient_count=patient_count,
+        selected_variables=request.selected_variables,
+        status="draft",
+    )
+    db.add(study)
+    db.commit()
+    db.refresh(study)
+    
+    return StudyResponse(
+        id=str(study.id),
+        name=study.name,
+        description=study.description,
+        status=study.status,
+        patient_count=study.patient_count,
+        created_at=study.created_at,
+        regulatory_status={},
+    )
+
+
+@app.get("/api/researcher/studies")
+async def get_researcher_studies(
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Get all studies for the current researcher"""
+    user_id = token_data["sub"]
+    
+    studies = db.query(Study).filter(Study.user_id == user_id).order_by(Study.created_at.desc()).all()
+    
+    result = []
+    for study in studies:
+        # Get regulatory status
+        submissions = db.query(RegulatorySubmission).filter(
+            RegulatorySubmission.study_id == study.id
+        ).all()
+        
+        reg_status = {}
+        for sub in submissions:
+            key = sub.document_type
+            if sub.institution_id:
+                inst = db.query(Institution).filter(Institution.id == sub.institution_id).first()
+                if inst:
+                    key = f"{sub.document_type}_{inst.name}"
+            reg_status[key] = sub.status
+        
+        result.append({
+            "id": str(study.id),
+            "name": study.name,
+            "description": study.description,
+            "status": study.status,
+            "patient_count": study.patient_count,
+            "created_at": study.created_at.isoformat(),
+            "regulatory_status": reg_status,
+        })
+    
+    return result
+
+
+@app.get("/api/researcher/studies/{study_id}")
+async def get_study_detail(
+    study_id: str,
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Get detailed study information including regulatory status"""
+    study = db.query(Study).filter(Study.id == study_id).first()
+    
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found")
+    
+    # Get all regulatory submissions
+    submissions = db.query(RegulatorySubmission).filter(
+        RegulatorySubmission.study_id == study_id
+    ).all()
+    
+    regulatory_items = []
+    for sub in submissions:
+        inst_name = None
+        if sub.institution_id:
+            inst = db.query(Institution).filter(Institution.id == sub.institution_id).first()
+            if inst:
+                inst_name = inst.name
+        
+        regulatory_items.append({
+            "id": str(sub.id),
+            "document_type": sub.document_type,
+            "status": sub.status,
+            "protocol_number": sub.protocol_number,
+            "institution_name": inst_name,
+            "submitted_at": sub.submitted_at.isoformat() if sub.submitted_at else None,
+            "approved_at": sub.approved_at.isoformat() if sub.approved_at else None,
+            "expires_at": sub.expires_at.isoformat() if sub.expires_at else None,
+            "document_url": sub.document_url,
+        })
+    
+    # Get extraction jobs
+    jobs = db.query(ExtractionJob).filter(ExtractionJob.study_id == study_id).all()
+    extraction_jobs = [
+        {
+            "id": str(job.id),
+            "job_name": job.job_name,
+            "status": job.status,
+            "patient_count": job.patient_count,
+            "variable_count": job.variable_count,
+            "output_format": job.output_format,
+            "estimated_completion": job.estimated_completion.isoformat() if job.estimated_completion else None,
+            "download_url": job.download_url,
+            "created_at": job.created_at.isoformat(),
+        }
+        for job in jobs
+    ]
+    
+    return {
+        "id": str(study.id),
+        "name": study.name,
+        "description": study.description,
+        "status": study.status,
+        "principal_investigator": study.principal_investigator,
+        "patient_count": study.patient_count,
+        "selected_variables": study.selected_variables,
+        "created_at": study.created_at.isoformat(),
+        "regulatory": regulatory_items,
+        "extraction_jobs": extraction_jobs,
+    }
+
+
+@app.post("/api/regulatory/submit")
+async def submit_regulatory(
+    request: CreateRegulatoryRequest,
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Submit a regulatory document (IRB protocol, DUA, or reliance agreement)"""
+    study = db.query(Study).filter(Study.id == request.study_id).first()
+    
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found")
+    
+    # Generate protocol number for IRB
+    protocol_number = None
+    if request.document_type == "irb_protocol":
+        protocol_number = f"HDB-{datetime.utcnow().year}-{str(uuid.uuid4())[:8].upper()}"
+    
+    submission = RegulatorySubmission(
+        study_id=request.study_id,
+        institution_id=request.institution_id,
+        document_type=request.document_type,
+        status="submitted",
+        protocol_number=protocol_number,
+        submitted_at=datetime.utcnow(),
+    )
+    db.add(submission)
+    
+    # Update study status
+    if study.status == "draft":
+        study.status = "pending_approval"
+    
+    db.commit()
+    db.refresh(submission)
+    
+    return {
+        "success": True,
+        "submission_id": str(submission.id),
+        "document_type": submission.document_type,
+        "status": submission.status,
+        "protocol_number": submission.protocol_number,
+        "message": f"{request.document_type.replace('_', ' ').title()} submitted successfully.",
+    }
+
+
+@app.post("/api/regulatory/{submission_id}/approve")
+async def approve_regulatory(
+    submission_id: str,
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Approve a regulatory submission (admin endpoint)"""
+    submission = db.query(RegulatorySubmission).filter(
+        RegulatorySubmission.id == submission_id
+    ).first()
+    
+    if not submission:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    
+    submission.status = "approved"
+    submission.approved_at = datetime.utcnow()
+    
+    # Set expiration (1 year for IRB, 2 years for DUA)
+    if submission.document_type == "irb_protocol":
+        submission.expires_at = datetime.utcnow() + timedelta(days=365)
+    elif submission.document_type == "dua":
+        submission.expires_at = datetime.utcnow() + timedelta(days=730)
+    
+    # Check if all required approvals are complete
+    study = db.query(Study).filter(Study.id == submission.study_id).first()
+    if study:
+        all_submissions = db.query(RegulatorySubmission).filter(
+            RegulatorySubmission.study_id == study.id
+        ).all()
+        
+        all_approved = all(s.status in ["approved", "signed"] for s in all_submissions)
+        if all_approved and len(all_submissions) >= 2:  # At least IRB and DUA
+            study.status = "approved"
+    
+    db.commit()
+    
+    return {
+        "success": True,
+        "message": "Submission approved.",
+        "expires_at": submission.expires_at.isoformat() if submission.expires_at else None,
+    }
+
+
+@app.post("/api/extraction/create")
+async def create_extraction_job(
+    request: ExtractionJobRequest,
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Create a data extraction job"""
+    study = db.query(Study).filter(Study.id == request.study_id).first()
+    
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found")
+    
+    # Check if study has all required approvals
+    submissions = db.query(RegulatorySubmission).filter(
+        RegulatorySubmission.study_id == request.study_id
+    ).all()
+    
+    irb_approved = any(s.document_type == "irb_protocol" and s.status == "approved" for s in submissions)
+    dua_signed = any(s.document_type == "dua" and s.status in ["approved", "signed"] for s in submissions)
+    
+    if not irb_approved or not dua_signed:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot extract data without IRB approval and signed DUA"
+        )
+    
+    # Create extraction job
+    job_name = f"extract_{study.name.lower().replace(' ', '_')}_{datetime.utcnow().strftime('%Y%m%d')}"
+    estimated_completion = datetime.utcnow() + timedelta(days=2)  # Estimate 2 days
+    
+    job = ExtractionJob(
+        study_id=request.study_id,
+        job_name=job_name,
+        status="queued",
+        patient_count=study.patient_count,
+        variable_count=len(request.variables),
+        output_format=request.output_format,
+        deidentification_level=request.deidentification_level,
+        estimated_completion=estimated_completion,
+    )
+    db.add(job)
+    
+    # Update study status
+    study.status = "active"
+    
+    db.commit()
+    db.refresh(job)
+    
+    return {
+        "success": True,
+        "job_id": str(job.id),
+        "job_name": job.job_name,
+        "status": job.status,
+        "patient_count": job.patient_count,
+        "variable_count": job.variable_count,
+        "estimated_completion": estimated_completion.isoformat(),
+        "message": "Extraction job queued. You will be notified when data is ready.",
+    }
+
+
+@app.get("/api/extraction/jobs")
+async def get_extraction_jobs(
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Get all extraction jobs for the current user's studies"""
+    user_id = token_data["sub"]
+    
+    # Get user's studies
+    studies = db.query(Study).filter(Study.user_id == user_id).all()
+    study_ids = [str(s.id) for s in studies]
+    
+    jobs = db.query(ExtractionJob).filter(
+        ExtractionJob.study_id.in_(study_ids)
+    ).order_by(ExtractionJob.created_at.desc()).all()
+    
+    return [
+        {
+            "id": str(job.id),
+            "job_name": job.job_name,
+            "status": job.status,
+            "patient_count": job.patient_count,
+            "variable_count": job.variable_count,
+            "output_format": job.output_format,
+            "estimated_completion": job.estimated_completion.isoformat() if job.estimated_completion else None,
+            "completed_at": job.completed_at.isoformat() if job.completed_at else None,
+            "download_url": job.download_url,
+            "created_at": job.created_at.isoformat(),
+        }
+        for job in jobs
+    ]
+
+
+@app.get("/api/emr/connections")
+async def get_emr_connections(
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Get all EMR connections and their status"""
+    connections = db.query(EMRConnection).all()
+    
+    result = []
+    for conn in connections:
+        inst = db.query(Institution).filter(Institution.id == conn.institution_id).first()
+        result.append({
+            "id": str(conn.id),
+            "institution_name": inst.name if inst else "Unknown",
+            "emr_vendor": conn.emr_vendor,
+            "connection_type": conn.connection_type,
+            "status": conn.status,
+            "last_sync": conn.last_sync.isoformat() if conn.last_sync else None,
+            "patient_count": conn.patient_count,
+            "data_completeness_score": conn.data_completeness_score,
+        })
+    
+    return result
+
+
+@app.get("/api/institutions")
+async def get_institutions(
+    db: Session = Depends(get_db)
+):
+    """Get all partner institutions"""
+    institutions = db.query(Institution).filter(Institution.is_active == True).all()
+    
+    return [
+        {
+            "id": str(inst.id),
+            "name": inst.name,
+            "type": inst.type,
+            "city": inst.city,
+            "state": inst.state,
+            "emr_system": inst.emr_system,
+        }
+        for inst in institutions
+    ]
 
 
 # ============== Stats & Analytics Endpoints ==============
