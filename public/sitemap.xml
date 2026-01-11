@@ -52,4 +52,12 @@
     <priority>0.6</priority>
   </url>
   
+  <!-- Resources / Blog -->
+  <url>
+    <loc>https://www.healthdb.ai/resources</loc>
+    <lastmod>2026-01-11</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  
 </urlset>

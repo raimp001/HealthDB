@@ -40,6 +40,7 @@ const Navbar = () => {
             <NavLink to="/marketplace">About</NavLink>
             <NavLink to="/researchers">Researchers</NavLink>
             <NavLink to="/patients">Patients</NavLink>
+            <NavLink to="/resources">Resources</NavLink>
           </div>
 
           {/* Right Side */}
@@ -95,6 +96,7 @@ const Navbar = () => {
           <MobileNavLink to="/marketplace">About</MobileNavLink>
           <MobileNavLink to="/researchers">Researchers</MobileNavLink>
           <MobileNavLink to="/patients">Patients</MobileNavLink>
+          <MobileNavLink to="/resources">Resources</MobileNavLink>
           <div className="pt-6 border-t border-white/10 space-y-4">
             <Link
               to="/login"
