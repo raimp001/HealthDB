@@ -23,7 +23,8 @@ from .models import (
     Base, User, PatientProfile, Consent, ConsentTemplate,
     CancerDiagnosis, Treatment, DataProduct, DataAccessLog, ResearchCohort,
     MedicalRecordConnection, ExtractedMedicalData, RewardsTransaction,
-    Study, RegulatorySubmission, ExtractionJob, EMRConnection, Institution
+    Study, RegulatorySubmission, ExtractionJob, EMRConnection, Institution,
+    StudyCollaborator, StudyDocument, StudyComment, DiseaseVariableSet
 )
 from .repositories import (
     UserRepository, PatientRepository, ClinicalDataRepository,
@@ -1677,6 +1678,243 @@ async def get_institutions(
         }
         for inst in institutions
     ]
+
+
+# ============== Collaboration Endpoints ==============
+
+@app.get("/api/study/{study_id}/team")
+async def get_study_team(
+    study_id: str,
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Get all collaborators on a study"""
+    collaborators = db.query(StudyCollaborator).filter(
+        StudyCollaborator.study_id == study_id
+    ).all()
+    
+    result = []
+    for collab in collaborators:
+        user_info = None
+        if collab.user_id:
+            user = db.query(User).filter(User.id == collab.user_id).first()
+            if user:
+                user_info = {"name": user.name, "email": user.email, "organization": user.organization}
+        
+        result.append({
+            "id": str(collab.id),
+            "email": collab.email,
+            "role": collab.role,
+            "status": collab.status,
+            "permissions": collab.permissions,
+            "user": user_info,
+            "invited_at": collab.invited_at.isoformat() if collab.invited_at else None,
+            "accepted_at": collab.accepted_at.isoformat() if collab.accepted_at else None,
+        })
+    
+    return result
+
+
+@app.post("/api/study/{study_id}/invite")
+async def invite_collaborator(
+    study_id: str,
+    email: str,
+    role: str,
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Invite a collaborator to a study"""
+    study = db.query(Study).filter(Study.id == study_id).first()
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found")
+    
+    # Check if user is PI
+    if study.user_id != token_data["sub"]:
+        raise HTTPException(status_code=403, detail="Only the PI can invite collaborators")
+    
+    # Check if already invited
+    existing = db.query(StudyCollaborator).filter(
+        StudyCollaborator.study_id == study_id,
+        StudyCollaborator.email == email
+    ).first()
+    
+    if existing:
+        raise HTTPException(status_code=400, detail="This email has already been invited")
+    
+    # Set permissions based on role
+    permissions = {}
+    if role == "co_investigator":
+        permissions = {"data_access": True, "run_queries": True, "export": True, "edit_study": False}
+    elif role == "analyst":
+        permissions = {"data_access": True, "run_queries": True, "export": False, "edit_study": False}
+    elif role == "statistician":
+        permissions = {"data_access": True, "run_queries": True, "export": True, "edit_study": False}
+    
+    # Check if user exists
+    user = db.query(User).filter(User.email == email).first()
+    
+    collaborator = StudyCollaborator(
+        study_id=study_id,
+        user_id=str(user.id) if user else None,
+        email=email,
+        role=role,
+        status="invited" if not user else "accepted",  # Auto-accept if user exists
+        permissions=permissions,
+        accepted_at=datetime.utcnow() if user else None,
+    )
+    db.add(collaborator)
+    db.commit()
+    
+    return {
+        "success": True,
+        "collaborator_id": str(collaborator.id),
+        "status": collaborator.status,
+        "message": f"Invitation sent to {email}",
+    }
+
+
+@app.post("/api/study/{study_id}/comments")
+async def add_study_comment(
+    study_id: str,
+    content: str,
+    parent_id: Optional[str] = None,
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Add a comment to a study discussion"""
+    comment = StudyComment(
+        study_id=study_id,
+        user_id=token_data["sub"],
+        parent_id=parent_id,
+        content=content,
+    )
+    db.add(comment)
+    db.commit()
+    db.refresh(comment)
+    
+    return {
+        "success": True,
+        "comment_id": str(comment.id),
+        "created_at": comment.created_at.isoformat(),
+    }
+
+
+@app.get("/api/study/{study_id}/comments")
+async def get_study_comments(
+    study_id: str,
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Get all comments on a study"""
+    comments = db.query(StudyComment).filter(
+        StudyComment.study_id == study_id
+    ).order_by(StudyComment.created_at.desc()).all()
+    
+    result = []
+    for comment in comments:
+        user = db.query(User).filter(User.id == comment.user_id).first()
+        result.append({
+            "id": str(comment.id),
+            "content": comment.content,
+            "parent_id": comment.parent_id,
+            "is_resolved": comment.is_resolved,
+            "user": {"name": user.name if user else "Unknown", "email": user.email if user else None},
+            "created_at": comment.created_at.isoformat(),
+        })
+    
+    return result
+
+
+@app.get("/api/diseases/variable-sets")
+async def get_disease_variable_sets(
+    db: Session = Depends(get_db)
+):
+    """Get pre-defined variable sets for diseases"""
+    # Check if variable sets exist, if not create defaults
+    sets = db.query(DiseaseVariableSet).filter(DiseaseVariableSet.is_active == True).all()
+    
+    if not sets:
+        # Create default disease variable sets
+        default_sets = [
+            {
+                "disease_name": "Multiple Myeloma",
+                "icd10_codes": ["C90.0", "C90.1", "C90.2"],
+                "core_variables": ["age_at_diagnosis", "sex", "race", "insurance_type"],
+                "staging_variables": ["iss_stage", "riss_stage", "bone_lesions", "extramedullary_disease"],
+                "molecular_variables": ["del_17p", "t_4_14", "t_14_16", "t_11_14", "gain_1q", "hyperdiploidy"],
+                "treatment_variables": ["regimen_name", "line_of_therapy", "start_date", "cycles_completed", "dose_modifications"],
+                "outcome_variables": ["best_response", "pfs_months", "os_months", "mrd_status", "time_to_next_treatment"],
+            },
+            {
+                "disease_name": "Diffuse Large B-Cell Lymphoma",
+                "icd10_codes": ["C83.3"],
+                "core_variables": ["age_at_diagnosis", "sex", "race", "ecog_status"],
+                "staging_variables": ["ann_arbor_stage", "ipi_score", "bulk_disease"],
+                "molecular_variables": ["cell_of_origin", "bcl2_rearrangement", "myc_rearrangement", "double_hit"],
+                "treatment_variables": ["regimen_name", "cycles_completed", "radiation_received"],
+                "outcome_variables": ["complete_response", "event_free_survival", "overall_survival"],
+            },
+            {
+                "disease_name": "Acute Myeloid Leukemia",
+                "icd10_codes": ["C92.0", "C92.4", "C92.5"],
+                "core_variables": ["age_at_diagnosis", "sex", "race", "wbc_at_diagnosis"],
+                "staging_variables": ["eln_risk_group", "secondary_aml", "therapy_related"],
+                "molecular_variables": ["flt3_itd", "flt3_tkd", "npm1", "idh1", "idh2", "tp53", "runx1"],
+                "treatment_variables": ["induction_regimen", "consolidation", "transplant_type"],
+                "outcome_variables": ["complete_remission", "relapse", "overall_survival", "relapse_free_survival"],
+            },
+        ]
+        
+        for ds in default_sets:
+            disease_set = DiseaseVariableSet(**ds)
+            db.add(disease_set)
+        db.commit()
+        
+        sets = db.query(DiseaseVariableSet).filter(DiseaseVariableSet.is_active == True).all()
+    
+    return [
+        {
+            "id": str(s.id),
+            "disease_name": s.disease_name,
+            "icd10_codes": s.icd10_codes,
+            "core_variables": s.core_variables,
+            "staging_variables": s.staging_variables,
+            "molecular_variables": s.molecular_variables,
+            "treatment_variables": s.treatment_variables,
+            "outcome_variables": s.outcome_variables,
+        }
+        for s in sets
+    ]
+
+
+@app.get("/api/diseases/{disease_name}/variables")
+async def get_disease_variables(
+    disease_name: str,
+    db: Session = Depends(get_db)
+):
+    """Get variables for a specific disease"""
+    disease_set = db.query(DiseaseVariableSet).filter(
+        DiseaseVariableSet.disease_name.ilike(f"%{disease_name}%")
+    ).first()
+    
+    if not disease_set:
+        raise HTTPException(status_code=404, detail="Disease not found")
+    
+    # Combine all variables
+    all_variables = {
+        "demographics": disease_set.core_variables or [],
+        "staging": disease_set.staging_variables or [],
+        "molecular": disease_set.molecular_variables or [],
+        "treatment": disease_set.treatment_variables or [],
+        "outcomes": disease_set.outcome_variables or [],
+    }
+    
+    return {
+        "disease_name": disease_set.disease_name,
+        "icd10_codes": disease_set.icd10_codes,
+        "variables": all_variables,
+        "total_variable_count": sum(len(v) for v in all_variables.values()),
+    }
 
 
 # ============== Stats & Analytics Endpoints ==============

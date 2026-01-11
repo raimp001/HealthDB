@@ -1,1186 +1,947 @@
-# HealthDB Platform State Machine Diagrams
+# HealthDB Platform - Complete Architecture & State Machines
 
-This document contains comprehensive state machine diagrams for all major workflows in the HealthDB platform.
+HealthDB.ai eliminates regulatory friction and data fragmentation for multi-center clinical research while giving patients ownership of their health data.
 
 ---
 
 ## Table of Contents
 
-1. [Authentication Flow](#1-authentication-flow)
-2. [Patient Portal](#2-patient-portal)
-3. [Researcher Dashboard](#3-researcher-dashboard)
-4. [Consent Management](#4-consent-management)
-5. [Medical Records Connection](#5-medical-records-connection)
-6. [Cohort Builder Workflow](#6-cohort-builder-workflow)
-7. [Regulatory Pipeline](#7-regulatory-pipeline)
-8. [EMR Integration Hub](#8-emr-integration-hub)
-9. [Data Extraction Pipeline](#9-data-extraction-pipeline)
-10. [Study Lifecycle](#10-study-lifecycle)
-11. [Data Marketplace](#11-data-marketplace)
-12. [Global Application State](#12-global-application-state)
-13. [System Architecture](#13-system-architecture)
+1. [Patient Data Contribution Flow](#1-patient-data-contribution-flow)
+2. [Researcher Study Creation Flow](#2-researcher-study-creation-flow)
+3. [EMR Integration Flow](#3-emr-integration-flow)
+4. [Cohort Query Engine](#4-cohort-query-engine)
+5. [Regulatory Automation Engine](#5-regulatory-automation-engine)
+6. [Collaboration Workspace](#6-collaboration-workspace)
+7. [Data Extraction Pipeline](#7-data-extraction-pipeline)
+8. [Authentication & Authorization](#8-authentication--authorization)
+9. [System Architecture](#9-system-architecture)
+10. [API Reference](#10-api-reference)
 
 ---
 
-## 1. Authentication Flow
+## 1. Patient Data Contribution Flow
 
-### 1.1 Login Component
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      LOGIN COMPONENT                            │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│    ┌──────────┐                                                 │
-│    │   IDLE   │ ◄────────────────────────────────┐              │
-│    │          │                                  │              │
-│    │ email='' │                                  │              │
-│    │ pass=''  │                                  │              │
-│    └────┬─────┘                                  │              │
-│         │ [user types]                           │              │
-│         ▼                                        │              │
-│    ┌──────────────┐                              │              │
-│    │  FORM_DIRTY  │                              │              │
-│    └──────┬───────┘                              │              │
-│           │ [submit]                             │              │
-│           ▼                                      │              │
-│    ┌──────────────┐                              │              │
-│    │   LOADING    │                              │              │
-│    │ isLoading=   │                              │              │
-│    │   true       │                              │              │
-│    └──────┬───────┘                              │              │
-│           │                                      │              │
-│           ├─────────────────┐                    │              │
-│           ▼                 ▼                    │              │
-│    ┌──────────────┐  ┌──────────────┐            │              │
-│    │   SUCCESS    │  │    ERROR     │────────────┘              │
-│    │              │  │              │                           │
-│    │ token saved  │  │ show message │                           │
-│    └──────┬───────┘  └──────────────┘                           │
-│           │                                                     │
-│           ├─────────────────┐                                   │
-│           ▼                 ▼                                   │
-│    ┌──────────────┐  ┌──────────────┐                           │
-│    │  → /patient  │  │  → /research │                           │
-│    │ (patient)    │  │ (researcher) │                           │
-│    └──────────────┘  └──────────────┘                           │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### 1.2 Registration Component
+### 1.1 Complete State Machine
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    REGISTRATION COMPONENT                       │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│    ┌─────────────┐              ┌─────────────┐                 │
-│    │ RESEARCHER  │◄────────────►│   PATIENT   │                 │
-│    │    MODE     │   [toggle]   │    MODE     │                 │
-│    │             │              │             │                 │
-│    │ Shows:      │              │ Shows:      │                 │
-│    │ - Name      │              │ - Name      │                 │
-│    │ - Email     │              │ - Email     │                 │
-│    │ - Org       │              │ - Password  │                 │
-│    │ - Password  │              │             │                 │
-│    └──────┬──────┘              └──────┬──────┘                 │
-│           │                            │                        │
-│           └────────────┬───────────────┘                        │
-│                        │ [submit]                               │
-│                        ▼                                        │
-│                 ┌─────────────┐                                 │
-│                 │   LOADING   │                                 │
-│                 └──────┬──────┘                                 │
-│                        │                                        │
-│           ┌────────────┴────────────┐                           │
-│           ▼                         ▼                           │
-│    ┌─────────────┐           ┌─────────────┐                    │
-│    │   SUCCESS   │           │    ERROR    │─► [retry] ─► IDLE  │
-│    │ → /login    │           │ show error  │                    │
-│    └─────────────┘           └─────────────┘                    │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    PATIENT DATA CONTRIBUTION STATE MACHINE                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+                              ┌──────────────┐
+                              │   VISITOR    │
+                              └──────┬───────┘
+                                     │ Register
+                                     ▼
+                              ┌──────────────┐
+                              │  ONBOARDED   │ ─► +100 pts welcome bonus
+                              │  (Identity   │
+                              │  Verified)   │
+                              └──────┬───────┘
+                                     │ Sign Consent
+                                     ▼
+                        ┌────────────────────────┐
+                        │    CONSENT_GRANTED     │ ─► +50 pts per consent type
+                        │  (Master Consent +     │
+                        │   Granular Prefs)      │
+                        └────────────┬───────────┘
+                                     │
+              ┌──────────────────────┼──────────────────────┐
+              │                      │                      │
+              ▼                      ▼                      ▼
+     ┌────────────────┐    ┌────────────────┐    ┌────────────────┐
+     │ MANUAL_ENTRY   │    │  EMR_LINKED    │    │  DEVICE_SYNC   │
+     │ (Forms/PROs)   │    │ (Epic/Cerner)  │    │ (Wearables)    │
+     │                │    │ +100 pts       │    │ +50 pts        │
+     └───────┬────────┘    └───────┬────────┘    └───────┬────────┘
+             │                     │                     │
+             └──────────────┬──────┴─────────────────────┘
+                            │
+                            ▼
+                   ┌────────────────┐
+                   │ DATA_VALIDATED │
+                   │ (QC + Mapping  │
+                   │  to OMOP CDM)  │
+                   └───────┬────────┘
+                           │
+                           ▼
+                   ┌────────────────┐
+                   │  DATA_BANKED   │◄────────────────────┐
+                   │ (Available for │                     │
+                   │   Queries)     │                     │
+                   └───────┬────────┘                     │
+                           │                              │
+              ┌────────────┼────────────┐                 │
+              │            │            │                 │
+              ▼            ▼            ▼                 │
+         ┌────────┐  ┌──────────┐  ┌────────────┐        │
+         │QUERIED │  │CONSENTED │  │ WITHDRAWN  │────────┘
+         │(Stats  │  │_TO_STUDY │  │ (Patient   │  (Partial)
+         │only)   │  │(Specific │  │  Revokes)  │
+         │+10 pts │  │ project) │  │            │
+         └────────┘  │+25 pts   │  └────────────┘
+                     └──────────┘
 ```
 
----
+### 1.2 Consent Tiers
 
-## 2. Patient Portal
+| Tier | Description | Data Access | Patient Control |
+|------|-------------|-------------|-----------------|
+| **Tier 1** | De-identified aggregate only | Stats and counts | Default, lowest risk |
+| **Tier 2** | Limited dataset for approved research | Demographics, diagnosis, treatment (no dates) | Per-study approval |
+| **Tier 3** | Identifiable for re-contact | Full profile for trial matching | Explicit opt-in |
+| **Tier 4** | Ongoing EMR linkage | Real-time data sync | Richest data, highest rewards |
 
-### 2.1 Main State Machine
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      PATIENT PORTAL                             │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│    ┌──────────────┐                                             │
-│    │     INIT     │                                             │
-│    │  Check auth  │                                             │
-│    └──────┬───────┘                                             │
-│           │                                                     │
-│           ├─────────────────┬─────────────────┐                 │
-│           ▼                 ▼                 ▼                 │
-│    ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
-│    │  NO_TOKEN    │  │ WRONG_TYPE   │  │   LOADING    │         │
-│    │ → /login     │  │ → /research  │  │ Fetching...  │         │
-│    └──────────────┘  └──────────────┘  └──────┬───────┘         │
-│                                               │                 │
-│                                    ┌──────────┴──────────┐      │
-│                                    ▼                     ▼      │
-│                             ┌──────────────┐      ┌─────────┐   │
-│                             │    ERROR     │      │  READY  │   │
-│                             │ Retry button │      │         │   │
-│                             └──────────────┘      └────┬────┘   │
-│                                                        │        │
-│    ┌───────────────────────────────────────────────────┼────────┤
-│    │                    ACTIVE TAB STATE               │        │
-│    ├───────────────────────────────────────────────────┘        │
-│    │                                                            │
-│    │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   │
-│    │  │ OVERVIEW │◄►│ CONSENT  │◄►│ MY DATA  │◄►│ REWARDS  │   │
-│    │  │          │  │          │  │          │  │          │   │
-│    │  │ - Stats  │  │ - Active │  │ - Sources│  │ - Balance│   │
-│    │  │ - Steps  │  │ - Sign   │  │ - Connect│  │ - Earn   │   │
-│    │  │ - Log    │  │ - Revoke │  │ - Data   │  │ - Redeem │   │
-│    │  └──────────┘  └──────────┘  └──────────┘  └──────────┘   │
-│    │                                                            │
-│    └────────────────────────────────────────────────────────────┘
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### 2.2 Patient Journey Flowchart
+### 1.3 Patient Dashboard Features
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    PATIENT JOURNEY                              │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│    [REGISTER] ──► [100 pts welcome bonus]                       │
-│         │                                                       │
-│         ▼                                                       │
-│    ┌─────────────────────────────────────────────────────┐      │
-│    │              SIGN CONSENT                            │      │
-│    │                                                     │      │
-│    │  ┌─────────────┐   ┌─────────────┐   ┌───────────┐ │      │
-│    │  │ Research    │   │ Trial       │   │ AI/ML     │ │      │
-│    │  │ Data Share  │   │ Matching    │   │ Training  │ │      │
-│    │  │ +50 pts     │   │ +50 pts     │   │ +50 pts   │ │      │
-│    │  └──────┬──────┘   └──────┬──────┘   └─────┬─────┘ │      │
-│    │         │                 │                │       │      │
-│    │         └────────────┬────┴───────────────┘        │      │
-│    └──────────────────────┼─────────────────────────────┘      │
-│                           │                                     │
-│                           ▼                                     │
-│    ┌─────────────────────────────────────────────────────┐      │
-│    │            CONNECT MEDICAL RECORDS                  │      │
-│    │                                                     │      │
-│    │  ┌─────────────┐   ┌─────────────┐   ┌───────────┐ │      │
-│    │  │ Epic        │   │ Cerner      │   │ Manual    │ │      │
-│    │  │ MyChart     │   │ Portal      │   │ Upload    │ │      │
-│    │  │ +100 pts    │   │ +100 pts    │   │ +100 pts  │ │      │
-│    │  └──────┬──────┘   └──────┬──────┘   └─────┬─────┘ │      │
-│    │         │                 │                │       │      │
-│    │         └────────────┬────┴───────────────┘        │      │
-│    └──────────────────────┼─────────────────────────────┘      │
-│                           │                                     │
-│                           ▼                                     │
-│    ┌─────────────────────────────────────────────────────┐      │
-│    │             DATA EXTRACTION                          │      │
-│    │                                                     │      │
-│    │  Demographics → Diagnosis → Treatment → Labs →      │      │
-│    │  Molecular → Outcomes                               │      │
-│    │                                                     │      │
-│    │  De-identification applied automatically            │      │
-│    └──────────────────────┬──────────────────────────────┘      │
-│                           │                                     │
-│                           ▼                                     │
-│    ┌─────────────────────────────────────────────────────┐      │
-│    │             CONTRIBUTE TO RESEARCH                   │      │
-│    │                                                     │      │
-│    │  +10 pts per data access by approved researcher     │      │
-│    │                                                     │      │
-│    │  Earn up to $500/year in rewards                    │      │
-│    └─────────────────────────────────────────────────────┘      │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         PATIENT DASHBOARD                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐             │
+│  │   MY CONSENT    │  │  MY DATA        │  │   MY REWARDS    │             │
+│  ├─────────────────┤  ├─────────────────┤  ├─────────────────┤             │
+│  │ ✓ Research      │  │ ● Epic MyChart  │  │ Balance: 450 pts│             │
+│  │ ✓ Trial Match   │  │   (Connected)   │  │ ≈ $4.50 value   │             │
+│  │ ○ AI Training   │  │ ○ Apple Health  │  │                 │             │
+│  │                 │  │   (Not linked)  │  │ [Redeem]        │             │
+│  │ [Manage]        │  │ [+ Connect]     │  │ [History]       │             │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘             │
+│                                                                             │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │                      WHO ACCESSED MY DATA                              │ │
+│  ├───────────────────────────────────────────────────────────────────────┤ │
+│  │ Jan 10  Dr. Smith's MM Study     Aggregate only    OHSU               │ │
+│  │ Jan 08  HealthDB Quality Check   De-identified     Internal           │ │
+│  │ Jan 05  DREAMM-8 Trial Match     Identified*       Fred Hutch         │ │
+│  │         * You were contacted about eligibility                         │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │                      MY CONTRIBUTED DATA                               │ │
+│  ├───────────────────────────────────────────────────────────────────────┤ │
+│  │ Category        Records    Quality    Last Updated                     │ │
+│  │ Demographics    1          95%        Jan 11, 2025                     │ │
+│  │ Diagnosis       3          87%        Jan 10, 2025                     │ │
+│  │ Treatments      8          92%        Jan 10, 2025                     │ │
+│  │ Lab Results     45         78%        Jan 09, 2025                     │ │
+│  │ Molecular       2          100%       Dec 15, 2024                     │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+│  [⚠️ WITHDRAW ALL DATA] ─► One-click revoke with downstream propagation    │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 3. Researcher Dashboard
+## 2. Researcher Study Creation Flow
 
-### 3.1 Main State Machine
+### 2.1 Complete State Machine
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    RESEARCHER DASHBOARD                         │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│    ┌──────────────┐                                             │
-│    │     INIT     │                                             │
-│    └──────┬───────┘                                             │
-│           │                                                     │
-│           ├─────────────────┬─────────────────┐                 │
-│           ▼                 ▼                 ▼                 │
-│    ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
-│    │  NO_TOKEN    │  │ WRONG_TYPE   │  │   LOADING    │         │
-│    │ → /login     │  │ → /patient   │  │              │         │
-│    └──────────────┘  └──────────────┘  └──────┬───────┘         │
-│                                               │                 │
-│                                               ▼                 │
-│    ┌────────────────────────────────────────────────────────────┤
-│    │                    ACTIVE TAB STATE                        │
-│    ├────────────────────────────────────────────────────────────┤
-│    │                                                            │
-│    │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
-│    │  │ COHORT       │  │ MY STUDIES   │  │ REGULATORY   │     │
-│    │  │ BUILDER      │  │              │  │ STATUS       │     │
-│    │  │              │  │ - Active     │  │              │     │
-│    │  │ - Criteria   │  │ - Saved      │  │ - IRB        │     │
-│    │  │ - Variables  │  │ - Convert    │  │ - DUA        │     │
-│    │  │ - Feasibility│  │   to study   │  │ - Sites      │     │
-│    │  └──────────────┘  └──────────────┘  └──────────────┘     │
-│    │                                                            │
-│    └────────────────────────────────────────────────────────────┘
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    RESEARCHER STUDY CREATION STATE MACHINE                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────┐
+│ RESEARCHER   │
+│ (Registered) │
+└──────┬───────┘
+       │ Create Study Request
+       ▼
+┌────────────────────────────────────────────────────────────────────────────┐
+│                           STUDY_DRAFT                                      │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │ Define:                                                             │   │
+│  │ • Research Question                                                 │   │
+│  │ • Target Population (ICD codes, demographics, treatment history)    │   │
+│  │ • Required Variables (labs, vitals, outcomes, genomics)             │   │
+│  │ • Data Level (de-identified / limited dataset / identifiable)       │   │
+│  │ • Timeline & Budget                                                 │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+└──────────────────────────────────┬─────────────────────────────────────────┘
+                                   │ Submit
+                                   ▼
+                        ┌────────────────────┐
+                        │  FEASIBILITY_CHECK │
+                        │  ┌──────────────┐  │
+                        │  │ Auto-query:  │  │
+                        │  │ • N eligible │  │
+                        │  │ • Data       │  │
+                        │  │   completeness│  │
+                        │  │ • Cost est.  │  │
+                        │  └──────────────┘  │
+                        └─────────┬──────────┘
+                                  │
+                    ┌─────────────┴─────────────┐
+                    │                           │
+                    ▼                           ▼
+           ┌───────────────┐          ┌────────────────┐
+           │ INSUFFICIENT  │          │ FEASIBLE       │
+           │ (Modify query)│          │ (Proceed)      │
+           └───────────────┘          └───────┬────────┘
+                                              │
+                                              ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         REGULATORY_PIPELINE                                 │
+│                                                                             │
+│   ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌────────────┐  │
+│   │ IRB_CENTRAL │───►│ DUA_GEN     │───►│ INST_IRB    │───►│ EMR_ACCESS │  │
+│   │ (HealthDB's │    │ (Auto-gen   │    │ (Reliance   │    │ (Site-     │  │
+│   │  sIRB)      │    │  template)  │    │  Agreement) │    │  specific) │  │
+│   └─────────────┘    └─────────────┘    └─────────────┘    └────────────┘  │
+│                                                                             │
+│   States: PENDING → SUBMITTED → UNDER_REVIEW → APPROVED / REVISION_REQ     │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                              │
+                                              │ All Approved
+                                              ▼
+                                   ┌────────────────────┐
+                                   │   COHORT_LOCKED    │
+                                   │ (MRNs identified,  │
+                                   │  variables mapped) │
+                                   └─────────┬──────────┘
+                                             │
+                                             ▼
+                                   ┌────────────────────┐
+                                   │  DATA_EXTRACTION   │
+                                   │ ┌────────────────┐ │
+                                   │ │ Pull from:     │ │
+                                   │ │ • HealthDB     │ │
+                                   │ │ • Linked EMRs  │ │
+                                   │ │ • Registries   │ │
+                                   │ └────────────────┘ │
+                                   └─────────┬──────────┘
+                                             │
+                                             ▼
+                                   ┌────────────────────┐
+                                   │  DATASET_DELIVERED │
+                                   │  (Secure download  │
+                                   │   or API access)   │
+                                   └─────────┬──────────┘
+                                             │
+                                             ▼
+                                   ┌────────────────────┐
+                                   │  STUDY_COMPLETE    │
+                                   │  (Results linked   │
+                                   │   to publications) │
+                                   └────────────────────┘
+```
+
+### 2.2 Researcher Self-Service Workflow
+
+| Step | Action | System Support |
+|------|--------|----------------|
+| 1. **Explore** | Browse de-identified cohort sizes by disease/treatment | Pre-computed counts, no approval needed |
+| 2. **Define** | Build cohort with visual query builder | ICD-10, CPT, drug codes, temporal logic |
+| 3. **Feasibility** | Instant N counts + data completeness scores | Federated query, no PHI exposed |
+| 4. **Request** | Submit for regulatory review | Auto-generated IRB protocol |
+| 5. **Track** | Dashboard shows IRB/DUA status across sites | Status: PENDING → APPROVED |
+| 6. **Extract** | Secure download or API access | De-identification pipeline |
+| 7. **Publish** | Link results back to HealthDB | Outcome tracking |
+
+---
+
+## 3. EMR Integration Flow
+
+### 3.1 Integration State Machine
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     EMR INTEGRATION STATE MACHINE                           │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌────────────────┐
+│ INSTITUTION    │
+│ (Onboarding)   │
+└───────┬────────┘
+        │
+        ▼
+┌────────────────────────────────────────────────────────────────┐
+│                    INTEGRATION_SETUP                           │
+│                                                                │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │ Requirements:                                           │   │
+│  │ • BAA signed with HealthDB                              │   │
+│  │ • IT Security Review completed                          │   │
+│  │ • FHIR endpoint configured OR                           │   │
+│  │   Epic Cosmos/Cerner Real-World Data access granted     │   │
+│  └─────────────────────────────────────────────────────────┘   │
+└────────────────────────────────┬───────────────────────────────┘
+                                 │
+              ┌──────────────────┼──────────────────┐
+              │                  │                  │
+              ▼                  ▼                  ▼
+     ┌────────────────┐ ┌────────────────┐ ┌────────────────┐
+     │ FHIR_DIRECT    │ │ FLAT_FILE      │ │ API_BROKER     │
+     │ (Real-time     │ │ (Batch export, │ │ (Cosmos,       │
+     │  R4 API)       │ │  SFTP)         │ │  TriNetX)      │
+     └───────┬────────┘ └───────┬────────┘ └───────┬────────┘
+             │                  │                  │
+             └──────────────────┼──────────────────┘
+                                │
+                                ▼
+                     ┌────────────────────┐
+                     │  DATA_TRANSFORMER  │
+                     │  ┌──────────────┐  │
+                     │  │ • Parse      │  │
+                     │  │ • Validate   │  │
+                     │  │ • Map to     │  │
+                     │  │   OMOP CDM   │  │
+                     │  │ • De-identify│  │
+                     │  └──────────────┘  │
+                     └─────────┬──────────┘
+                               │
+                               ▼
+                     ┌────────────────────┐
+                     │   LINKED_ACTIVE    │
+                     │  (Institution in   │
+                     │   HealthDB network)│
+                     └────────────────────┘
+```
+
+### 3.2 EMR Connection Matrix
+
+| EMR System | Integration Method | Latency | Coverage |
+|------------|-------------------|---------|----------|
+| **Epic** | FHIR R4 / Epic Cosmos | Real-time / Daily | Full chart |
+| **Cerner** | FHIR / Cerner RWD | Real-time / Weekly | Full chart |
+| **Meditech** | HL7v2 → FHIR bridge | Daily | Core data |
+| **Allscripts** | FHIR + flat file | Daily | Most data |
+| **Others** | Secure SFTP | Weekly | Structured |
+
+### 3.3 Patient EMR Linkage Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    PATIENT EMR LINKAGE FLOW                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  1. PATIENT SIGNS CONSENT (Tier 4 - Ongoing EMR Linkage)                   │
+│     └─► System checks which EMR patient uses                                │
+│                                                                             │
+│  2. SELECT EMR SOURCE                                                       │
+│     ┌────────────────┐ ┌────────────────┐ ┌────────────────┐               │
+│     │ Epic MyChart   │ │ Cerner         │ │ Manual Upload  │               │
+│     │ [Connect]      │ │ [Connect]      │ │ [Upload Files] │               │
+│     └────────┬───────┘ └────────┬───────┘ └────────┬───────┘               │
+│              │                  │                  │                        │
+│  3. OAUTH FLOW (Epic/Cerner)                                                │
+│     └─► Redirect to MyChart → Patient logs in → Grants access              │
+│     └─► Receive OAuth token → Store encrypted                               │
+│                                                                             │
+│  4. INITIAL DATA PULL                                                       │
+│     ┌─────────────────────────────────────────────────────────────────┐    │
+│     │ Query patient record for:                                        │    │
+│     │ • Demographics (age range, sex, race)                            │    │
+│     │ • Conditions (ICD-10 codes)                                      │    │
+│     │ • Medications (NDC codes, dates)                                 │    │
+│     │ • Procedures (CPT codes)                                         │    │
+│     │ • Lab Results (LOINC codes, values)                              │    │
+│     │ • Vitals (height, weight, BP)                                    │    │
+│     │ • Encounters (dates, types)                                      │    │
+│     └─────────────────────────────────────────────────────────────────┘    │
+│                                                                             │
+│  5. DE-IDENTIFICATION                                                       │
+│     └─► Apply HIPAA Safe Harbor (remove 18 identifiers)                    │
+│     └─► Generalize: DOB → age range, dates → month/year                    │
+│     └─► Truncate: zip → 3 digits                                           │
+│                                                                             │
+│  6. MAP TO OMOP CDM                                                         │
+│     └─► ICD-10 → SNOMED CT                                                 │
+│     └─► NDC → RxNorm                                                       │
+│     └─► LOINC → OMOP concepts                                              │
+│                                                                             │
+│  7. STORE IN HEALTHDB                                                       │
+│     └─► Patient sees summary in dashboard                                   │
+│     └─► Data available for research queries                                │
+│     └─► +100 points awarded                                                │
+│                                                                             │
+│  8. ONGOING SYNC (if Tier 4)                                                │
+│     └─► Background job refreshes data weekly                               │
+│     └─► Patient notified of new data added                                 │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 4. Consent Management
+## 4. Cohort Query Engine
 
-### 4.1 Consent Lifecycle
+### 4.1 Variable Extraction State Machine
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    CONSENT LIFECYCLE                            │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│         ┌──────────────┐                                        │
-│         │  NO_CONSENT  │                                        │
-│         │ consents=[]  │                                        │
-│         └──────┬───────┘                                        │
-│                │ [view templates]                               │
-│                ▼                                                │
-│         ┌──────────────────┐                                    │
-│         │  VIEW_TEMPLATES  │                                    │
-│         │                  │                                    │
-│         │ • Research Data  │                                    │
-│         │ • Trial Match    │                                    │
-│         │ • AI/ML Training │                                    │
-│         └──────┬───────────┘                                    │
-│                │ [click Review & Sign]                          │
-│                ▼                                                │
-│         ┌──────────────────┐                                    │
-│         │   MODAL_OPEN     │                                    │
-│         │                  │                                    │
-│         │ Reading content  │                                    │
-│         └──────┬───────────┘                                    │
-│                │                                                │
-│                ├────────────────────────┐                       │
-│                ▼                        ▼                       │
-│         ┌──────────────┐        ┌──────────────┐                │
-│         │    CANCEL    │        │   SIGNING    │                │
-│         │ close modal  │        │ isSubmitting │                │
-│         └──────────────┘        └──────┬───────┘                │
-│                                        │                        │
-│                         ┌──────────────┴──────────────┐         │
-│                         ▼                             ▼         │
-│                  ┌──────────────┐             ┌──────────────┐  │
-│                  │   SUCCESS    │             │    ERROR     │  │
-│                  │ +50 points   │             │ show message │  │
-│                  │ status=active│             └──────────────┘  │
-│                  └──────┬───────┘                               │
-│                         │                                       │
-│                         ▼                                       │
-│                  ┌──────────────────┐                           │
-│                  │  CONSENT_ACTIVE  │                           │
-│                  │ status="active"  │                           │
-│                  │ expires_at=date  │                           │
-│                  └──────┬───────────┘                           │
-│                         │                                       │
-│                         ├────────────────────┐                  │
-│                         │                    │                  │
-│                         ▼                    ▼                  │
-│                  ┌──────────────┐     ┌──────────────┐          │
-│                  │   REVOKED    │     │   EXPIRED    │          │
-│                  │ user clicked │     │ time elapsed │          │
-│                  │ revoke btn   │     │              │          │
-│                  └──────────────┘     └──────────────┘          │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    COHORT QUERY ENGINE STATE MACHINE                        │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+                              ┌──────────────┐
+                              │ QUERY_INPUT  │
+                              └──────┬───────┘
+                                     │
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         COHORT DEFINITION                                   │
+│                                                                             │
+│  Inclusion Criteria (AND/OR logic):                                         │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ • Diagnosis: ICD-10 codes (e.g., C90.0 - Multiple Myeloma)          │    │
+│  │ • Treatment: Drug classes, regimens (e.g., VRd, Dara-KRd)           │    │
+│  │ • Demographics: Age range, sex, race/ethnicity                       │    │
+│  │ • Labs: Threshold values (e.g., creatinine > 2.0)                    │    │
+│  │ • Temporal: Diagnosis date range, follow-up duration                 │    │
+│  │ • Prior lines: # of prior therapies, specific exposures              │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                             │
+│  Exclusion Criteria:                                                        │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ • Concurrent malignancies                                            │    │
+│  │ • Missing critical data fields                                       │    │
+│  │ • Consent withdrawal                                                 │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+└──────────────────────────────────────┬──────────────────────────────────────┘
+                                       │
+                                       ▼
+                            ┌────────────────────┐
+                            │ COHORT_IDENTIFIED  │
+                            │ • N = X patients   │
+                            │ • MRNs flagged     │
+                            │   (internal only)  │
+                            └─────────┬──────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      VARIABLE SELECTION                                     │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │ Available Variable Categories:                                       │    │
+│  │                                                                       │    │
+│  │ DEMOGRAPHICS      LABS/BIOMARKERS     TREATMENTS                     │    │
+│  │ ├─ Age            ├─ CBC w/ diff      ├─ Regimen name                │    │
+│  │ ├─ Sex            ├─ CMP              ├─ Start/stop dates            │    │
+│  │ ├─ Race           ├─ LDH              ├─ Dose/schedule               │    │
+│  │ ├─ Zip (3-digit)  ├─ Beta-2 micro     ├─ Cycles completed            │    │
+│  │ └─ Insurance      ├─ SPEP/UPEP        ├─ Reason for d/c              │    │
+│  │                   ├─ Free light chains│                              │    │
+│  │ STAGING           └─ Cytogenetics     OUTCOMES                       │    │
+│  │ ├─ ISS/R-ISS                          ├─ Best response               │    │
+│  │ ├─ Bone lesions                       ├─ PFS (per IMWG)              │    │
+│  │ └─ Extramedullary                     ├─ OS                          │    │
+│  │                                        ├─ MRD status                  │    │
+│  │ TOXICITIES        PROCEDURES          └─ Subsequent therapy          │    │
+│  │ ├─ CRS grade      ├─ SCT date/type                                   │    │
+│  │ ├─ ICANS grade    ├─ Radiation                                       │    │
+│  │ ├─ Cytopenias     └─ Supportive care                                 │    │
+│  │ └─ Infections                                                        │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+└──────────────────────────────────────┬──────────────────────────────────────┘
+                                       │
+                                       ▼
+                            ┌────────────────────┐
+                            │ DATA_EXTRACTED     │
+                            │ • Flat file (CSV)  │
+                            │ • REDCap export    │
+                            │ • API stream       │
+                            └────────────────────┘
 ```
 
-### 4.2 Consent Types Table
+### 4.2 Disease-Specific Variable Sets
 
-| Type | Description | Duration | Data Categories | Points |
-|------|-------------|----------|-----------------|--------|
-| research_data_sharing | Share de-identified data for research | 24 months | demographics, diagnosis, treatment, lab_results, outcomes | 50 |
-| clinical_trial_matching | Allow trial eligibility matching | 12 months | demographics, diagnosis, treatment | 50 |
-| ai_ml_training | Anonymized data for AI model training | 36 months | demographics, diagnosis, treatment, molecular, outcomes | 50 |
+| Disease | Core Variables | Staging | Molecular | Outcomes |
+|---------|---------------|---------|-----------|----------|
+| **Multiple Myeloma** | Age, sex, race, insurance | ISS, R-ISS, bone lesions | del(17p), t(4;14), t(14;16), 1q+ | PFS, OS, MRD, best response |
+| **DLBCL** | Age, sex, race, ECOG | Ann Arbor, IPI | Cell of origin, BCL2/MYC | CR rate, EFS, OS |
+| **AML** | Age, sex, race, WBC | ELN risk | FLT3, NPM1, IDH1/2, TP53 | CR rate, OS, relapse rate |
+| **Breast Cancer** | Age, sex, race, menopausal | TNM, grade | ER, PR, HER2, BRCA | PFS, OS, pCR |
+| **NSCLC** | Age, sex, race, smoking | TNM, stage | EGFR, ALK, KRAS, PD-L1 | PFS, OS, ORR |
 
 ---
 
-## 5. Medical Records Connection
+## 5. Regulatory Automation Engine
 
-### 5.1 Connection Flow
+### 5.1 Complete Regulatory Pipeline
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                MEDICAL RECORDS CONNECTION FLOW                  │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│    ┌─────────────────┐                                          │
-│    │   NO_CONSENT    │                                          │
-│    │ "Sign consent   │                                          │
-│    │  first"         │                                          │
-│    └────────┬────────┘                                          │
-│             │ [consent not active]                              │
-│             │                                                   │
-│    ┌────────▼────────┐                                          │
-│    │   HAS_CONSENT   │                                          │
-│    │ research_data_  │                                          │
-│    │ sharing=active  │                                          │
-│    └────────┬────────┘                                          │
-│             │ [click Connect Records]                           │
-│             ▼                                                   │
-│    ┌─────────────────┐                                          │
-│    │  SOURCE_SELECT  │                                          │
-│    │                 │                                          │
-│    │ • Epic MyChart  │                                          │
-│    │ • Cerner        │                                          │
-│    │ • Manual Upload │                                          │
-│    └────────┬────────┘                                          │
-│             │ [select source]                                   │
-│             ▼                                                   │
-│    ┌─────────────────┐                                          │
-│    │   CONNECTING    │                                          │
-│    │ status=pending  │                                          │
-│    └────────┬────────┘                                          │
-│             │ [background task]                                 │
-│             ▼                                                   │
-│    ┌─────────────────────┐                                      │
-│    │   DATA_EXTRACTING   │                                      │
-│    │ De-identification   │                                      │
-│    │ in progress...      │                                      │
-│    └─────────┬───────────┘                                      │
-│              │                                                  │
-│              ├────────────────────────────┐                     │
-│              ▼                            ▼                     │
-│    ┌─────────────────────┐      ┌─────────────────┐             │
-│    │     CONNECTED       │      │      ERROR      │             │
-│    │ status=connected    │      │ error_message   │             │
-│    │ records_synced=N    │      └─────────────────┘             │
-│    │ +100 points         │                                      │
-│    └─────────────────────┘                                      │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    REGULATORY AUTOMATION PIPELINE                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  PHASE 1: CENTRAL IRB (HealthDB as sIRB of Record)                         │
+│  ──────────────────────────────────────────────────                         │
+│                                                                             │
+│  ┌──────────────┐                                                           │
+│  │ STUDY_DRAFT  │ ─► Researcher completes protocol form                    │
+│  └──────┬───────┘                                                           │
+│         │                                                                   │
+│         ▼                                                                   │
+│  ┌──────────────────┐                                                       │
+│  │ PROTOCOL_GEN     │ ─► Auto-populate NIH/OHRP template                   │
+│  │                  │ ─► Include: study aims, cohort criteria,             │
+│  │                  │    data elements, de-ID method                       │
+│  └──────┬───────────┘                                                       │
+│         │                                                                   │
+│         ▼                                                                   │
+│  ┌──────────────────┐                                                       │
+│  │ IRB_SUBMITTED    │ ─► Electronic submission to HealthDB IRB             │
+│  │                  │ ─► Expedited review (minimal risk)                   │
+│  │                  │ ─► Full board (identifiable data)                    │
+│  └──────┬───────────┘                                                       │
+│         │                                                                   │
+│         ├─────────────────────────────┐                                     │
+│         ▼                             ▼                                     │
+│  ┌──────────────────┐         ┌──────────────────┐                         │
+│  │ IRB_APPROVED     │         │ REVISION_REQ     │ ─► Modify and resubmit  │
+│  │ Protocol #HDB-   │         │ (Specific fixes  │                         │
+│  │ YYYY-NNNN        │         │  requested)      │                         │
+│  └──────┬───────────┘         └──────────────────┘                         │
+│         │                                                                   │
+│  ════════════════════════════════════════════════════════════════════════  │
+│                                                                             │
+│  PHASE 2: DATA USE AGREEMENT (Auto-Generated)                              │
+│  ──────────────────────────────────────────────                            │
+│                                                                             │
+│  ┌──────────────────┐                                                       │
+│  │ DUA_DRAFT        │ ─► Pre-templated based on data level:                │
+│  │                  │    • Limited dataset                                  │
+│  │                  │    • De-identified                                    │
+│  │                  │    • Identifiable (stricter terms)                   │
+│  └──────┬───────────┘                                                       │
+│         │                                                                   │
+│         ▼                                                                   │
+│  ┌──────────────────┐                                                       │
+│  │ DUA_SENT         │ ─► DocuSign to PI and institution                    │
+│  └──────┬───────────┘                                                       │
+│         │                                                                   │
+│         ▼                                                                   │
+│  ┌──────────────────┐                                                       │
+│  │ DUA_SIGNED       │ ─► All parties have signed                           │
+│  │                  │ ─► Expires: 2 years from signature                   │
+│  └──────┬───────────┘                                                       │
+│         │                                                                   │
+│  ════════════════════════════════════════════════════════════════════════  │
+│                                                                             │
+│  PHASE 3: SITE RELIANCE AGREEMENTS (Per Institution)                       │
+│  ────────────────────────────────────────────────────                      │
+│                                                                             │
+│  For each participating site:                                               │
+│                                                                             │
+│  ┌──────────────────┐                                                       │
+│  │ RELIANCE_INIT    │ ─► Send agreement to site IRB                        │
+│  └──────┬───────────┘    (Pre-negotiated template available)               │
+│         │                                                                   │
+│         ▼                                                                   │
+│  ┌──────────────────┐                                                       │
+│  │ SITE_REVIEW      │ ─► Site IRB reviews and signs                        │
+│  │                  │ ─► Typical: 1-3 weeks                                │
+│  └──────┬───────────┘                                                       │
+│         │                                                                   │
+│         ▼                                                                   │
+│  ┌──────────────────┐                                                       │
+│  │ SITE_APPROVED    │ ─► Site can contribute data to study                 │
+│  └──────────────────┘                                                       │
+│                                                                             │
+│  ════════════════════════════════════════════════════════════════════════  │
+│                                                                             │
+│  PHASE 4: EMR ACCESS AUTHORIZATION                                          │
+│  ──────────────────────────────────                                         │
+│                                                                             │
+│  ┌──────────────────┐                                                       │
+│  │ EMR_ACCESS_REQ   │ ─► Request specific variables from site EMR          │
+│  └──────┬───────────┘                                                       │
+│         │                                                                   │
+│         ▼                                                                   │
+│  ┌──────────────────┐                                                       │
+│  │ DATA_EXTRACTION  │ ─► Pull data for approved cohort                     │
+│  │ _AUTHORIZED      │ ─► Apply de-identification                           │
+│  └──────────────────┘                                                       │
+│                                                                             │
+│  ════════════════════════════════════════════════════════════════════════  │
+│                                                                             │
+│  DASHBOARD: Track All Statuses                                              │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │ Study: Bispecific Ab Outcomes in R/R MM                               │ │
+│  │ ─────────────────────────────────────────────────────────────────     │ │
+│  │ [✓] Central IRB (HealthDB sIRB)         APPROVED   2025-01-05        │ │
+│  │ [✓] Data Use Agreement                   SIGNED    2025-01-06        │ │
+│  │ [◐] OHSU Reliance Agreement             PENDING   (~3 days)          │ │
+│  │ [ ] Fred Hutch Reliance Agreement       NOT STARTED                  │ │
+│  │ [ ] Emory Reliance Agreement            NOT STARTED                  │ │
+│  │                                                                       │ │
+│  │ [Download Protocol]  [Download DUA]  [Send Reminder]  [View Timeline] │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 5.2 De-identified Data Categories
+### 5.2 Pre-Negotiated Agreements
 
-| Category | Data Type | Sample Fields |
-|----------|-----------|---------------|
-| demographics | age_range | age_range, sex, race |
-| diagnosis | cancer_diagnosis | cancer_type, stage, diagnosis_year, icd10 |
-| treatment | chemotherapy | regimen, cycles, start_year, status |
-| lab_results | blood_counts | wbc_range, hemoglobin_range, platelet_range |
-| molecular | genomic_testing | test_type, genes_tested, mutations_found |
+| Institution | Reliance Agreement | Typical Turnaround | EMR System |
+|-------------|-------------------|-------------------|------------|
+| OHSU Knight Cancer Institute | ✓ Active | 5 days | Epic |
+| Fred Hutchinson Cancer Center | ✓ Active | 7 days | Epic |
+| Emory Winship Cancer Institute | ✓ Active | 10 days | Cerner |
+| Mayo Clinic | ◐ Pending | TBD | Epic |
+| MD Anderson | ◐ In Progress | TBD | Epic |
 
 ---
 
-## 6. Cohort Builder Workflow
+## 6. Collaboration Workspace
 
-### 6.1 4-Step Wizard
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    COHORT BUILDER WORKFLOW                      │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│    ┌────────────────────────────────────────────────────────┐   │
-│    │                  STEP NAVIGATION                        │   │
-│    │                                                         │   │
-│    │  [1. Define] ─► [2. Variables] ─► [3. Regulatory] ─►   │   │
-│    │              [4. Extract]                               │   │
-│    └────────────────────────────────────────────────────────┘   │
-│                                                                 │
-│    ════════════════════════════════════════════════════════════ │
-│                                                                 │
-│    STEP 1: DEFINE COHORT                                        │
-│    ┌─────────────────────────────────────────────────────────┐  │
-│    │                                                         │  │
-│    │  INCLUSION CRITERIA                         [+ Add Rule]│  │
-│    │  ┌──────────────────────────────────────────────────┐   │  │
-│    │  │ Diagnosis    IS      Multiple Myeloma (C90.0)    │   │  │
-│    │  │ Treatment    INCLUDES Bispecific antibody        │   │  │
-│    │  │ Age          >=      18                          │   │  │
-│    │  └──────────────────────────────────────────────────┘   │  │
-│    │                                                         │  │
-│    │  EXCLUSION CRITERIA                         [+ Add Rule]│  │
-│    │  ┌──────────────────────────────────────────────────┐   │  │
-│    │  │ ☑ Prior CAR-T   IS   TRUE                        │   │  │
-│    │  └──────────────────────────────────────────────────┘   │  │
-│    │                                                         │  │
-│    │  [Run Feasibility]                                      │  │
-│    │                                                         │  │
-│    │  ┌───────────────────────────────────────────────────┐  │  │
-│    │  │  ELIGIBLE: 1,593 patients                         │  │  │
-│    │  │  OHSU: 847 (92%) | Fred Hutch: 512 (87%)         │  │  │
-│    │  └───────────────────────────────────────────────────┘  │  │
-│    │                                                         │  │
-│    └─────────────────────────────────────────────────────────┘  │
-│                            │                                    │
-│                            │ [feasibility complete]             │
-│                            ▼                                    │
-│    STEP 2: SELECT VARIABLES                                     │
-│    ┌─────────────────────────────────────────────────────────┐  │
-│    │  ☑ DEMOGRAPHICS        ☑ LABS                           │  │
-│    │    ☑ age_at_dx           ☑ hemoglobin                   │  │
-│    │    ☑ sex                 ☑ ldh                          │  │
-│    │    ☐ race                ☑ b2m                          │  │
-│    │                                                         │  │
-│    │  ☑ STAGING             ☑ OUTCOMES                       │  │
-│    │    ☑ iss                 ☑ pfs                          │  │
-│    │    ☑ riss                ☑ os                           │  │
-│    │                          ☑ crs_grade                    │  │
-│    │                                                         │  │
-│    │  Est. completeness: 87%                                 │  │
-│    └─────────────────────────────────────────────────────────┘  │
-│                            │                                    │
-│                            ▼                                    │
-│    STEP 3: REGULATORY                                           │
-│    ┌─────────────────────────────────────────────────────────┐  │
-│    │  ✓ Central IRB          APPROVED   2025-01-05           │  │
-│    │  ✓ Data Use Agreement   SIGNED     2025-01-06           │  │
-│    │  ◐ OHSU Reliance        PENDING    (3 days)             │  │
-│    │  ○ Fred Hutch Reliance  NOT STARTED                     │  │
-│    │                                                         │  │
-│    │  [Download IRB Protocol]  [Download DUA]                │  │
-│    └─────────────────────────────────────────────────────────┘  │
-│                            │                                    │
-│                            ▼                                    │
-│    STEP 4: EXTRACT                                              │
-│    ┌─────────────────────────────────────────────────────────┐  │
-│    │                       ✓                                 │  │
-│    │              Extraction Queued                          │  │
-│    │                                                         │  │
-│    │  Job ID: extract_mm_bispab_001                          │  │
-│    │  Patients: 1,593 | Variables: 15                        │  │
-│    │  Format: CSV (REDCap-ready)                             │  │
-│    │  Est. completion: Jan 13, 2025                          │  │
-│    │                                                         │  │
-│    │  [View All Jobs]  [New Query]                           │  │
-│    └─────────────────────────────────────────────────────────┘  │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### 6.2 Cohort Criteria State
+### 6.1 Collaboration State Machine
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    COHORT CRITERIA STATE                        │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│   MULTI-SELECT CRITERIA                                         │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │   [DLBCL] [AML] [ALL] [CLL] [MM] ...                    │   │
-│   │                                                         │   │
-│   │   ┌──────────────┐         ┌──────────────┐             │   │
-│   │   │  UNSELECTED  │◄───────►│   SELECTED   │             │   │
-│   │   │ border only  │ [click] │ filled bg    │             │   │
-│   │   └──────────────┘         └──────────────┘             │   │
-│   │                                                         │   │
-│   │   State: cancerTypes[] / stages[] / treatments[]        │   │
-│   └─────────────────────────────────────────────────────────┘   │
-│                                                                 │
-│   RANGE CRITERIA                                                │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │   Age: [___] to [___]     Follow-up: [___] months       │   │
-│   │                                                         │   │
-│   │   ┌──────────────┐         ┌──────────────┐             │   │
-│   │   │    EMPTY     │◄───────►│  HAS_VALUE   │             │   │
-│   │   │ value = ''   │ [input] │ value = num  │             │   │
-│   │   └──────────────┘         └──────────────┘             │   │
-│   └─────────────────────────────────────────────────────────┘   │
-│                                                                 │
-│   BUILD RESULT                                                  │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │   ┌──────────────┐                                      │   │
-│   │   │  NO_RESULT   │  (cohortResult = null)               │   │
-│   │   └──────┬───────┘                                      │   │
-│   │          │ [Build Cohort success]                       │   │
-│   │          ▼                                              │   │
-│   │   ┌──────────────┐         ┌──────────────┐             │   │
-│   │   │ ZERO_RESULTS │   OR    │ HAS_RESULTS  │             │   │
-│   │   │ patient_cnt=0│         │ patient_cnt>0│             │   │
-│   │   │ No save btn  │         │ Save enabled │             │   │
-│   │   └──────────────┘         └──────────────┘             │   │
-│   └─────────────────────────────────────────────────────────┘   │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    COLLABORATION WORKSPACE                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  STUDY TEAM MANAGEMENT                                                      │
+│  ─────────────────────                                                      │
+│                                                                             │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │ Principal Investigator (Owner)                                        │  │
+│  │ • Full access to all study data                                       │  │
+│  │ • Can invite/remove team members                                      │  │
+│  │ • Signs DUA on behalf of team                                         │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │ Co-Investigators                                                      │  │
+│  │ • Full data access (per DUA)                                          │  │
+│  │ • Can run queries, export data                                        │  │
+│  │ • Cannot modify study settings                                        │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │ Data Analysts                                                         │  │
+│  │ • View de-identified data only                                        │  │
+│  │ • Run pre-approved queries                                            │  │
+│  │ • Cannot export raw data                                              │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │ Statisticians                                                         │  │
+│  │ • Access to analysis workspace                                        │  │
+│  │ • Can run statistical models                                          │  │
+│  │ • Export aggregate results only                                       │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ════════════════════════════════════════════════════════════════════════  │
+│                                                                             │
+│  SHARED WORKSPACE FEATURES                                                  │
+│  ──────────────────────────                                                 │
+│                                                                             │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │ ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐   │ │
+│  │ │ Documents   │  │ Data Files  │  │ Analysis    │  │ Discussion  │   │ │
+│  │ │             │  │             │  │             │  │             │   │ │
+│  │ │ - Protocol  │  │ - Raw data  │  │ - R/Python  │  │ - Comments  │   │ │
+│  │ │ - DUA       │  │ - Cleaned   │  │   notebooks │  │ - Decisions │   │ │
+│  │ │ - IRB docs  │  │ - Analysis  │  │ - Results   │  │ - Questions │   │ │
+│  │ │ - Consent   │  │   ready     │  │ - Figures   │  │ - Approvals │   │ │
+│  │ └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘   │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+│  INVITE FLOW                                                                │
+│  ──────────                                                                 │
+│                                                                             │
+│  PI clicks "Invite Collaborator"                                            │
+│       │                                                                     │
+│       ▼                                                                     │
+│  ┌──────────────────┐                                                       │
+│  │ Enter email      │                                                       │
+│  │ Select role      │                                                       │
+│  │ Set permissions  │                                                       │
+│  └──────┬───────────┘                                                       │
+│         │                                                                   │
+│         ▼                                                                   │
+│  ┌──────────────────┐                                                       │
+│  │ INVITE_SENT      │ ─► Email with secure link                            │
+│  └──────┬───────────┘                                                       │
+│         │                                                                   │
+│         ▼                                                                   │
+│  ┌──────────────────┐                                                       │
+│  │ INVITE_ACCEPTED  │ ─► User creates account or links existing            │
+│  │                  │ ─► Signs individual DUA acknowledgment               │
+│  └──────┬───────────┘                                                       │
+│         │                                                                   │
+│         ▼                                                                   │
+│  ┌──────────────────┐                                                       │
+│  │ ACCESS_GRANTED   │ ─► Full access per role                              │
+│  │                  │ ─► Activity logged                                   │
+│  └──────────────────┘                                                       │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
----
-
-## 7. Regulatory Pipeline
-
-### 7.1 Study Approval Workflow
+### 6.2 Multi-Center Study Coordination
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    REGULATORY PIPELINE                          │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│    ┌──────────────┐                                             │
-│    │ STUDY_DRAFT  │                                             │
-│    │              │                                             │
-│    │ Cohort saved │                                             │
-│    │ No approvals │                                             │
-│    └──────┬───────┘                                             │
-│           │ [Submit for IRB]                                    │
-│           ▼                                                     │
-│    ┌──────────────────────────────────────────────────────────┐ │
-│    │                  IRB SUBMISSION                           │ │
-│    │                                                           │ │
-│    │  ┌─────────────────┐                                      │ │
-│    │  │  GENERATING     │ Auto-populate protocol template      │ │
-│    │  │  protocol_pdf   │                                      │ │
-│    │  └────────┬────────┘                                      │ │
-│    │           │                                               │ │
-│    │           ▼                                               │ │
-│    │  ┌─────────────────┐                                      │ │
-│    │  │   SUBMITTED     │ Sent to HealthDB sIRB               │ │
-│    │  │                 │                                      │ │
-│    │  └────────┬────────┘                                      │ │
-│    │           │                                               │ │
-│    │           ├─────────────────┐                             │ │
-│    │           ▼                 ▼                             │ │
-│    │  ┌─────────────────┐ ┌─────────────────┐                  │ │
-│    │  │  UNDER_REVIEW   │ │ REVISION_NEEDED │                  │ │
-│    │  │  ~1-2 weeks     │ │ feedback given  │───► resubmit     │ │
-│    │  └────────┬────────┘ └─────────────────┘                  │ │
-│    │           │                                               │ │
-│    │           ▼                                               │ │
-│    │  ┌─────────────────┐                                      │ │
-│    │  │    APPROVED     │ Protocol #HDB-XXXX-XXX              │ │
-│    │  │                 │                                      │ │
-│    │  └─────────────────┘                                      │ │
-│    └───────────────────────────────┬───────────────────────────┘ │
-│                                    │                             │
-│                                    ▼                             │
-│    ┌──────────────────────────────────────────────────────────┐ │
-│    │                  DUA GENERATION                           │ │
-│    │                                                           │ │
-│    │  ┌─────────────────┐                                      │ │
-│    │  │  GENERATING     │ Pre-templated DUA                    │ │
-│    │  └────────┬────────┘                                      │ │
-│    │           │                                               │ │
-│    │           ▼                                               │ │
-│    │  ┌─────────────────┐                                      │ │
-│    │  │  SENT_FOR_SIG   │ DocuSign to PI                       │ │
-│    │  └────────┬────────┘                                      │ │
-│    │           │                                               │ │
-│    │           ▼                                               │ │
-│    │  ┌─────────────────┐                                      │ │
-│    │  │     SIGNED      │ by all parties                       │ │
-│    │  └─────────────────┘                                      │ │
-│    └───────────────────────────────┬───────────────────────────┘ │
-│                                    │                             │
-│                                    ▼                             │
-│    ┌──────────────────────────────────────────────────────────┐ │
-│    │               SITE RELIANCE AGREEMENTS                    │ │
-│    │                                                           │ │
-│    │  For each participating institution:                      │ │
-│    │                                                           │ │
-│    │  ┌─────────────────┐                                      │ │
-│    │  │  NOT_STARTED    │                                      │ │
-│    │  └────────┬────────┘                                      │ │
-│    │           │ [Initiate]                                    │ │
-│    │           ▼                                               │ │
-│    │  ┌─────────────────┐                                      │ │
-│    │  │   INITIATED     │ Agreement sent to site IRB           │ │
-│    │  └────────┬────────┘                                      │ │
-│    │           │                                               │ │
-│    │           ▼                                               │ │
-│    │  ┌─────────────────┐                                      │ │
-│    │  │   PENDING       │ Site IRB reviewing (~1-3 weeks)      │ │
-│    │  └────────┬────────┘                                      │ │
-│    │           │                                               │ │
-│    │           ▼                                               │ │
-│    │  ┌─────────────────┐                                      │ │
-│    │  │   APPROVED      │ Site can contribute data             │ │
-│    │  └─────────────────┘                                      │ │
-│    └───────────────────────────────────────────────────────────┘ │
-│                                                                 │
-│    ════════════════════════════════════════════════════════════ │
-│                                                                 │
-│    ALL APPROVALS COMPLETE ──► DATA EXTRACTION BEGINS            │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### 7.2 Regulatory Status Table
-
-| Status | Color | Description |
-|--------|-------|-------------|
-| not_started | Gray | Action not yet initiated |
-| draft | Gray | Document being prepared |
-| submitted | Blue | Sent for review |
-| under_review | Amber | Being reviewed |
-| revision_required | Red | Changes requested |
-| approved | Green | Approved and active |
-| signed | Green | Fully executed |
-| expired | Red | Past expiration date |
-
----
-
-## 8. EMR Integration Hub
-
-### 8.1 Integration Status Dashboard
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    EMR INTEGRATION STATUS                       │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  Institution          EMR       Status      Last Sync           │
-│  ─────────────────────────────────────────────────────────────  │
-│  OHSU Knight          Epic      ● Active    2025-01-11 08:00    │
-│  Fred Hutchinson      Epic      ◐ Pending   BAA in progress     │
-│  Emory Winship        Cerner    ○ Setup     IT review needed    │
-│  Community Oncology   Meditech  ● Active    2025-01-10 12:00    │
-│                                                                 │
-│  [+ Add Institution]  [View Data Dictionary]  [Test Query]      │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### 8.2 Integration Tiers
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    INTEGRATION TIERS                            │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  TIER 1: FHIR R4 DIRECT (Best)                                 │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │  ● Real-time patient-permissioned pull                  │    │
-│  │  ● SMART on FHIR authorization                          │    │
-│  │  ● Works with Epic MyChart OAuth                        │    │
-│  │  ● Latency: <1 second                                   │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                                                                 │
-│  TIER 2: BULK DATA API                                          │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │  ● Scheduled batch exports                              │    │
-│  │  ● Epic Cosmos / Cerner RWD integration                 │    │
-│  │  ● Good for feasibility counts                          │    │
-│  │  ● Latency: Daily refresh                               │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                                                                 │
-│  TIER 3: FLAT FILE UPLOAD                                       │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │  ● SFTP secure transfer                                 │    │
-│  │  ● CSV/Excel with standard template                     │    │
-│  │  ● Manual but universal fallback                        │    │
-│  │  ● Latency: On upload                                   │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### 8.3 Institution Onboarding Flow
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│              INSTITUTION ONBOARDING FLOW                        │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│    ┌──────────────┐                                             │
-│    │   CONTACT    │ Institution expresses interest              │
-│    └──────┬───────┘                                             │
-│           │                                                     │
-│           ▼                                                     │
-│    ┌──────────────┐                                             │
-│    │  EVALUATION  │ IT security review                          │
-│    │              │ Data governance review                      │
-│    │              │ Legal review                                │
-│    └──────┬───────┘                                             │
-│           │                                                     │
-│           ▼                                                     │
-│    ┌──────────────┐                                             │
-│    │  CONTRACTING │ Master Services Agreement                   │
-│    │              │ Business Associate Agreement                │
-│    │              │ Data Use Agreement                          │
-│    └──────┬───────┘                                             │
-│           │                                                     │
-│           ▼                                                     │
-│    ┌──────────────┐                                             │
-│    │  TECHNICAL   │ API credential provisioning                 │
-│    │   SETUP      │ FHIR endpoint configuration                 │
-│    │              │ VPN/firewall rules                          │
-│    └──────┬───────┘                                             │
-│           │                                                     │
-│           ▼                                                     │
-│    ┌──────────────┐                                             │
-│    │  VALIDATION  │ Test data pull                              │
-│    │              │ Data quality assessment                     │
-│    │              │ OMOP mapping verification                   │
-│    └──────┬───────┘                                             │
-│           │                                                     │
-│           ▼                                                     │
-│    ┌──────────────┐                                             │
-│    │    LIVE      │ Production data flow active                 │
-│    │              │ Ongoing monitoring                          │
-│    └──────────────┘                                             │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    MULTI-CENTER COORDINATION DASHBOARD                      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  Study: Bispecific Ab Outcomes in R/R MM                                   │
+│  Status: Data Collection (3/5 sites active)                                │
+│                                                                             │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │ Site                 │ Patients │ Regulatory │ Data Status │ Contact  │ │
+│  ├──────────────────────┼──────────┼────────────┼─────────────┼──────────┤ │
+│  │ OHSU Knight          │    847   │ ✓ Approved │ ✓ Complete  │ Dr. A    │ │
+│  │ Fred Hutchinson      │    512   │ ✓ Approved │ ◐ 75%       │ Dr. B    │ │
+│  │ Emory Winship        │    234   │ ◐ Pending  │ ○ Not started│ Dr. C   │ │
+│  │ Mayo Clinic          │    389   │ ○ Invited  │ ○ Not started│ Dr. D   │ │
+│  │ MD Anderson          │    156   │ ○ Not sent │ ○ Not started│ -       │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+│  Total Enrolled: 1,593 (Target: 2,000)                                     │
+│  Projected Completion: March 2025                                          │
+│                                                                             │
+│  [Send Reminder to Pending] [Generate Progress Report] [Schedule Meeting]  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 9. Data Extraction Pipeline
+## 7. Data Extraction Pipeline
 
-### 9.1 MRN-to-Data Flow
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                  DATA EXTRACTION PIPELINE                       │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│    QUERY PHASE                                                  │
-│    ┌─────────────────────────────────────────────────────────┐  │
-│    │                                                         │  │
-│    │  Cohort Criteria ─► Query EMR ─► Get Matching MRNs     │  │
-│    │                                                         │  │
-│    │  Example:                                               │  │
-│    │  {                                                      │  │
-│    │    "icd10": ["C90.0", "C90.1"],                        │  │
-│    │    "treatment_exposure": ["teclistamab"],              │  │
-│    │    "date_range": "2020-01-01 to 2024-12-31"           │  │
-│    │  }                                                      │  │
-│    │                                                         │  │
-│    │  Result: 1,593 encrypted MRN references                │  │
-│    │                                                         │  │
-│    └─────────────────────────────────────────────────────────┘  │
-│                            │                                    │
-│                            ▼                                    │
-│    EXTRACTION PHASE                                             │
-│    ┌─────────────────────────────────────────────────────────┐  │
-│    │                                                         │  │
-│    │  For each MRN, pull selected variables:                 │  │
-│    │                                                         │  │
-│    │  ┌───────────────┐  ┌───────────────┐  ┌─────────────┐ │  │
-│    │  │ Demographics  │  │ Labs          │  │ Treatments  │ │  │
-│    │  │ age_at_dx     │  │ hemoglobin    │  │ regimen     │ │  │
-│    │  │ sex           │  │ creatinine    │  │ start_date  │ │  │
-│    │  │ race          │  │ ldh           │  │ best_resp   │ │  │
-│    │  └───────────────┘  └───────────────┘  └─────────────┘ │  │
-│    │                                                         │  │
-│    │  ┌───────────────┐  ┌───────────────┐  ┌─────────────┐ │  │
-│    │  │ Staging       │  │ Molecular     │  │ Outcomes    │ │  │
-│    │  │ iss_stage     │  │ del_17p       │  │ pfs_months  │ │  │
-│    │  │ riss_stage    │  │ t_4_14        │  │ os_months   │ │  │
-│    │  └───────────────┘  └───────────────┘  └─────────────┘ │  │
-│    │                                                         │  │
-│    └─────────────────────────────────────────────────────────┘  │
-│                            │                                    │
-│                            ▼                                    │
-│    DE-IDENTIFICATION PHASE                                      │
-│    ┌─────────────────────────────────────────────────────────┐  │
-│    │                                                         │  │
-│    │  HIPAA Safe Harbor De-identification:                   │  │
-│    │                                                         │  │
-│    │  ✓ Remove all 18 PHI identifiers                        │  │
-│    │  ✓ Replace DOB with age range                           │  │
-│    │  ✓ Generalize dates to month/year                       │  │
-│    │  ✓ Truncate zip to 3 digits                            │  │
-│    │  ✓ Remove names, SSN, MRN, etc.                        │  │
-│    │  ✓ Hash remaining identifiers                          │  │
-│    │                                                         │  │
-│    │  Data Quality Score: 87%                                │  │
-│    │                                                         │  │
-│    └─────────────────────────────────────────────────────────┘  │
-│                            │                                    │
-│                            ▼                                    │
-│    OUTPUT PHASE                                                 │
-│    ┌─────────────────────────────────────────────────────────┐  │
-│    │                                                         │  │
-│    │  Available formats:                                     │  │
-│    │                                                         │  │
-│    │  ┌───────────────┐  ┌───────────────┐  ┌─────────────┐ │  │
-│    │  │ CSV           │  │ REDCap        │  │ API Stream  │ │  │
-│    │  │ Standard flat │  │ Import-ready  │  │ Real-time   │ │  │
-│    │  │ file          │  │ format        │  │ FHIR output │ │  │
-│    │  └───────────────┘  └───────────────┘  └─────────────┘ │  │
-│    │                                                         │  │
-│    │  Job ID: extract_mm_bispab_001                          │  │
-│    │  Download available: 2025-01-13                         │  │
-│    │                                                         │  │
-│    └─────────────────────────────────────────────────────────┘  │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 10. Study Lifecycle
-
-### 10.1 Complete Study Workflow
+### 7.1 End-to-End Extraction Flow
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    STUDY LIFECYCLE                              │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│    ┌────────────┐                                               │
-│    │   IDEA     │ Researcher identifies research question      │
-│    └─────┬──────┘                                               │
-│          │                                                      │
-│          ▼                                                      │
-│    ┌────────────┐                                               │
-│    │ FEASIBILITY│ ─► Run cohort query                          │
-│    │            │ ─► Check N across sites                       │
-│    │            │ ─► Check data completeness                    │
-│    └─────┬──────┘                                               │
-│          │ [N sufficient]                                       │
-│          ▼                                                      │
-│    ┌────────────┐                                               │
-│    │   DESIGN   │ ─► Define inclusion/exclusion                 │
-│    │            │ ─► Select variables                           │
-│    │            │ ─► Write protocol                             │
-│    └─────┬──────┘                                               │
-│          │                                                      │
-│          ▼                                                      │
-│    ┌────────────┐                                               │
-│    │ REGULATORY │ ─► Submit to sIRB           [1-2 weeks]      │
-│    │            │ ─► Execute DUA              [1 week]          │
-│    │            │ ─► Site reliance agreements [1-3 weeks]       │
-│    └─────┬──────┘                                               │
-│          │ [all approvals]                                      │
-│          ▼                                                      │
-│    ┌────────────┐                                               │
-│    │ EXTRACTION │ ─► Query production EMRs                      │
-│    │            │ ─► De-identify                                │
-│    │            │ ─► QA/validation                              │
-│    └─────┬──────┘                                               │
-│          │                                                      │
-│          ▼                                                      │
-│    ┌────────────┐                                               │
-│    │  ANALYSIS  │ ─► Researcher receives dataset                │
-│    │            │ ─► Statistical analysis                       │
-│    │            │ ─► Manuscript preparation                     │
-│    └─────┬──────┘                                               │
-│          │                                                      │
-│          ▼                                                      │
-│    ┌────────────┐                                               │
-│    │PUBLICATION │ ─► Submit to journal                          │
-│    │            │ ─► HealthDB attribution                       │
-│    └─────┬──────┘                                               │
-│          │                                                      │
-│          ▼                                                      │
-│    ┌────────────┐                                               │
-│    │  ARCHIVE   │ ─► Dataset archived                           │
-│    │            │ ─► Analytics logged                           │
-│    │            │ ─► IRB closed                                 │
-│    └────────────┘                                               │
-│                                                                 │
-│    TYPICAL TIMELINE: 3-4 weeks (vs. 6+ months traditional)     │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    DATA EXTRACTION PIPELINE                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  TRIGGER: All regulatory approvals complete                                 │
+│           │                                                                 │
+│           ▼                                                                 │
+│  ┌────────────────────┐                                                     │
+│  │ 1. COHORT QUERY    │                                                     │
+│  │    ┌────────────┐  │                                                     │
+│  │    │ Apply:     │  │                                                     │
+│  │    │ - ICD-10   │  │ ─► Returns list of de-identified patient IDs       │
+│  │    │ - Age      │  │    matching criteria across all sites              │
+│  │    │ - Treatment│  │                                                     │
+│  │    │ - Stage    │  │    Example: 1,593 patients                         │
+│  │    └────────────┘  │                                                     │
+│  └─────────┬──────────┘                                                     │
+│            │                                                                │
+│            ▼                                                                │
+│  ┌────────────────────┐                                                     │
+│  │ 2. VARIABLE PULL   │                                                     │
+│  │    ┌────────────┐  │                                                     │
+│  │    │ For each   │  │                                                     │
+│  │    │ patient:   │  │                                                     │
+│  │    │            │  │                                                     │
+│  │    │ ✓ Age      │  │ ─► Pull from OMOP CDM tables                       │
+│  │    │ ✓ Sex      │  │    (condition_occurrence, drug_exposure,           │
+│  │    │ ✓ Stage    │  │     measurement, procedure, etc.)                  │
+│  │    │ ✓ Regimen  │  │                                                     │
+│  │    │ ✓ PFS      │  │                                                     │
+│  │    │ ✓ CRS grade│  │                                                     │
+│  │    └────────────┘  │                                                     │
+│  └─────────┬──────────┘                                                     │
+│            │                                                                │
+│            ▼                                                                │
+│  ┌────────────────────┐                                                     │
+│  │ 3. DE-IDENTIFICATION│                                                    │
+│  │    ┌────────────┐  │                                                     │
+│  │    │ Apply HIPAA│  │                                                     │
+│  │    │ Safe Harbor│  │                                                     │
+│  │    │            │  │                                                     │
+│  │    │ Remove:    │  │ ─► All 18 HIPAA identifiers stripped               │
+│  │    │ - Names    │  │    Dates generalized to month/year                 │
+│  │    │ - MRNs     │  │    Ages >89 capped at 90                           │
+│  │    │ - DOB      │  │    Zip codes truncated to 3 digits                 │
+│  │    │ - Addresses│  │                                                     │
+│  │    │ - SSN      │  │                                                     │
+│  │    │ - etc.     │  │                                                     │
+│  │    └────────────┘  │                                                     │
+│  └─────────┬──────────┘                                                     │
+│            │                                                                │
+│            ▼                                                                │
+│  ┌────────────────────┐                                                     │
+│  │ 4. QUALITY CHECK   │                                                     │
+│  │    ┌────────────┐  │                                                     │
+│  │    │ Validate:  │  │                                                     │
+│  │    │ - Complete-│  │ ─► Data quality score per variable                 │
+│  │    │   ness     │  │    Flag missing/outlier values                     │
+│  │    │ - Ranges   │  │    Verify de-identification complete               │
+│  │    │ - Formats  │  │                                                     │
+│  │    │ - Re-ID    │  │                                                     │
+│  │    │   risk     │  │                                                     │
+│  │    └────────────┘  │                                                     │
+│  └─────────┬──────────┘                                                     │
+│            │                                                                │
+│            ▼                                                                │
+│  ┌────────────────────┐                                                     │
+│  │ 5. OUTPUT FORMAT   │                                                     │
+│  │    ┌────────────┐  │                                                     │
+│  │    │ Export as: │  │                                                     │
+│  │    │            │  │                                                     │
+│  │    │ • CSV      │◄─┼─── Standard flat file                              │
+│  │    │ • REDCap   │◄─┼─── Import-ready format                             │
+│  │    │ • FHIR     │◄─┼─── API stream (real-time)                          │
+│  │    │ • SAS      │◄─┼─── Statistical analysis                            │
+│  │    └────────────┘  │                                                     │
+│  └─────────┬──────────┘                                                     │
+│            │                                                                │
+│            ▼                                                                │
+│  ┌────────────────────┐                                                     │
+│  │ 6. SECURE DELIVERY │                                                     │
+│  │                    │                                                     │
+│  │ • Encrypted        │ ─► Download link expires in 7 days                 │
+│  │   download         │    Access logged for audit                         │
+│  │ • Secure enclave   │    Terms of use acknowledged                       │
+│  │   (no download)    │                                                     │
+│  │ • API access       │                                                     │
+│  │   (rate-limited)   │                                                     │
+│  └────────────────────┘                                                     │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 11. Data Marketplace
+## 8. Authentication & Authorization
 
-### 11.1 Marketplace State Machine
+### 8.1 Role-Based Access Control
+
+| Role | Patient Portal | Researcher Portal | Admin Portal | Data Access |
+|------|---------------|-------------------|--------------|-------------|
+| **Patient** | ✓ Full | ✗ | ✗ | Own data only |
+| **Researcher** | ✗ | ✓ Full | ✗ | Approved studies only |
+| **Institution Admin** | ✗ | ✓ Limited | ✓ Institution | Institution data |
+| **HealthDB Admin** | ✓ View | ✓ View | ✓ Full | All data (audit logged) |
+
+---
+
+## 9. System Architecture
+
+### 9.1 High-Level Architecture Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    DATA MARKETPLACE                             │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│    ┌──────────────┐                                             │
-│    │   LOADING    │                                             │
-│    │ Fetching     │                                             │
-│    │ /products    │                                             │
-│    └──────┬───────┘                                             │
-│           │                                                     │
-│           ├───────────────────────┬────────────────────────┐    │
-│           ▼                       ▼                        ▼    │
-│    ┌──────────────┐        ┌──────────────┐        ┌────────┐   │
-│    │    ERROR     │        │    EMPTY     │        │  HAS   │   │
-│    │              │        │              │        │PRODUCTS│   │
-│    │ Fetch failed │        │ "No Datasets │        │        │   │
-│    │              │        │  Available"  │        │        │   │
-│    └──────────────┘        └──────────────┘        └────┬───┘   │
-│                                                         │       │
-│    ┌────────────────────────────────────────────────────┼───────┤
-│    │                    FILTER STATE                    │       │
-│    ├────────────────────────────────────────────────────┘       │
-│    │                                                            │
-│    │    searchQuery: string                                     │
-│    │    selectedCategory: 'all' | 'Hematologic' | 'Solid Tumor' │
-│    │                                                            │
-│    │    filteredProducts = products.filter(matchesCriteria)     │
-│    │                                                            │
-│    └────────────────────────────────────────────────────────────┤
-│                                                                 │
-│    ┌────────────────────────────────────────────────────────────┤
-│    │                    MODAL STATE                             │
-│    ├────────────────────────────────────────────────────────────┤
-│    │                                                            │
-│    │     ┌─────────────┐                      ┌─────────────┐   │
-│    │     │   CLOSED    │◄────────────────────►│    OPEN     │   │
-│    │     │ selected=   │   [click product]    │ selected=   │   │
-│    │     │    null     │   [click close]      │   product   │   │
-│    │     │             │                      │             │   │
-│    │     │             │                      │ Shows:      │   │
-│    │     │             │                      │ - Details   │   │
-│    │     │             │                      │ - Pricing   │   │
-│    │     │             │                      │ - Request   │   │
-│    │     └─────────────┘                      └─────────────┘   │
-│    │                                                            │
-│    └────────────────────────────────────────────────────────────┘
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         HEALTHDB ARCHITECTURE                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│                              USERS                                          │
+│           ┌──────────┬──────────┬──────────┬──────────┐                    │
+│           │ Patients │Researchers│Institutions│ Admins │                    │
+│           └────┬─────┴────┬─────┴────┬─────┴────┬────┘                     │
+│                │          │          │          │                          │
+│                ▼          ▼          ▼          ▼                          │
+│    ┌─────────────────────────────────────────────────────────┐             │
+│    │                     FRONTEND                             │             │
+│    │                   (React SPA)                            │             │
+│    │                                                          │             │
+│    │  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ │             │
+│    │  │Patient │ │Researcher│ │Cohort │ │Collab  │ │Admin   │ │             │
+│    │  │Portal  │ │Dashboard│ │Builder│ │Space   │ │Portal  │ │             │
+│    │  └────────┘ └────────┘ └────────┘ └────────┘ └────────┘ │             │
+│    └───────────────────────────┬─────────────────────────────┘             │
+│                                │                                            │
+│                                ▼                                            │
+│    ┌─────────────────────────────────────────────────────────┐             │
+│    │                     API LAYER                            │             │
+│    │                    (FastAPI)                             │             │
+│    │                                                          │             │
+│    │  /auth  /patient  /researcher  /study  /regulatory       │             │
+│    │  /cohort  /extraction  /collaboration  /emr  /admin      │             │
+│    └───────────────────────────┬─────────────────────────────┘             │
+│                                │                                            │
+│                                ▼                                            │
+│    ┌─────────────────────────────────────────────────────────┐             │
+│    │                   DATA LAYER                             │             │
+│    │                                                          │             │
+│    │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐      │             │
+│    │  │ PostgreSQL  │  │ Redis       │  │ S3/Blob     │      │             │
+│    │  │ (OMOP CDM)  │  │ (Cache/     │  │ (Documents/ │      │             │
+│    │  │             │  │  Sessions)  │  │  Exports)   │      │             │
+│    │  └─────────────┘  └─────────────┘  └─────────────┘      │             │
+│    └───────────────────────────┬─────────────────────────────┘             │
+│                                │                                            │
+│                                ▼                                            │
+│    ┌─────────────────────────────────────────────────────────┐             │
+│    │              EMR INTEGRATION LAYER                       │             │
+│    │                                                          │             │
+│    │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐      │             │
+│    │  │ FHIR R4     │  │ Epic Cosmos │  │ Cerner RWD  │      │             │
+│    │  │ Connector   │  │ Connector   │  │ Connector   │      │             │
+│    │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘      │             │
+│    │         │                │                │              │             │
+│    │         ▼                ▼                ▼              │             │
+│    │  ┌─────────────────────────────────────────────────┐    │             │
+│    │  │              OMOP CDM Mapper                     │    │             │
+│    │  │          (Standardization Layer)                 │    │             │
+│    │  └─────────────────────────────────────────────────┘    │             │
+│    └───────────────────────────┬─────────────────────────────┘             │
+│                                │                                            │
+│                                ▼                                            │
+│    ┌─────────────────────────────────────────────────────────┐             │
+│    │                  PARTNER INSTITUTIONS                    │             │
+│    │                                                          │             │
+│    │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐ │             │
+│    │  │   OHSU   │  │Fred Hutch│  │  Emory   │  │  Mayo    │ │             │
+│    │  │  (Epic)  │  │  (Epic)  │  │ (Cerner) │  │  (Epic)  │ │             │
+│    │  └──────────┘  └──────────┘  └──────────┘  └──────────┘ │             │
+│    └─────────────────────────────────────────────────────────┘             │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 12. Global Application State
+## 10. API Reference
+
+### 10.1 Core Endpoints
+
+| Category | Endpoint | Method | Description |
+|----------|----------|--------|-------------|
+| **Auth** | `/api/auth/register` | POST | Register new user |
+| | `/api/auth/login` | POST | Authenticate user |
+| **Patient** | `/api/patient/profile` | GET | Get patient profile |
+| | `/api/patient/consents` | GET/POST | Manage consents |
+| | `/api/patient/connections` | GET/POST | EMR connections |
+| | `/api/patient/extracted-data` | GET | View contributed data |
+| **Researcher** | `/api/researcher/studies` | GET/POST | Manage studies |
+| | `/api/cohort/build` | POST | Build patient cohort |
+| | `/api/cohort/save` | POST | Save cohort |
+| **Regulatory** | `/api/regulatory/submit` | POST | Submit IRB/DUA |
+| | `/api/regulatory/{id}/approve` | POST | Approve submission |
+| **Extraction** | `/api/extraction/create` | POST | Create extraction job |
+| | `/api/extraction/jobs` | GET | List extraction jobs |
+| **Collaboration** | `/api/study/{id}/team` | GET/POST | Manage team |
+| | `/api/study/{id}/invite` | POST | Invite collaborator |
+| **EMR** | `/api/emr/connections` | GET | List EMR connections |
+| | `/api/institutions` | GET | List partner institutions |
+
+---
+
+## Summary: End-to-End Workflow
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                 GLOBAL APPLICATION STATE                        │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│                    ┌─────────────────┐                          │
-│                    │ UNAUTHENTICATED │                          │
-│                    │                 │                          │
-│                    │ token = null    │                          │
-│                    │ user = null     │                          │
-│                    └────────┬────────┘                          │
-│                             │                                   │
-│          ┌──────────────────┼──────────────────┐                │
-│          │                  │                  │                │
-│          ▼                  ▼                  ▼                │
-│   ┌─────────────┐    ┌─────────────┐    ┌─────────────┐         │
-│   │   LANDING   │    │    LOGIN    │◄──►│  REGISTER   │         │
-│   │    PAGE     │───►│    PAGE     │    │    PAGE     │         │
-│   └─────────────┘    └──────┬──────┘    └─────────────┘         │
-│                             │                                   │
-│                             │ [successful login]                │
-│                             ▼                                   │
-│                    ┌─────────────────┐                          │
-│                    │  AUTHENTICATED  │                          │
-│                    │                 │                          │
-│                    │ token = JWT     │                          │
-│                    │ user = {...}    │                          │
-│                    └────────┬────────┘                          │
-│                             │                                   │
-│               ┌─────────────┴─────────────┐                     │
-│               │                           │                     │
-│               ▼                           ▼                     │
-│       ┌───────────────┐           ┌───────────────┐             │
-│       │ PATIENT_USER  │           │RESEARCHER_USER│             │
-│       │               │           │               │             │
-│       │ Access:       │           │ Access:       │             │
-│       │ - /patient    │           │ - /research   │             │
-│       │ - /marketplace│           │ - /cohort     │             │
-│       └───────────────┘           │ - /marketplace│             │
-│                                   └───────────────┘             │
-│                                                                 │
-│                    ┌─────────────────┐                          │
-│                    │     LOGOUT      │                          │
-│                    │                 │                          │
-│                    │ Clear token     │──► UNAUTHENTICATED       │
-│                    │ Clear user      │                          │
-│                    └─────────────────┘                          │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+PATIENT FLOW:
+Register → Sign Consent → Connect EMR → Data Extracted → Contribute → Earn Rewards
+
+RESEARCHER FLOW:
+Create Study → Define Cohort → Check Feasibility → Submit IRB → Sign DUA →
+Site Approvals → Extract Data → Analyze → Publish
+
+TIMELINE: 3-4 weeks from study creation to data delivery
+(vs. 6+ months traditional)
 ```
 
 ---
 
-## 13. System Architecture
+## Competitive Differentiation
 
-### 13.1 High-Level Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    HEALTHDB ARCHITECTURE                        │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│                         USERS                                   │
-│           ┌──────────┬──────────┬──────────┐                    │
-│           │ Patients │Researchers│Institutions                 │
-│           └────┬─────┴────┬─────┴────┬─────┘                    │
-│                │          │          │                          │
-│                ▼          ▼          ▼                          │
-│    ┌─────────────────────────────────────────────────────────┐  │
-│    │                     FRONTEND                             │  │
-│    │                   (React SPA)                            │  │
-│    │                                                          │  │
-│    │  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ │  │
-│    │  │Landing │ │Patient │ │Researcher│ │Cohort │ │Market- │ │  │
-│    │  │Page    │ │Portal  │ │Dashboard│ │Builder│ │place   │ │  │
-│    │  └────────┘ └────────┘ └────────┘ └────────┘ └────────┘ │  │
-│    └───────────────────────────┬─────────────────────────────┘  │
-│                                │                                │
-│                                ▼                                │
-│    ┌─────────────────────────────────────────────────────────┐  │
-│    │                     API LAYER                            │  │
-│    │                    (FastAPI)                             │  │
-│    │                                                          │  │
-│    │  /auth    /patient    /cohort    /marketplace    /emr    │  │
-│    │  /consent /regulatory /extraction /institutions          │  │
-│    └───────────────────────────┬─────────────────────────────┘  │
-│                                │                                │
-│                                ▼                                │
-│    ┌─────────────────────────────────────────────────────────┐  │
-│    │                   DATA LAYER                             │  │
-│    │                                                          │  │
-│    │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐      │  │
-│    │  │ PostgreSQL  │  │ Redis       │  │ S3/Blob     │      │  │
-│    │  │ (Core DB)   │  │ (Cache)     │  │ (Documents) │      │  │
-│    │  └─────────────┘  └─────────────┘  └─────────────┘      │  │
-│    └───────────────────────────┬─────────────────────────────┘  │
-│                                │                                │
-│                                ▼                                │
-│    ┌─────────────────────────────────────────────────────────┐  │
-│    │                EMR INTEGRATION LAYER                     │  │
-│    │                                                          │  │
-│    │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐      │  │
-│    │  │ Epic FHIR   │  │ Cerner FHIR │  │ SFTP Upload │      │  │
-│    │  │ Connector   │  │ Connector   │  │ Handler     │      │  │
-│    │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘      │  │
-│    │         │                │                │              │  │
-│    │         ▼                ▼                ▼              │  │
-│    │  ┌─────────────────────────────────────────────────┐    │  │
-│    │  │              OMOP CDM Mapper                     │    │  │
-│    │  │          (Standardization Layer)                 │    │  │
-│    │  └─────────────────────────────────────────────────┘    │  │
-│    └───────────────────────────┬─────────────────────────────┘  │
-│                                │                                │
-│                                ▼                                │
-│    ┌─────────────────────────────────────────────────────────┐  │
-│    │                  PARTNER INSTITUTIONS                    │  │
-│    │                                                          │  │
-│    │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐ │  │
-│    │  │   OHSU   │  │Fred Hutch│  │  Emory   │  │ Others   │ │  │
-│    │  │  (Epic)  │  │  (Epic)  │  │ (Cerner) │  │          │ │  │
-│    │  └──────────┘  └──────────┘  └──────────┘  └──────────┘ │  │
-│    └─────────────────────────────────────────────────────────┘  │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### 13.2 Data Flow Diagram
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      DATA FLOW                                  │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│    PATIENT FLOW                                                 │
-│    ─────────────────────────────────────────────────────────── │
-│                                                                 │
-│    Patient ─► Consent ─► Connect EMR ─► Extract ─► De-ID ─►    │
-│                                                                 │
-│    ─► Contribute to Research ─► Earn Rewards                    │
-│                                                                 │
-│                                                                 │
-│    RESEARCHER FLOW                                              │
-│    ─────────────────────────────────────────────────────────── │
-│                                                                 │
-│    Researcher ─► Define Cohort ─► Check Feasibility ─►         │
-│                                                                 │
-│    ─► Submit IRB ─► Execute DUA ─► Site Approvals ─►           │
-│                                                                 │
-│    ─► Extract Data ─► Analyze ─► Publish                        │
-│                                                                 │
-│                                                                 │
-│    INSTITUTION FLOW                                             │
-│    ─────────────────────────────────────────────────────────── │
-│                                                                 │
-│    Institution ─► Sign MSA/BAA ─► Technical Setup ─►           │
-│                                                                 │
-│    ─► Data Mapping ─► Go Live ─► Revenue Share                  │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## State Summary Table
-
-| Component | States | Key Transitions |
-|-----------|--------|-----------------|
-| Login | IDLE → LOADING → SUCCESS/ERROR | Form submit triggers API call |
-| Register | RESEARCHER_MODE ↔ PATIENT_MODE → LOADING | User type toggle, form submit |
-| Patient Portal | LOADING → READY → TAB_* | Auth check, tab navigation |
-| Researcher Dashboard | LOADING → COHORT/STUDIES/REGULATORY | Auth check, tab navigation |
-| Cohort Builder | DEFINE → VARIABLES → REGULATORY → EXTRACT | 4-step wizard progression |
-| Consent | NO_CONSENT → SIGNING → ACTIVE → REVOKED/EXPIRED | Lifecycle management |
-| Medical Records | NO_CONSENT → SOURCE_SELECT → CONNECTING → CONNECTED | Connection flow |
-| Regulatory | DRAFT → SUBMITTED → UNDER_REVIEW → APPROVED | Approval workflow |
-| Data Extraction | QUERY → EXTRACT → DE-ID → OUTPUT | Pipeline stages |
-| Study | IDEA → FEASIBILITY → DESIGN → REGULATORY → EXTRACTION → PUBLICATION | Complete lifecycle |
-| Marketplace | LOADING → EMPTY/HAS_PRODUCTS → MODAL_OPEN/CLOSED | Fetch, filter, detail |
-
----
-
-## Mermaid Diagrams
-
-### Study Lifecycle (Mermaid)
-
-```mermaid
-stateDiagram-v2
-    [*] --> Idea
-    Idea --> Feasibility: Define question
-    Feasibility --> Design: N sufficient
-    Feasibility --> Idea: N insufficient
-    Design --> Regulatory: Protocol ready
-    Regulatory --> Extraction: All approvals
-    Extraction --> Analysis: Data delivered
-    Analysis --> Publication: Results ready
-    Publication --> Archive: Published
-    Archive --> [*]
-```
-
-### Patient Journey (Mermaid)
-
-```mermaid
-stateDiagram-v2
-    [*] --> Register
-    Register --> SignConsent: +100 pts welcome
-    SignConsent --> ConnectRecords: +50 pts per consent
-    ConnectRecords --> DataExtracted: +100 pts per source
-    DataExtracted --> Contributing: De-ID complete
-    Contributing --> Contributing: +10 pts per access
-```
-
-### Regulatory Pipeline (Mermaid)
-
-```mermaid
-stateDiagram-v2
-    [*] --> Draft
-    Draft --> IRB_Submitted
-    IRB_Submitted --> IRB_Review
-    IRB_Review --> IRB_Approved: Pass
-    IRB_Review --> IRB_Revision: Changes needed
-    IRB_Revision --> IRB_Submitted
-    IRB_Approved --> DUA_Draft
-    DUA_Draft --> DUA_Sent
-    DUA_Sent --> DUA_Signed
-    DUA_Signed --> Site_Reliance
-    Site_Reliance --> Ready: All sites approved
-    Ready --> [*]
-```
+| Competitor | Gap HealthDB Fills |
+|------------|--------------------|
+| Flatiron | Oncology-only; no patient ownership |
+| TriNetX | No patient portal; institution-only |
+| Veradigm | Limited real-time EMR; no multi-center coordination |
+| Epic Cosmos | Walled garden; no external researcher access |
+| **HealthDB** | Patient-owned + researcher self-service + regulatory automation |

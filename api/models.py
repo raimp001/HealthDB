@@ -505,3 +505,76 @@ class EMRConnection(Base):
     # Relationships
     institution = relationship("Institution")
 
+
+class StudyCollaborator(Base):
+    """Study team members and their roles"""
+    __tablename__ = "study_collaborators"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    study_id = Column(String(36), ForeignKey("studies.id"), nullable=False)
+    user_id = Column(String(36), ForeignKey("users.id"))
+    email = Column(String(255), nullable=False)  # For invites before user exists
+    role = Column(String(50), nullable=False)  # pi, co_investigator, analyst, statistician
+    status = Column(String(50), default="invited")  # invited, accepted, declined, removed
+    permissions = Column(JSON)  # Granular permissions
+    invited_at = Column(DateTime, default=datetime.utcnow)
+    accepted_at = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    study = relationship("Study")
+    user = relationship("User")
+
+
+class StudyDocument(Base):
+    """Documents associated with a study"""
+    __tablename__ = "study_documents"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    study_id = Column(String(36), ForeignKey("studies.id"), nullable=False)
+    uploaded_by = Column(String(36), ForeignKey("users.id"))
+    document_type = Column(String(100))  # protocol, dua, consent, analysis, publication
+    file_name = Column(String(255))
+    file_url = Column(Text)
+    file_size = Column(Integer)
+    version = Column(String(50))
+    is_current = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    study = relationship("Study")
+
+
+class StudyComment(Base):
+    """Discussion comments on a study"""
+    __tablename__ = "study_comments"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    study_id = Column(String(36), ForeignKey("studies.id"), nullable=False)
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=False)
+    parent_id = Column(String(36), ForeignKey("study_comments.id"))  # For threading
+    content = Column(Text, nullable=False)
+    is_resolved = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, onupdate=datetime.utcnow)
+
+    # Relationships
+    study = relationship("Study")
+    user = relationship("User")
+
+
+class DiseaseVariableSet(Base):
+    """Pre-defined variable sets for specific diseases"""
+    __tablename__ = "disease_variable_sets"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    disease_name = Column(String(255), nullable=False)
+    icd10_codes = Column(JSON)  # List of ICD-10 codes
+    core_variables = Column(JSON)  # Demographics, basic info
+    staging_variables = Column(JSON)  # Disease-specific staging
+    molecular_variables = Column(JSON)  # Biomarkers, genetics
+    treatment_variables = Column(JSON)  # Treatment-related
+    outcome_variables = Column(JSON)  # Response, survival
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
