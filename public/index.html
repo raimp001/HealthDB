@@ -4,39 +4,149 @@
   <meta charset="utf-8" />
   <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#6366f1" />
+  <meta name="theme-color" content="#000000" />
   
-  <!-- SEO Meta Tags -->
-  <meta name="description" content="HealthDB - A platform for longitudinal cancer research data. Connecting EMRs, de-identifying patient data, and enabling retrospective studies." />
-  <meta name="keywords" content="oncology database, cancer research, longitudinal data, clinical research, healthcare data, EMR integration, personalized medicine" />
+  <!-- Primary SEO Meta Tags -->
+  <title>HealthDB | Ethical Cancer Research Data Platform - Real-World Evidence</title>
+  <meta name="title" content="HealthDB | Ethical Cancer Research Data Platform - Real-World Evidence" />
+  <meta name="description" content="HealthDB connects patient-contributed cancer data with researchers. Voluntary consent-based sharing, HIPAA-compliant de-identification, IRB-approved studies. Accelerating oncology research through ethical data governance." />
+  <meta name="keywords" content="cancer research data, oncology database, real-world evidence, clinical research platform, healthcare data sharing, EMR integration, de-identified patient data, longitudinal cancer data, IRB approved research, HIPAA compliant, ethical data sharing, personalized medicine, treatment outcomes, biomarker research" />
   <meta name="author" content="HealthDB" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://www.healthdb.ai/" />
   
-  <!-- Open Graph / Social Media -->
+  <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://www.healthdb.ai/" />
-  <meta property="og:title" content="HealthDB - Longitudinal Cancer Research Database" />
-  <meta property="og:description" content="A platform for collecting, de-identifying, and sharing oncology data to enable retrospective studies and personalized medicine." />
-  <meta property="og:image" content="%PUBLIC_URL%/og-image.png" />
+  <meta property="og:site_name" content="HealthDB" />
+  <meta property="og:title" content="HealthDB | Ethical Cancer Research Data Platform" />
+  <meta property="og:description" content="Accelerating cancer research through ethical data sharing. Patient-contributed, consent-based oncology data for IRB-approved studies. Real-world evidence for better treatments." />
+  <meta property="og:image" content="https://www.healthdb.ai/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:locale" content="en_US" />
   
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:url" content="https://www.healthdb.ai/" />
-  <meta name="twitter:title" content="HealthDB - Longitudinal Cancer Research Database" />
-  <meta name="twitter:description" content="A platform for collecting, de-identifying, and sharing oncology data to enable retrospective studies and personalized medicine." />
-  <meta name="twitter:image" content="%PUBLIC_URL%/og-image.png" />
+  <meta name="twitter:title" content="HealthDB | Ethical Cancer Research Data Platform" />
+  <meta name="twitter:description" content="Accelerating cancer research through ethical data sharing. Patient-contributed, consent-based oncology data for IRB-approved studies." />
+  <meta name="twitter:image" content="https://www.healthdb.ai/og-image.png" />
+  
+  <!-- Additional SEO -->
+  <meta name="geo.region" content="US" />
+  <meta name="geo.placename" content="United States" />
+  <meta name="rating" content="general" />
+  <meta name="revisit-after" content="7 days" />
+  
+  <!-- Structured Data - Organization -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "HealthDB",
+    "url": "https://www.healthdb.ai",
+    "logo": "https://www.healthdb.ai/logo.png",
+    "description": "HealthDB is an ethical cancer research data platform that connects patient-contributed, de-identified oncology data with researchers conducting IRB-approved studies.",
+    "sameAs": [],
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "email": "contact@healthdb.ai",
+      "contactType": "customer service"
+    }
+  }
+  </script>
+  
+  <!-- Structured Data - WebSite -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "HealthDB",
+    "url": "https://www.healthdb.ai",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": "https://www.healthdb.ai/search?q={search_term_string}",
+      "query-input": "required name=search_term_string"
+    }
+  }
+  </script>
+  
+  <!-- Structured Data - MedicalOrganization -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "MedicalOrganization",
+    "name": "HealthDB",
+    "url": "https://www.healthdb.ai",
+    "description": "Platform for ethical cancer research data sharing. We connect patient-contributed, consent-based oncology data with researchers.",
+    "medicalSpecialty": "Oncology",
+    "areaServed": {
+      "@type": "Country",
+      "name": "United States"
+    }
+  }
+  </script>
   
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   
   <!-- Apple Touch Icon -->
   <link rel="apple-touch-icon" href="%PUBLIC_URL%/apple-touch-icon.png" />
-  
-  <title>HealthDB - Longitudinal Cancer Research Database</title>
+  <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
 </head>
 <body>
-  <noscript>You need to enable JavaScript to run this app.</noscript>
+  <!-- Fallback content for search engines that don't execute JavaScript -->
+  <noscript>
+    <div style="max-width: 800px; margin: 0 auto; padding: 40px 20px; font-family: system-ui, sans-serif;">
+      <h1>HealthDB - Ethical Cancer Research Data Platform</h1>
+      <p>HealthDB accelerates cancer research through ethical data sharing. We connect patient-contributed, de-identified oncology data with researchers conducting IRB-approved studies.</p>
+      
+      <h2>For Researchers</h2>
+      <p>Access de-identified patient data, create studies, apply for IRB approval, and collaborate with institutions for multi-center research. Our platform provides real-world evidence for better treatment decisions.</p>
+      <ul>
+        <li>Cohort Builder - Build patient cohorts with precise criteria</li>
+        <li>IRB Management - Streamlined ethics approval workflow</li>
+        <li>Multi-Center Studies - Collaborate across institutions</li>
+        <li>Real-World Evidence - Longitudinal outcomes data</li>
+      </ul>
+      
+      <h2>For Patients</h2>
+      <p>Voluntarily contribute your de-identified medical data to help researchers discover new treatments and improve outcomes for future patients. Your data can advance cancer research while you maintain full control and earn rewards.</p>
+      <ul>
+        <li>100% Voluntary - You choose what to share</li>
+        <li>Privacy Protected - HIPAA-compliant de-identification</li>
+        <li>Full Control - Revoke consent anytime</li>
+        <li>Earn Rewards - Compensation for contributions</li>
+      </ul>
+      
+      <h2>For Healthcare Institutions</h2>
+      <p>Partner with HealthDB to contribute data and participate in multi-center studies. Our platform provides EMR integration, secure data pipelines, and collaborative research tools.</p>
+      
+      <h2>For Industry</h2>
+      <p>Access real-world evidence to inform drug development, outcomes research, and regulatory submissions. Ethically-sourced data with full patient consent and IRB governance.</p>
+      
+      <h2>Our Commitment to Ethical Data Use</h2>
+      <ul>
+        <li>Patient Consent Required - Every data record comes from a patient who explicitly consented</li>
+        <li>IRB Approval Mandatory - Researchers must have institutional review board approval</li>
+        <li>Transparent Access Logs - Patients can see who accessed their data</li>
+        <li>Revocable Consent - Patients can withdraw at any time</li>
+      </ul>
+      
+      <h2>Available Data Categories</h2>
+      <p>Demographics, Diagnoses, Pathology, Cytogenetics, Molecular Data, Treatments, Responses, Outcomes</p>
+      
+      <h2>Contact</h2>
+      <p>Email: <a href="mailto:contact@healthdb.ai">contact@healthdb.ai</a></p>
+      <p>For partnerships: <a href="mailto:partnerships@healthdb.ai">partnerships@healthdb.ai</a></p>
+      <p>For research inquiries: <a href="mailto:research@healthdb.ai">research@healthdb.ai</a></p>
+      
+      <p><small>© 2024 HealthDB. All rights reserved. HIPAA Compliant · SOC 2 Type II</small></p>
+    </div>
+  </noscript>
   <div id="root"></div>
 </body>
 </html>

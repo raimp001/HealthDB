@@ -1,0 +1,24 @@
+# robots.txt for HealthDB
+# https://www.healthdb.ai
+
+User-agent: *
+Allow: /
+
+# Crawl-delay for polite crawling
+Crawl-delay: 1
+
+# Sitemap location
+Sitemap: https://www.healthdb.ai/sitemap.xml
+
+# Block specific paths that shouldn't be indexed
+Disallow: /api/
+Disallow: /patient
+Disallow: /research
+
+# Allow main public pages
+Allow: /
+Allow: /patients
+Allow: /researchers
+Allow: /marketplace
+Allow: /login
+Allow: /register
