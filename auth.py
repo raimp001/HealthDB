@@ -1,5 +1,6 @@
-import hashlib
 import secrets
+import logging
+from passlib.context import CryptContext
 from database import get_database_connection
 from zpass_interface import ZPassInterface, ZKProof
 import face_recognition
@@ -21,6 +22,8 @@ import json
 
 # Initialize interfaces
 zpass = ZPassInterface()
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+auth_logger = logging.getLogger("healthdb.auth")
 
 class AuthenticationManager:
     def __init__(self):
@@ -193,8 +196,8 @@ class AuthenticationManager:
 
             new_encoding = face_recognition.face_encodings(face_image, face_locations)[0]
 
-            # Compare face encodings with stricter threshold
-            matches = face_recognition.compare_faces([stored_encoding], new_encoding, tolerance=0.5)
+            # Compare face encodings with strict threshold for security
+            matches = face_recognition.compare_faces([stored_encoding], new_encoding, tolerance=0.4)
             return matches[0]
         except Exception as e:
             raise Exception(f"Face verification failed: {str(e)}")
@@ -280,17 +283,15 @@ def authenticate_user(user_id=None, username=None, password=None, face_image=Non
         conn.close()
 
 def hash_password(password):
-    """Hash password using SHA-256."""
-    salt = secrets.token_hex(16)
-    return hashlib.sha256((password + salt).encode()).hexdigest() + ':' + salt
+    """Hash password using bcrypt via passlib."""
+    return pwd_context.hash(password)
 
 def verify_password(stored_password, provided_password):
-    """Verify password hash."""
-    hash_val, salt = stored_password.split(':')
-    return hash_val == hashlib.sha256((provided_password + salt).encode()).hexdigest()
+    """Verify password against bcrypt hash."""
+    return pwd_context.verify(provided_password, stored_password)
 
 def verify_data_integrity(data):
     """Generate and verify ZKP for data integrity."""
     proof = zpass.generate_data_proof(data)
-    # TODO: Implement actual verification logic using zPass SDK
-    return True
+    auth_logger.warning("ZKP verification not yet fully implemented - using basic proof generation only")
+    return proof is not None

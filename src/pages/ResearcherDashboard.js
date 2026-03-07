@@ -63,8 +63,8 @@ const ResearcherDashboard = () => {
   ];
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const token = sessionStorage.getItem('token');
+    const user = JSON.parse(sessionStorage.getItem('user') || '{}');
     
     if (!token) {
       navigate('/login');
@@ -97,7 +97,7 @@ const ResearcherDashboard = () => {
 
   const handleBuildCohort = async () => {
     setIsBuilding(true);
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
 
     try {
       const response = await fetch(`${API_URL}/api/cohort/build`, {
@@ -146,7 +146,7 @@ const ResearcherDashboard = () => {
     const name = prompt('Enter a name for this cohort:');
     if (!name) return;
 
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
 
     try {
       const response = await fetch(`${API_URL}/api/cohort/save`, {

@@ -14,7 +14,7 @@ const InstitutionDashboard = () => {
   const [collaborations, setCollaborations] = useState([]);
   const [stats, setStats] = useState({});
 
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
 
   const fetchData = useCallback(async () => {
     if (!token) {

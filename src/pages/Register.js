@@ -161,11 +161,13 @@ const Register = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                minLength={8}
+                minLength={12}
                 className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 focus:border-white/30 focus:outline-none transition-colors"
                 placeholder="••••••••"
               />
-              <p className="mt-2 text-xs text-white/30">Minimum 8 characters</p>
+              <p className="mt-2 text-xs text-white/30">
+                Min 12 characters with uppercase, lowercase, number, and special character
+              </p>
             </div>
 
             <div className="flex items-start gap-3">

@@ -767,17 +767,10 @@ def project_management_page():
         initial_sidebar_state="collapsed"
     )
 
-    # Demo mode setup
+    # Require authentication
     if 'user_id' not in st.session_state or st.session_state.user_id is None:
-        st.session_state.user_id = 1
-        st.session_state.username = "Demo User"
-        st.session_state.demo_mode = True
-        st.markdown("""
-        <div class="demo-banner">
-            <span class="demo-icon">🧪</span>
-            <strong>Demo Mode:</strong> You are viewing sample data. No login required.
-        </div>
-        """, unsafe_allow_html=True)
+        st.warning("Authentication required. Please log in to access Project Management.")
+        st.stop()
 
     # Page setup
     render_navigation()

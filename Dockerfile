@@ -48,6 +48,8 @@ COPY monetization/ ./monetization/
 COPY personalized_medicine/ ./personalized_medicine/
 COPY emr_connectors/ ./emr_connectors/
 COPY data_collection/ ./data_collection/
+COPY security/ ./security/
+COPY config/ ./config/
 COPY database.py ./
 COPY main.py ./
 

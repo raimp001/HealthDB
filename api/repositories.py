@@ -116,10 +116,23 @@ class PatientRepository:
         return consent
 
     def revoke_consent(self, consent_id: str) -> None:
-        self.db.query(Consent).filter(Consent.id == str(consent_id)).update({
-            "status": "revoked",
-            "revoked_at": datetime.utcnow(),
-        })
+        """Revoke consent and log for audit trail"""
+        consent = self.db.query(Consent).filter(Consent.id == str(consent_id)).first()
+        if not consent:
+            return
+
+        consent.status = "revoked"
+        consent.revoked_at = datetime.utcnow()
+
+        # Log revocation for HIPAA audit trail
+        revocation_log = DataAccessLog(
+            patient_id=consent.patient_id,
+            access_type="consent_revocation",
+            data_type=consent.consent_type,
+            purpose=f"Consent revoked: {consent.consent_type}",
+            record_count=0,
+        )
+        self.db.add(revocation_log)
         self.db.commit()
 
     def get_rewards_history(self, patient_id: str, limit: int = 50) -> List[RewardsTransaction]:
