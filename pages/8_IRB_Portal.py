@@ -23,14 +23,10 @@ def get_institutions():
     return df
 
 def irb_portal():
-    # Set up demo user if not logged in
+    # Require authentication
     if 'user_id' not in st.session_state or st.session_state.user_id is None:
-        # Instead of requiring login, use a demo user ID
-        st.session_state.user_id = 1  # Use a default user ID for demonstration
-        st.session_state.username = "Demo User"
-
-        # Create a notice that we're in demo mode
-        st.info("You are viewing the IRB Portal in demonstration mode. No login required.")
+        st.warning("Authentication required. Please log in to access the IRB Portal.")
+        st.stop()
 
     # Render consistent navigation
     render_navigation()

@@ -20,15 +20,16 @@ st.set_page_config(
 try:
     init_database()
     st.session_state.db_initialized = True
-except Exception as e:
-    st.error(f"Error initializing database: {str(e)}")
+except Exception:
+    st.error("Unable to initialize database. Please contact support.")
     st.session_state.db_initialized = False
 
-# Set up demo user if not logged in
+# Require authentication - redirect to login if not authenticated
 if 'user_id' not in st.session_state or st.session_state.user_id is None:
-    # Instead of requiring login, use a demo user ID
-    st.session_state.user_id = 1  # Use a default user ID for demonstration
-    st.session_state.username = "Demo User"
+    st.session_state.authenticated = False
+    st.warning("Please log in to access the platform.")
+    st.info("Use the login page to authenticate with your credentials.")
+    st.stop()
 
 # Custom CSS for better styling
 st.markdown("""
@@ -134,12 +135,8 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# User info
-st.markdown(f"""
-<div style="margin-bottom: 1rem;">
-    <div>Welcome, {st.session_state.username}</div>
-</div>
-""", unsafe_allow_html=True)
+# User info - use Streamlit native to avoid XSS from username injection
+st.write(f"Welcome, {st.session_state.username}")
 
 try:
     # Main dashboard layout
@@ -381,8 +378,8 @@ try:
 
         st.markdown('</div>', unsafe_allow_html=True)
 
-except Exception as e:
-    st.error(f"An error occurred: {str(e)}")
+except Exception:
+    st.error("An unexpected error occurred. Please try refreshing the page.")
 
 try:
     # Check if document_processor module is available

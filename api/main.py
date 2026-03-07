@@ -13,7 +13,16 @@ from uuid import UUID
 import uuid
 import os
 from jose import jwt
-import hashlib
+from passlib.context import CryptContext
+import re
+import logging
+
+# Configure audit logger
+audit_logger = logging.getLogger("healthdb.audit")
+audit_logger.setLevel(logging.INFO)
+
+# Password hashing context using bcrypt
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 from sqlalchemy.orm import Session
 
@@ -40,24 +49,53 @@ app = FastAPI(
     redoc_url="/api/redoc",
 )
 
-# CORS configuration
+# CORS configuration - restrict methods and headers
+allowed_origins = [
+    "https://www.healthdb.ai",
+    "https://healthdb.ai",
+]
+if os.environ.get("ENVIRONMENT", "development") != "production":
+    allowed_origins.extend(["http://localhost:3000", "http://localhost:5173"])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://www.healthdb.ai",
-        "https://healthdb.ai",
-        "http://localhost:3000",
-        "http://localhost:5173",
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allow_headers=["Authorization", "Content-Type"],
 )
+
+
+# Audit logging middleware
+@app.middleware("http")
+async def audit_log_middleware(request: Request, call_next):
+    """Log all API requests for HIPAA audit trail"""
+    start_time = datetime.utcnow()
+    response = await call_next(request)
+    duration_ms = (datetime.utcnow() - start_time).total_seconds() * 1000
+
+    # Log PHI-accessing endpoints
+    path = request.url.path
+    if any(segment in path for segment in ["/patient", "/cohort", "/clinical", "/data"]):
+        audit_logger.info(
+            f"AUDIT: method={request.method} path={path} "
+            f"status={response.status_code} duration_ms={duration_ms:.0f} "
+            f"ip={request.client.host if request.client else 'unknown'}"
+        )
+
+    return response
 
 # Security
 security = HTTPBearer(auto_error=False)
-JWT_SECRET = os.environ.get("JWT_SECRET", "your-secret-key-change-in-production")
+JWT_SECRET = os.environ.get("JWT_SECRET", "")
 JWT_ALGORITHM = "HS256"
+
+# Validate JWT secret at import time - must be set in production
+if not JWT_SECRET:
+    if os.environ.get("ENVIRONMENT", "development") == "production":
+        raise RuntimeError("JWT_SECRET environment variable must be set in production")
+    else:
+        JWT_SECRET = "dev-only-insecure-key-not-for-production"
 
 
 # ============== Startup Events ==============
@@ -304,7 +342,7 @@ def create_token(user_id: str, user_type: str) -> str:
     payload = {
         "sub": str(user_id),
         "type": user_type,
-        "exp": datetime.utcnow() + timedelta(days=7),
+        "exp": datetime.utcnow() + timedelta(hours=4),
         "iat": datetime.utcnow(),
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
@@ -330,9 +368,43 @@ def require_auth(credentials: HTTPAuthorizationCredentials = Depends(security)) 
     return verify_token(credentials)
 
 
+def require_role(*allowed_roles: str):
+    """Role-based access control dependency factory"""
+    def _check_role(token_data: Dict = Depends(require_auth)):
+        user_type = token_data.get("type", "")
+        if user_type not in allowed_roles:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Access denied. Required role: {', '.join(allowed_roles)}"
+            )
+        return token_data
+    return _check_role
+
+
 def hash_password(password: str) -> str:
-    """Hash password with SHA-256"""
-    return hashlib.sha256(password.encode()).hexdigest()
+    """Hash password using bcrypt via passlib"""
+    return pwd_context.hash(password)
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verify password against bcrypt hash"""
+    return pwd_context.verify(plain_password, hashed_password)
+
+
+def validate_password_strength(password: str) -> str | None:
+    """Validate password meets minimum complexity requirements.
+    Returns error message or None if valid."""
+    if len(password) < 12:
+        return "Password must be at least 12 characters long"
+    if not re.search(r'[A-Z]', password):
+        return "Password must contain at least one uppercase letter"
+    if not re.search(r'[a-z]', password):
+        return "Password must contain at least one lowercase letter"
+    if not re.search(r'[0-9]', password):
+        return "Password must contain at least one digit"
+    if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
+        return "Password must contain at least one special character"
+    return None
 
 
 def get_client_ip(request: Request) -> str:
@@ -349,6 +421,11 @@ def get_client_ip(request: Request) -> str:
 async def register(user: UserCreate, db: Session = Depends(get_db)):
     """Register a new user (patient or researcher)"""
     user_repo = UserRepository(db)
+
+    # Validate password strength
+    password_error = validate_password_strength(user.password)
+    if password_error:
+        raise HTTPException(status_code=400, detail=password_error)
 
     # Check if email exists
     existing = user_repo.get_by_email(user.email)
@@ -392,7 +469,8 @@ async def login(credentials: UserLogin, db: Session = Depends(get_db)):
     user_repo = UserRepository(db)
     user = user_repo.get_by_email(credentials.email)
 
-    if not user or user.password_hash != hash_password(credentials.password):
+    if not user or not verify_password(credentials.password, user.password_hash):
+        audit_logger.warning(f"Failed login attempt for email: {credentials.email}")
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     # Update last login

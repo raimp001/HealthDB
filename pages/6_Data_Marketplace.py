@@ -149,10 +149,10 @@ st.markdown("""
 
 render_navigation()
 
-# Demo user setup
-if 'user_id' not in st.session_state:
-    st.session_state.user_id = 1
-    st.session_state.username = "Demo Researcher"
+# Require authentication
+if 'user_id' not in st.session_state or st.session_state.user_id is None:
+    st.warning("Authentication required. Please log in to access Data Marketplace.")
+    st.stop()
 
 # Hero section
 st.markdown("""

@@ -17,10 +17,10 @@ st.set_page_config(
     layout="wide"
 )
 
-# Set up demo user
-if 'user_id' not in st.session_state:
-    st.session_state.user_id = 1
-    st.session_state.username = "Demo User"
+# Require authentication
+if 'user_id' not in st.session_state or st.session_state.user_id is None:
+    st.warning("Authentication required. Please log in to access Cohort Builder.")
+    st.stop()
 
 render_navigation()
 

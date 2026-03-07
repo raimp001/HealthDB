@@ -34,7 +34,7 @@ const PatientPortal = () => {
   const [showConnectionModal, setShowConnectionModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
 
   const fetchData = useCallback(async () => {
     if (!token) {
@@ -42,7 +42,7 @@ const PatientPortal = () => {
       return;
     }
 
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const user = JSON.parse(sessionStorage.getItem('user') || '{}');
     if (user.user_type !== 'patient') {
       navigate('/research');
       return;

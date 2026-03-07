@@ -29,8 +29,14 @@ const Login = () => {
       }
 
       const data = await response.json();
-      localStorage.setItem('token', data.access_token);
-      localStorage.setItem('user', JSON.stringify(data.user));
+      // Use sessionStorage (cleared on tab close) to reduce XSS token theft window
+      sessionStorage.setItem('token', data.access_token);
+      // Only store non-sensitive user info needed for UI routing
+      sessionStorage.setItem('user', JSON.stringify({
+        id: data.user.id,
+        name: data.user.name,
+        user_type: data.user.user_type,
+      }));
 
       if (data.user.user_type === 'patient') {
         navigate('/patient');
