@@ -439,11 +439,12 @@ class Study(Base):
 
 
 class RegulatorySubmission(Base):
-    """Track IRB, DUA, and site reliance agreements"""
+    """Track IRB, DUA, and site reliance agreements.
+    study_id is NULL for institution-level master agreements (e.g. platform DUA/BAA)."""
     __tablename__ = "regulatory_submissions"
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
-    study_id = Column(String(36), ForeignKey("studies.id"), nullable=False)
+    study_id = Column(String(36), ForeignKey("studies.id"), nullable=True)
     institution_id = Column(String(36), ForeignKey("institutions.id"))
     document_type = Column(String(50), nullable=False)  # irb_protocol, dua, reliance_agreement, amendment
     status = Column(String(50), default="draft")  # draft, submitted, under_review, approved, revision_required, signed, expired

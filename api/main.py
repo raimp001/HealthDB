@@ -101,12 +101,37 @@ if not JWT_SECRET:
 
 # ============== Startup Events ==============
 
+# Additive schema changes that Base.metadata.create_all cannot apply to
+# pre-existing tables (it only creates missing tables, never missing columns).
+# Each statement is safe to re-run; failures (column already exists, SQLite
+# not supporting DROP NOT NULL, etc.) are ignored.
+SCHEMA_SYNC_STATEMENTS = [
+    "ALTER TABLE studies ADD COLUMN is_recruiting BOOLEAN DEFAULT FALSE",
+    "ALTER TABLE studies ADD COLUMN eligibility_summary TEXT",
+    "ALTER TABLE regulatory_submissions ALTER COLUMN study_id DROP NOT NULL",
+]
+
+DEFAULT_INSTITUTIONS = [
+    {"name": "OHSU Knight Cancer Institute", "type": "Academic Medical Center", "city": "Portland", "state": "OR", "country": "USA", "emr_system": "Epic"},
+    {"name": "Fred Hutchinson Cancer Center", "type": "Comprehensive Cancer Center", "city": "Seattle", "state": "WA", "country": "USA", "emr_system": "Epic"},
+    {"name": "Emory Winship Cancer Institute", "type": "Academic Medical Center", "city": "Atlanta", "state": "GA", "country": "USA", "emr_system": "Cerner"},
+    {"name": "UCSF Helen Diller Cancer Center", "type": "Comprehensive Cancer Center", "city": "San Francisco", "state": "CA", "country": "USA", "emr_system": "Epic"},
+]
+
+
 @app.on_event("startup")
 async def startup_event():
     """Initialize database on startup"""
     # Create all tables
     Base.metadata.create_all(bind=engine)
-    
+
+    for statement in SCHEMA_SYNC_STATEMENTS:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(statement))
+        except Exception:
+            pass
+
     # Clean up any placeholder/mock data products (no real patient data)
     db = next(get_db())
     try:
@@ -114,6 +139,12 @@ async def startup_event():
         deleted = db.query(DataProduct).filter(DataProduct.patient_count == 0).delete()
         if deleted > 0:
             print(f"Removed {deleted} placeholder data products")
+            db.commit()
+
+        # Seed partner institutions so multi-site study setup works out of the box
+        if db.query(Institution).count() == 0:
+            for inst in DEFAULT_INSTITUTIONS:
+                db.add(Institution(**inst))
             db.commit()
     except Exception as e:
         print(f"Cleanup note: {e}")
@@ -294,6 +325,27 @@ class CreateRegulatoryRequest(BaseModel):
     document_type: str  # irb_protocol, dua, reliance_agreement
     institution_id: Optional[str] = None
 
+class AddStudySiteRequest(BaseModel):
+    institution_id: str
+
+class StudySiteResponse(BaseModel):
+    institution_id: str
+    institution_name: str
+    city: Optional[str]
+    state: Optional[str]
+    documents: List[RegulatorySubmissionResponse]
+
+class CollaborationResponse(BaseModel):
+    study_id: str
+    study_name: str
+    description: Optional[str]
+    pi_name: Optional[str]
+    pi_organization: Optional[str]
+    my_role: str
+    status: str
+    site_count: int
+    accepted_at: Optional[datetime]
+
 class ExtractionJobRequest(BaseModel):
     study_id: str
     variables: List[str]
@@ -413,6 +465,36 @@ def require_role(*allowed_roles: str):
             )
         return token_data
     return _check_role
+
+
+def get_current_user_record(
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db)
+) -> User:
+    """Dependency that resolves the JWT to the full User DB row"""
+    user = db.query(User).filter(User.id == token_data["sub"]).first()
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="User not found or inactive")
+    return user
+
+
+def require_study_access(db: Session, study_id: str, user_id: str) -> "Study":
+    """Return the study if the user is its PI or an accepted collaborator, else 403"""
+    study = db.query(Study).filter(Study.id == study_id).first()
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found")
+
+    if study.user_id == user_id:
+        return study
+
+    collaborator = db.query(StudyCollaborator).filter(
+        StudyCollaborator.study_id == study_id,
+        StudyCollaborator.user_id == user_id,
+        StudyCollaborator.status == "accepted",
+    ).first()
+    if not collaborator:
+        raise HTTPException(status_code=403, detail="You do not have access to this study")
+    return study
 
 
 def hash_password(password: str) -> str:
@@ -1530,12 +1612,9 @@ async def get_study_detail(
     token_data: Dict = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
-    """Get detailed study information including regulatory status"""
-    study = db.query(Study).filter(Study.id == study_id).first()
-    
-    if not study:
-        raise HTTPException(status_code=404, detail="Study not found")
-    
+    """Get detailed study information including regulatory status (PI or collaborator only)"""
+    study = require_study_access(db, study_id, token_data["sub"])
+
     # Get all regulatory submissions
     submissions = db.query(RegulatorySubmission).filter(
         RegulatorySubmission.study_id == study_id
@@ -1602,11 +1681,8 @@ async def submit_regulatory(
     db: Session = Depends(get_db)
 ):
     """Submit a regulatory document (IRB protocol, DUA, or reliance agreement)"""
-    study = db.query(Study).filter(Study.id == request.study_id).first()
-    
-    if not study:
-        raise HTTPException(status_code=404, detail="Study not found")
-    
+    study = require_study_access(db, request.study_id, token_data["sub"])
+
     # Generate protocol number for IRB
     protocol_number = None
     if request.document_type == "irb_protocol":
@@ -1642,10 +1718,10 @@ async def submit_regulatory(
 @app.post("/api/regulatory/{submission_id}/approve")
 async def approve_regulatory(
     submission_id: str,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_role("admin", "institution")),
     db: Session = Depends(get_db)
 ):
-    """Approve a regulatory submission (admin endpoint)"""
+    """Approve a regulatory submission (admin/institution reviewers only)"""
     submission = db.query(RegulatorySubmission).filter(
         RegulatorySubmission.id == submission_id
     ).first()
@@ -1680,6 +1756,208 @@ async def approve_regulatory(
         "message": "Submission approved.",
         "expires_at": submission.expires_at.isoformat() if submission.expires_at else None,
     }
+
+
+@app.post("/api/regulatory/{submission_id}/submit")
+async def submit_draft_regulatory(
+    submission_id: str,
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Advance a draft regulatory document to submitted (study PI only)"""
+    submission = db.query(RegulatorySubmission).filter(
+        RegulatorySubmission.id == submission_id
+    ).first()
+
+    if not submission:
+        raise HTTPException(status_code=404, detail="Submission not found")
+
+    if not submission.study_id:
+        raise HTTPException(status_code=400, detail="Institution-level agreements are managed by the institution")
+
+    study = db.query(Study).filter(Study.id == submission.study_id).first()
+    if not study or study.user_id != token_data["sub"]:
+        raise HTTPException(status_code=403, detail="Only the study PI can submit regulatory documents")
+
+    if submission.status != "draft":
+        raise HTTPException(status_code=400, detail=f"Submission is already {submission.status}")
+
+    submission.status = "submitted"
+    submission.submitted_at = datetime.utcnow()
+    if study.status == "draft":
+        study.status = "pending_approval"
+    db.commit()
+
+    return {
+        "success": True,
+        "submission_id": str(submission.id),
+        "status": submission.status,
+        "message": f"{submission.document_type.replace('_', ' ').title()} submitted for review.",
+    }
+
+
+# ============== Multi-Site Study Endpoints ==============
+
+def build_site_documents(db: Session, study_id: str) -> Dict[str, List[RegulatorySubmission]]:
+    """Group a study's regulatory submissions by institution (None key = central)"""
+    submissions = db.query(RegulatorySubmission).filter(
+        RegulatorySubmission.study_id == study_id
+    ).all()
+    grouped: Dict[str, List[RegulatorySubmission]] = {}
+    for sub in submissions:
+        grouped.setdefault(sub.institution_id, []).append(sub)
+    return grouped
+
+
+def submission_to_response(db: Session, sub: RegulatorySubmission) -> RegulatorySubmissionResponse:
+    inst_name = None
+    if sub.institution_id:
+        inst = db.query(Institution).filter(Institution.id == sub.institution_id).first()
+        inst_name = inst.name if inst else None
+    return RegulatorySubmissionResponse(
+        id=str(sub.id),
+        document_type=sub.document_type,
+        status=sub.status,
+        protocol_number=sub.protocol_number,
+        institution_name=inst_name,
+        submitted_at=sub.submitted_at,
+        approved_at=sub.approved_at,
+        expires_at=sub.expires_at,
+    )
+
+
+@app.post("/api/researcher/studies/{study_id}/sites", response_model=StudySiteResponse)
+async def add_study_site(
+    study_id: str,
+    request: AddStudySiteRequest,
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Add a participating institution (site) to a study.
+    Creates the site's reliance agreement and DUA as drafts, and ensures a
+    central IRB protocol submission exists for the study."""
+    study = db.query(Study).filter(Study.id == study_id).first()
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found")
+
+    if study.user_id != token_data["sub"]:
+        raise HTTPException(status_code=403, detail="Only the study PI can add sites")
+
+    institution = db.query(Institution).filter(
+        Institution.id == request.institution_id,
+        Institution.is_active == True,
+    ).first()
+    if not institution:
+        raise HTTPException(status_code=404, detail="Institution not found")
+
+    existing = db.query(RegulatorySubmission).filter(
+        RegulatorySubmission.study_id == study_id,
+        RegulatorySubmission.institution_id == request.institution_id,
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="This institution is already a site on this study")
+
+    # Ensure the study has a central (single IRB of record) protocol submission
+    central_irb = db.query(RegulatorySubmission).filter(
+        RegulatorySubmission.study_id == study_id,
+        RegulatorySubmission.document_type == "irb_protocol",
+        RegulatorySubmission.institution_id == None,
+    ).first()
+    if not central_irb:
+        db.add(RegulatorySubmission(
+            study_id=study_id,
+            institution_id=None,
+            document_type="irb_protocol",
+            status="draft",
+            protocol_number=f"HDB-{datetime.utcnow().year}-{str(uuid.uuid4())[:8].upper()}",
+        ))
+
+    site_docs = [
+        RegulatorySubmission(
+            study_id=study_id,
+            institution_id=request.institution_id,
+            document_type=doc_type,
+            status="draft",
+        )
+        for doc_type in ("reliance_agreement", "dua")
+    ]
+    for doc in site_docs:
+        db.add(doc)
+    db.commit()
+
+    return StudySiteResponse(
+        institution_id=str(institution.id),
+        institution_name=institution.name,
+        city=institution.city,
+        state=institution.state,
+        documents=[submission_to_response(db, d) for d in site_docs],
+    )
+
+
+@app.get("/api/researcher/studies/{study_id}/sites")
+async def get_study_sites(
+    study_id: str,
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Get a study's central IRB status and all participating sites with
+    their regulatory document statuses (PI or collaborator only)"""
+    require_study_access(db, study_id, token_data["sub"])
+
+    grouped = build_site_documents(db, study_id)
+
+    central = [submission_to_response(db, s) for s in grouped.pop(None, [])]
+
+    sites = []
+    for institution_id, docs in grouped.items():
+        institution = db.query(Institution).filter(Institution.id == institution_id).first()
+        sites.append({
+            "institution_id": str(institution_id),
+            "institution_name": institution.name if institution else "Unknown institution",
+            "city": institution.city if institution else None,
+            "state": institution.state if institution else None,
+            "documents": [submission_to_response(db, d) for d in docs],
+        })
+
+    return {"central": central, "sites": sites}
+
+
+@app.get("/api/researcher/collaborations", response_model=List[CollaborationResponse])
+async def get_researcher_collaborations(
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Studies shared with the current researcher as a collaborator
+    (cross-institution collaborations)"""
+    collaborations = db.query(StudyCollaborator).filter(
+        StudyCollaborator.user_id == token_data["sub"],
+        StudyCollaborator.status == "accepted",
+    ).order_by(StudyCollaborator.created_at.desc()).all()
+
+    result = []
+    for collab in collaborations:
+        study = db.query(Study).filter(Study.id == collab.study_id).first()
+        if not study:
+            continue
+        pi = db.query(User).filter(User.id == study.user_id).first()
+        site_count = db.query(
+            func.count(func.distinct(RegulatorySubmission.institution_id))
+        ).filter(
+            RegulatorySubmission.study_id == study.id,
+            RegulatorySubmission.institution_id != None,
+        ).scalar() or 0
+        result.append(CollaborationResponse(
+            study_id=str(study.id),
+            study_name=study.name,
+            description=study.description,
+            pi_name=pi.name if pi else study.principal_investigator,
+            pi_organization=pi.organization if pi else None,
+            my_role=collab.role,
+            status=study.status,
+            site_count=site_count,
+            accepted_at=collab.accepted_at,
+        ))
+    return result
 
 
 @app.post("/api/extraction/create")
@@ -1828,7 +2106,9 @@ async def get_study_team(
     token_data: Dict = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
-    """Get all collaborators on a study"""
+    """Get all collaborators on a study (PI or collaborator only)"""
+    require_study_access(db, study_id, token_data["sub"])
+
     collaborators = db.query(StudyCollaborator).filter(
         StudyCollaborator.study_id == study_id
     ).all()
@@ -1921,7 +2201,9 @@ async def add_study_comment(
     token_data: Dict = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
-    """Add a comment to a study discussion"""
+    """Add a comment to a study discussion (PI or collaborator only)"""
+    require_study_access(db, study_id, token_data["sub"])
+
     comment = StudyComment(
         study_id=study_id,
         user_id=token_data["sub"],
@@ -1945,7 +2227,9 @@ async def get_study_comments(
     token_data: Dict = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
-    """Get all comments on a study"""
+    """Get all comments on a study (PI or collaborator only)"""
+    require_study_access(db, study_id, token_data["sub"])
+
     comments = db.query(StudyComment).filter(
         StudyComment.study_id == study_id
     ).order_by(StudyComment.created_at.desc()).all()
@@ -2377,28 +2661,22 @@ class InstitutionCollaborationResponse(BaseModel):
 
 @app.get("/api/institution/profile", response_model=InstitutionProfileResponse)
 async def get_institution_profile(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    user: User = Depends(get_current_user_record),
     db: Session = Depends(get_db)
 ):
     """Get institution profile for current user"""
-    user = get_current_user(credentials, db)
-    
     if not user.institution_id:
-        # Return default institution profile for demo
+        # User is not linked to an Institution row yet; show what we know
         return InstitutionProfileResponse(
-            id="demo-inst",
+            id="unlinked",
             name=user.organization or "Your Institution",
-            type="Academic Medical Center",
-            city="Portland",
-            state="OR",
-            emr_system="Epic",
-            is_active=True
+            is_active=True,
         )
-    
+
     institution = db.query(Institution).filter(Institution.id == user.institution_id).first()
     if not institution:
         raise HTTPException(status_code=404, detail="Institution not found")
-    
+
     return InstitutionProfileResponse(
         id=institution.id,
         name=institution.name,
@@ -2411,148 +2689,74 @@ async def get_institution_profile(
 
 @app.get("/api/institution/agreements", response_model=List[InstitutionAgreementResponse])
 async def get_institution_agreements(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    user: User = Depends(get_current_user_record),
     db: Session = Depends(get_db)
 ):
-    """Get all agreements for institution"""
-    user = get_current_user(credentials, db)
-    
-    # Query regulatory submissions for DUAs, BAAs, reliance agreements
+    """Get all agreements for institution (DUAs, BAAs, reliance agreements)"""
+    if not user.institution_id:
+        return []
+
     submissions = db.query(RegulatorySubmission).filter(
-        RegulatorySubmission.institution_id == user.institution_id
-    ).all() if user.institution_id else []
-    
-    # Return demo data if no real agreements
-    if not submissions:
-        return [
-            InstitutionAgreementResponse(
-                id="demo-dua-1",
-                document_type="dua",
-                name="HealthDB Master DUA",
-                status="signed",
-                counterparty="HealthDB Inc.",
-                signed_at=datetime(2024, 1, 1),
-                expires_at=datetime(2026, 1, 1),
-                created_at=datetime(2024, 1, 1)
-            ),
-            InstitutionAgreementResponse(
-                id="demo-baa-1",
-                document_type="baa",
-                name="HIPAA BAA",
-                status="signed",
-                counterparty="HealthDB Inc.",
-                signed_at=datetime(2024, 1, 1),
-                expires_at=datetime(2026, 1, 1),
-                created_at=datetime(2024, 1, 1)
-            ),
-            InstitutionAgreementResponse(
-                id="demo-reliance-1",
-                document_type="reliance",
-                name="Fred Hutch Reliance",
-                status="signed",
-                counterparty="Fred Hutchinson Cancer Center",
-                signed_at=datetime(2024, 2, 15),
-                expires_at=None,
-                created_at=datetime(2024, 2, 15)
-            ),
-        ]
-    
-    return [
-        InstitutionAgreementResponse(
+        RegulatorySubmission.institution_id == user.institution_id,
+        RegulatorySubmission.document_type != "irb_protocol",
+    ).order_by(RegulatorySubmission.created_at.desc()).all()
+
+    result = []
+    for s in submissions:
+        study = db.query(Study).filter(Study.id == s.study_id).first() if s.study_id else None
+        result.append(InstitutionAgreementResponse(
             id=s.id,
             document_type=s.document_type,
-            name=s.protocol_number,
+            name=study.name if study else (s.notes or s.protocol_number),
             status=s.status,
-            counterparty=None,
+            counterparty=study.principal_investigator if study else s.notes,
             signed_at=s.approved_at,
             expires_at=s.expires_at,
             created_at=s.created_at
-        ) for s in submissions
-    ]
+        ))
+    return result
 
 @app.get("/api/institution/irb-protocols", response_model=List[InstitutionIRBResponse])
 async def get_institution_irb_protocols(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    user: User = Depends(get_current_user_record),
     db: Session = Depends(get_db)
 ):
     """Get all IRB protocols for institution"""
-    user = get_current_user(credentials, db)
-    
-    # Query IRB submissions
+    if not user.institution_id:
+        return []
+
     submissions = db.query(RegulatorySubmission).filter(
         RegulatorySubmission.institution_id == user.institution_id,
         RegulatorySubmission.document_type == "irb_protocol"
-    ).all() if user.institution_id else []
-    
-    # Return demo data if no real protocols
-    if not submissions:
-        return [
-            InstitutionIRBResponse(
-                id="demo-irb-1",
-                protocol_number="HEALTHDB-2024-001",
-                name="Multiple Myeloma Registry",
-                status="approved",
-                submitted_at=datetime(2024, 1, 1),
-                approved_at=datetime(2024, 1, 15),
-                expires_at=datetime(2025, 1, 15)
-            ),
-            InstitutionIRBResponse(
-                id="demo-irb-2",
-                protocol_number="HEALTHDB-2024-002",
-                name="CAR-T Outcomes Study",
-                status="approved",
-                submitted_at=datetime(2024, 2, 1),
-                approved_at=datetime(2024, 2, 20),
-                expires_at=datetime(2025, 2, 20)
-            ),
-            InstitutionIRBResponse(
-                id="demo-irb-3",
-                protocol_number="HEALTHDB-2024-003",
-                name="AML Treatment Patterns",
-                status="under_review",
-                submitted_at=datetime(2024, 3, 1),
-                approved_at=None,
-                expires_at=None
-            ),
-        ]
-    
-    return [
-        InstitutionIRBResponse(
+    ).order_by(RegulatorySubmission.created_at.desc()).all()
+
+    result = []
+    for s in submissions:
+        study = db.query(Study).filter(Study.id == s.study_id).first() if s.study_id else None
+        result.append(InstitutionIRBResponse(
             id=s.id,
             protocol_number=s.protocol_number,
-            name=s.notes or f"Study {s.protocol_number}",
+            name=study.name if study else (s.notes or f"Protocol {s.protocol_number}"),
             status=s.status,
             submitted_at=s.submitted_at,
             approved_at=s.approved_at,
             expires_at=s.expires_at
-        ) for s in submissions
-    ]
+        ))
+    return result
 
 @app.get("/api/institution/emr-connections")
 async def get_institution_emr_connections(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    user: User = Depends(get_current_user_record),
     db: Session = Depends(get_db)
 ):
     """Get EMR connections for institution"""
-    user = get_current_user(credentials, db)
-    
+    if not user.institution_id:
+        return []
+
     connections = db.query(EMRConnection).filter(
         EMRConnection.institution_id == user.institution_id
-    ).all() if user.institution_id else []
-    
-    # Return demo data if no real connections
-    if not connections:
-        return [
-            {
-                "id": "demo-emr-1",
-                "emr_vendor": "Epic",
-                "connection_type": "fhir_r4",
-                "status": "active",
-                "last_sync": datetime(2024, 3, 10, 10, 30, 0).isoformat(),
-                "patient_count": 12453
-            }
-        ]
-    
+    ).all()
+
     return [
         {
             "id": c.id,
@@ -2566,46 +2770,14 @@ async def get_institution_emr_connections(
 
 @app.get("/api/institution/collaborations", response_model=List[InstitutionCollaborationResponse])
 async def get_institution_collaborations(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    user: User = Depends(get_current_user_record),
     db: Session = Depends(get_db)
 ):
     """Get all study collaborations for institution"""
-    user = get_current_user(credentials, db)
-    
-    # Query study collaborators
     collaborators = db.query(StudyCollaborator).filter(
         StudyCollaborator.user_id == user.id
     ).all()
-    
-    # Return demo data if no real collaborations
-    if not collaborators:
-        return [
-            InstitutionCollaborationResponse(
-                id="demo-collab-1",
-                study_name="MM Registry Phase 2",
-                pi="Dr. Smith (OHSU)",
-                role="Data Provider",
-                status="active",
-                patient_contributed=234
-            ),
-            InstitutionCollaborationResponse(
-                id="demo-collab-2",
-                study_name="CAR-T Real World Outcomes",
-                pi="Dr. Johnson (Fred Hutch)",
-                role="Collaborating Site",
-                status="active",
-                patient_contributed=156
-            ),
-            InstitutionCollaborationResponse(
-                id="demo-collab-3",
-                study_name="DLBCL Treatment Patterns",
-                pi="Dr. Williams (Emory)",
-                role="Lead Site",
-                status="pending",
-                patient_contributed=0
-            ),
-        ]
-    
+
     result = []
     for collab in collaborators:
         study = collab.study
@@ -2624,12 +2796,13 @@ async def get_institution_collaborations(
 async def create_institution_agreement(
     document_type: str,
     counterparty: Optional[str] = None,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    user: User = Depends(get_current_user_record),
     db: Session = Depends(get_db)
 ):
-    """Create a new agreement"""
-    user = get_current_user(credentials, db)
-    
+    """Create a new institution-level agreement (master DUA, BAA, etc.)"""
+    if not user.institution_id:
+        raise HTTPException(status_code=400, detail="Your account is not linked to an institution")
+
     submission = RegulatorySubmission(
         id=str(uuid.uuid4()),
         study_id=None,
@@ -2647,12 +2820,13 @@ async def create_institution_agreement(
 async def create_irb_protocol(
     name: str,
     protocol_number: Optional[str] = None,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    user: User = Depends(get_current_user_record),
     db: Session = Depends(get_db)
 ):
     """Create a new IRB protocol submission"""
-    user = get_current_user(credentials, db)
-    
+    if not user.institution_id:
+        raise HTTPException(status_code=400, detail="Your account is not linked to an institution")
+
     # Generate protocol number if not provided
     if not protocol_number:
         protocol_number = f"HEALTHDB-{datetime.now().year}-{str(uuid.uuid4())[:4].upper()}"
