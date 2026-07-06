@@ -26,14 +26,15 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 from sqlalchemy.orm import Session
 
-from sqlalchemy import text
+from sqlalchemy import text, func
 from .database import get_db, init_db, engine
 from .models import (
     Base, User, PatientProfile, Consent, ConsentTemplate,
     CancerDiagnosis, Treatment, DataProduct, DataAccessLog, ResearchCohort,
     MedicalRecordConnection, ExtractedMedicalData, RewardsTransaction,
     Study, RegulatorySubmission, ExtractionJob, EMRConnection, Institution,
-    StudyCollaborator, StudyDocument, StudyComment, DiseaseVariableSet
+    StudyCollaborator, StudyDocument, StudyComment, DiseaseVariableSet,
+    StudyEnrollment
 )
 from .repositories import (
     UserRepository, PatientRepository, ClinicalDataRepository,
@@ -235,6 +236,8 @@ class CreateStudyRequest(BaseModel):
     cohort_id: Optional[str] = None
     principal_investigator: Optional[str] = None
     selected_variables: Optional[List[str]] = None
+    is_recruiting: bool = False
+    eligibility_summary: Optional[str] = None
 
 class StudyResponse(BaseModel):
     id: str
@@ -244,6 +247,37 @@ class StudyResponse(BaseModel):
     patient_count: Optional[int]
     created_at: datetime
     regulatory_status: Dict[str, str]
+    is_recruiting: bool = False
+    eligibility_summary: Optional[str] = None
+    enrolled_count: int = 0
+
+class UpdateRecruitingRequest(BaseModel):
+    is_recruiting: bool
+    eligibility_summary: Optional[str] = None
+
+class AvailableStudyResponse(BaseModel):
+    id: str
+    name: str
+    description: Optional[str]
+    eligibility_summary: Optional[str]
+    principal_investigator: Optional[str]
+    enrolled_count: int
+    already_enrolled: bool
+    created_at: datetime
+
+class StudyEnrollmentResponse(BaseModel):
+    id: str
+    study_id: str
+    study_name: str
+    status: str
+    enrolled_at: Optional[datetime]
+    withdrawn_at: Optional[datetime]
+
+class StudyParticipantResponse(BaseModel):
+    id: str
+    patient_ref: str
+    status: str
+    enrolled_at: Optional[datetime]
 
 class RegulatorySubmissionResponse(BaseModel):
     id: str
@@ -415,6 +449,23 @@ def get_client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
+def has_active_consent(db: Session, patient_id: str, consent_type: str) -> bool:
+    """Check whether a patient has a currently active consent of the given type"""
+    return db.query(Consent).filter(
+        Consent.patient_id == str(patient_id),
+        Consent.consent_type == consent_type,
+        Consent.status == "active",
+    ).first() is not None
+
+
+def get_enrolled_count(db: Session, study_id: str) -> int:
+    """Count patients actively enrolled in a study"""
+    return db.query(func.count(StudyEnrollment.id)).filter(
+        StudyEnrollment.study_id == study_id,
+        StudyEnrollment.status == "enrolled",
+    ).scalar() or 0
+
+
 # ============== Auth Endpoints ==============
 
 @app.post("/api/auth/register", response_model=TokenResponse)
@@ -567,7 +618,7 @@ async def get_patient_consents(
         ConsentResponse(
             id=str(c.id),
             consent_type=c.consent_type,
-            status=c.status.value,
+            status=c.status,
             signed_date=c.signed_date,
             expires_at=c.expires_at,
         )
@@ -600,7 +651,7 @@ async def sign_consent(
     return ConsentResponse(
         id=str(new_consent.id),
         consent_type=new_consent.consent_type,
-        status=new_consent.status.value,
+        status=new_consent.status,
         signed_date=new_consent.signed_date,
         expires_at=new_consent.expires_at,
     )
@@ -1409,12 +1460,14 @@ async def create_study(
         principal_investigator=request.principal_investigator,
         patient_count=patient_count,
         selected_variables=request.selected_variables,
+        is_recruiting=request.is_recruiting,
+        eligibility_summary=request.eligibility_summary,
         status="draft",
     )
     db.add(study)
     db.commit()
     db.refresh(study)
-    
+
     return StudyResponse(
         id=str(study.id),
         name=study.name,
@@ -1423,6 +1476,9 @@ async def create_study(
         patient_count=study.patient_count,
         created_at=study.created_at,
         regulatory_status={},
+        is_recruiting=study.is_recruiting,
+        eligibility_summary=study.eligibility_summary,
+        enrolled_count=0,
     )
 
 
@@ -1460,8 +1516,11 @@ async def get_researcher_studies(
             "patient_count": study.patient_count,
             "created_at": study.created_at.isoformat(),
             "regulatory_status": reg_status,
+            "is_recruiting": study.is_recruiting,
+            "eligibility_summary": study.eligibility_summary,
+            "enrolled_count": get_enrolled_count(db, study.id),
         })
-    
+
     return result
 
 
@@ -1530,6 +1589,9 @@ async def get_study_detail(
         "created_at": study.created_at.isoformat(),
         "regulatory": regulatory_items,
         "extraction_jobs": extraction_jobs,
+        "is_recruiting": study.is_recruiting,
+        "eligibility_summary": study.eligibility_summary,
+        "enrolled_count": get_enrolled_count(db, study.id),
     }
 
 
@@ -1901,6 +1963,241 @@ async def get_study_comments(
         })
     
     return result
+
+
+@app.put("/api/researcher/studies/{study_id}/recruiting", response_model=StudyResponse)
+async def update_study_recruiting(
+    study_id: str,
+    request: UpdateRecruitingRequest,
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Open or close a study for patient enrollment"""
+    study = db.query(Study).filter(Study.id == study_id).first()
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found")
+
+    if study.user_id != token_data["sub"]:
+        raise HTTPException(status_code=403, detail="Only the study PI can update recruitment status")
+
+    study.is_recruiting = request.is_recruiting
+    if request.eligibility_summary is not None:
+        study.eligibility_summary = request.eligibility_summary
+    db.commit()
+    db.refresh(study)
+
+    return StudyResponse(
+        id=str(study.id),
+        name=study.name,
+        description=study.description,
+        status=study.status,
+        patient_count=study.patient_count,
+        created_at=study.created_at,
+        regulatory_status={},
+        is_recruiting=study.is_recruiting,
+        eligibility_summary=study.eligibility_summary,
+        enrolled_count=get_enrolled_count(db, study.id),
+    )
+
+
+@app.get("/api/researcher/studies/{study_id}/participants", response_model=List[StudyParticipantResponse])
+async def get_study_participants(
+    study_id: str,
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """List patients enrolled in a study. Patients are referenced only by a
+    truncated profile id -- researchers see who has opted in, not their identity."""
+    study = db.query(Study).filter(Study.id == study_id).first()
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found")
+
+    if study.user_id != token_data["sub"]:
+        raise HTTPException(status_code=403, detail="Only the study PI can view participants")
+
+    enrollments = db.query(StudyEnrollment).filter(
+        StudyEnrollment.study_id == study_id
+    ).order_by(StudyEnrollment.created_at.desc()).all()
+
+    return [
+        StudyParticipantResponse(
+            id=str(e.id),
+            patient_ref=f"Patient-{str(e.patient_id)[:8]}",
+            status=e.status,
+            enrolled_at=e.enrolled_at,
+        )
+        for e in enrollments
+    ]
+
+
+# ============== Patient-Researcher Study Enrollment ==============
+
+@app.get("/api/studies/available", response_model=List[AvailableStudyResponse])
+async def get_available_studies(
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """List studies open for patient enrollment"""
+    if token_data.get("type") != "patient":
+        raise HTTPException(status_code=403, detail="Patient access required")
+
+    patient_repo = PatientRepository(db)
+    profile = patient_repo.get_profile(UUID(token_data["sub"]))
+    if not profile:
+        raise HTTPException(status_code=404, detail="Patient profile not found")
+
+    if not has_active_consent(db, profile.id, "clinical_trial_matching"):
+        raise HTTPException(
+            status_code=403,
+            detail="Sign the Clinical Trial Matching consent to browse available studies"
+        )
+
+    studies = db.query(Study).filter(Study.is_recruiting == True).order_by(Study.created_at.desc()).all()
+
+    my_enrollments = {
+        e.study_id: e for e in db.query(StudyEnrollment).filter(
+            StudyEnrollment.patient_id == profile.id
+        ).all()
+    }
+
+    return [
+        AvailableStudyResponse(
+            id=str(study.id),
+            name=study.name,
+            description=study.description,
+            eligibility_summary=study.eligibility_summary,
+            principal_investigator=study.principal_investigator,
+            enrolled_count=get_enrolled_count(db, study.id),
+            already_enrolled=bool(
+                (enrollment := my_enrollments.get(study.id)) and enrollment.status == "enrolled"
+            ),
+            created_at=study.created_at,
+        )
+        for study in studies
+    ]
+
+
+@app.get("/api/patient/studies", response_model=List[StudyEnrollmentResponse])
+async def get_patient_studies(
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Get the current patient's study enrollments"""
+    if token_data.get("type") != "patient":
+        raise HTTPException(status_code=403, detail="Patient access required")
+
+    patient_repo = PatientRepository(db)
+    profile = patient_repo.get_profile(UUID(token_data["sub"]))
+    if not profile:
+        raise HTTPException(status_code=404, detail="Patient profile not found")
+
+    enrollments = db.query(StudyEnrollment).filter(
+        StudyEnrollment.patient_id == profile.id
+    ).order_by(StudyEnrollment.created_at.desc()).all()
+
+    result = []
+    for e in enrollments:
+        study = db.query(Study).filter(Study.id == e.study_id).first()
+        result.append(StudyEnrollmentResponse(
+            id=str(e.id),
+            study_id=str(e.study_id),
+            study_name=study.name if study else "Unknown study",
+            status=e.status,
+            enrolled_at=e.enrolled_at,
+            withdrawn_at=e.withdrawn_at,
+        ))
+    return result
+
+
+@app.post("/api/studies/{study_id}/join", response_model=StudyEnrollmentResponse)
+async def join_study(
+    study_id: str,
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Patient opts in to a recruiting study"""
+    if token_data.get("type") != "patient":
+        raise HTTPException(status_code=403, detail="Patient access required")
+
+    patient_repo = PatientRepository(db)
+    profile = patient_repo.get_profile(UUID(token_data["sub"]))
+    if not profile:
+        raise HTTPException(status_code=404, detail="Patient profile not found")
+
+    if not has_active_consent(db, profile.id, "clinical_trial_matching"):
+        raise HTTPException(
+            status_code=403,
+            detail="Sign the Clinical Trial Matching consent before joining a study"
+        )
+
+    study = db.query(Study).filter(Study.id == study_id, Study.is_recruiting == True).first()
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found or not currently recruiting")
+
+    enrollment = db.query(StudyEnrollment).filter(
+        StudyEnrollment.study_id == study_id,
+        StudyEnrollment.patient_id == profile.id,
+    ).first()
+
+    if enrollment and enrollment.status == "enrolled":
+        raise HTTPException(status_code=400, detail="You are already enrolled in this study")
+
+    if enrollment:
+        enrollment.status = "enrolled"
+        enrollment.enrolled_at = datetime.utcnow()
+        enrollment.withdrawn_at = None
+    else:
+        enrollment = StudyEnrollment(
+            study_id=study_id,
+            patient_id=profile.id,
+            status="enrolled",
+            enrolled_at=datetime.utcnow(),
+        )
+        db.add(enrollment)
+
+    patient_repo.add_points(profile.id, 25, f"Joined study: {study.name}", "study_enrollment", study_id)
+    db.commit()
+    db.refresh(enrollment)
+
+    return StudyEnrollmentResponse(
+        id=str(enrollment.id),
+        study_id=str(study.id),
+        study_name=study.name,
+        status=enrollment.status,
+        enrolled_at=enrollment.enrolled_at,
+        withdrawn_at=enrollment.withdrawn_at,
+    )
+
+
+@app.post("/api/studies/{study_id}/leave")
+async def leave_study(
+    study_id: str,
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Patient withdraws from a study they previously joined"""
+    if token_data.get("type") != "patient":
+        raise HTTPException(status_code=403, detail="Patient access required")
+
+    patient_repo = PatientRepository(db)
+    profile = patient_repo.get_profile(UUID(token_data["sub"]))
+    if not profile:
+        raise HTTPException(status_code=404, detail="Patient profile not found")
+
+    enrollment = db.query(StudyEnrollment).filter(
+        StudyEnrollment.study_id == study_id,
+        StudyEnrollment.patient_id == profile.id,
+        StudyEnrollment.status == "enrolled",
+    ).first()
+
+    if not enrollment:
+        raise HTTPException(status_code=404, detail="You are not currently enrolled in this study")
+
+    enrollment.status = "withdrawn"
+    enrollment.withdrawn_at = datetime.utcnow()
+    db.commit()
+
+    return {"success": True, "message": "You have withdrawn from this study."}
 
 
 @app.get("/api/diseases/variable-sets")

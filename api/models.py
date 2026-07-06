@@ -123,6 +123,7 @@ class PatientProfile(Base):
     data_access_logs = relationship("DataAccessLog", back_populates="patient")
     medical_connections = relationship("MedicalRecordConnection", back_populates="patient")
     extracted_data = relationship("ExtractedMedicalData", back_populates="patient")
+    study_enrollments = relationship("StudyEnrollment", back_populates="patient")
 
 
 class Consent(Base):
@@ -425,6 +426,8 @@ class Study(Base):
     status = Column(String(50), default="draft")  # draft, pending_approval, approved, active, completed, archived
     patient_count = Column(Integer)
     selected_variables = Column(JSON)  # List of selected data variables
+    is_recruiting = Column(Boolean, default=False)  # Open for patients to browse/join
+    eligibility_summary = Column(Text)  # Patient-facing plain-language eligibility description
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, onupdate=datetime.utcnow)
 
@@ -432,6 +435,7 @@ class Study(Base):
     cohort = relationship("ResearchCohort", back_populates="studies")
     regulatory_submissions = relationship("RegulatorySubmission", back_populates="study")
     extraction_jobs = relationship("ExtractionJob", back_populates="study")
+    enrollments = relationship("StudyEnrollment", back_populates="study")
 
 
 class RegulatorySubmission(Base):
@@ -561,6 +565,26 @@ class StudyComment(Base):
     # Relationships
     study = relationship("Study")
     user = relationship("User")
+
+
+class StudyEnrollment(Base):
+    """A patient's opt-in participation in a recruiting study"""
+    __tablename__ = "study_enrollments"
+    __table_args__ = (
+        UniqueConstraint("study_id", "patient_id", name="uq_study_patient_enrollment"),
+    )
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    study_id = Column(String(36), ForeignKey("studies.id"), nullable=False)
+    patient_id = Column(String(36), ForeignKey("patient_profiles.id"), nullable=False)
+    status = Column(String(50), default="enrolled")  # enrolled, withdrawn
+    enrolled_at = Column(DateTime, default=datetime.utcnow)
+    withdrawn_at = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    study = relationship("Study", back_populates="enrollments")
+    patient = relationship("PatientProfile", back_populates="study_enrollments")
 
 
 class DiseaseVariableSet(Base):

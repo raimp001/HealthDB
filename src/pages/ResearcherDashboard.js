@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
@@ -23,6 +23,11 @@ const ResearcherDashboard = () => {
   const [studies, setStudies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showVariableSelector, setShowVariableSelector] = useState(false);
+  const [isCreatingStudy, setIsCreatingStudy] = useState(false);
+  const [recruitingActionId, setRecruitingActionId] = useState(null);
+  const [expandedParticipants, setExpandedParticipants] = useState(null);
+  const [participants, setParticipants] = useState([]);
+  const [loadingParticipants, setLoadingParticipants] = useState(false);
   const navigate = useNavigate();
 
   // Cancer types with ICD-10 codes
@@ -62,10 +67,27 @@ const ResearcherDashboard = () => {
     { id: 'regulatory', label: 'Regulatory Status' },
   ];
 
+  const fetchData = useCallback(async () => {
+    const token = sessionStorage.getItem('token');
+    try {
+      const [cohortsRes, studiesRes] = await Promise.all([
+        fetch(`${API_URL}/api/cohort/saved`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_URL}/api/researcher/studies`, { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+
+      if (cohortsRes.ok) setSavedCohorts(await cohortsRes.json());
+      if (studiesRes.ok) setStudies(await studiesRes.json());
+    } catch (err) {
+      console.error('Failed to fetch data:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     const token = sessionStorage.getItem('token');
     const user = JSON.parse(sessionStorage.getItem('user') || '{}');
-    
+
     if (!token) {
       navigate('/login');
       return;
@@ -76,24 +98,8 @@ const ResearcherDashboard = () => {
       return;
     }
 
-    const fetchData = async () => {
-      try {
-        const [cohortsRes, studiesRes] = await Promise.all([
-          fetch(`${API_URL}/api/cohort/saved`, { headers: { Authorization: `Bearer ${token}` } }),
-          fetch(`${API_URL}/api/researcher/studies`, { headers: { Authorization: `Bearer ${token}` } }),
-        ]);
-        
-        if (cohortsRes.ok) setSavedCohorts(await cohortsRes.json());
-        if (studiesRes.ok) setStudies(await studiesRes.json());
-      } catch (err) {
-        console.error('Failed to fetch data:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchData();
-  }, [navigate]);
+  }, [navigate, fetchData]);
 
   const handleBuildCohort = async () => {
     setIsBuilding(true);
@@ -197,31 +203,109 @@ const ResearcherDashboard = () => {
   };
 
   const toggleVariable = (variable) => {
-    setSelectedVariables(prev => 
-      prev.includes(variable) 
+    setSelectedVariables(prev =>
+      prev.includes(variable)
         ? prev.filter(v => v !== variable)
         : [...prev, variable]
     );
   };
 
-  // Mock studies with regulatory status
-  const mockStudies = [
-    {
-      id: 1,
-      name: 'Bispecific Ab Outcomes in R/R MM',
-      status: 'in_progress',
-      patient_count: 847,
-      regulatory: {
-        central_irb: { status: 'approved', date: '2025-01-05' },
-        dua: { status: 'signed', date: '2025-01-06' },
-        sites: [
-          { name: 'OHSU', status: 'approved', date: '2025-01-08' },
-          { name: 'Fred Hutch', status: 'pending', days: 3 },
-          { name: 'Emory', status: 'not_started' },
-        ],
-      },
-    },
-  ];
+  const handleCreateStudy = async () => {
+    const name = prompt('Study name:');
+    if (!name) return;
+    const description = prompt('Short description (optional):') || '';
+    const principalInvestigator = prompt('Principal investigator (optional):') || '';
+
+    setIsCreatingStudy(true);
+    const token = sessionStorage.getItem('token');
+    try {
+      const response = await fetch(`${API_URL}/api/researcher/studies`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name,
+          description,
+          principal_investigator: principalInvestigator,
+        }),
+      });
+
+      if (response.ok) {
+        await fetchData();
+      } else {
+        const data = await response.json();
+        alert(data.detail || 'Failed to create study');
+      }
+    } catch (err) {
+      console.error('Failed to create study:', err);
+      alert('Failed to create study. Please try again.');
+    } finally {
+      setIsCreatingStudy(false);
+    }
+  };
+
+  const handleToggleRecruiting = async (study) => {
+    const nextIsRecruiting = !study.is_recruiting;
+    let eligibilitySummary = study.eligibility_summary;
+    if (nextIsRecruiting && !eligibilitySummary) {
+      eligibilitySummary = prompt('Eligibility summary shown to patients (e.g. "Adults 18+ with Stage III/IV disease"):') || '';
+    }
+
+    setRecruitingActionId(study.id);
+    const token = sessionStorage.getItem('token');
+    try {
+      const response = await fetch(`${API_URL}/api/researcher/studies/${study.id}/recruiting`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          is_recruiting: nextIsRecruiting,
+          eligibility_summary: eligibilitySummary,
+        }),
+      });
+
+      if (response.ok) {
+        await fetchData();
+      } else {
+        const data = await response.json();
+        alert(data.detail || 'Failed to update recruiting status');
+      }
+    } catch (err) {
+      console.error('Failed to update recruiting status:', err);
+    } finally {
+      setRecruitingActionId(null);
+    }
+  };
+
+  const handleToggleParticipants = async (studyId) => {
+    if (expandedParticipants === studyId) {
+      setExpandedParticipants(null);
+      return;
+    }
+    setExpandedParticipants(studyId);
+    setLoadingParticipants(true);
+    const token = sessionStorage.getItem('token');
+    try {
+      const response = await fetch(`${API_URL}/api/researcher/studies/${studyId}/participants`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        setParticipants(await response.json());
+        fetchData(); // refresh enrolled_count on the study card
+      } else {
+        setParticipants([]);
+      }
+    } catch (err) {
+      console.error('Failed to fetch participants:', err);
+      setParticipants([]);
+    } finally {
+      setLoadingParticipants(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-black pt-20">
@@ -241,7 +325,7 @@ const ResearcherDashboard = () => {
             <div className="flex items-center gap-6">
               <div className="text-right">
                 <p className="text-white/40 text-xs mb-1">Active Studies</p>
-                <p className="text-white font-mono text-lg">{studies.length || mockStudies.length}</p>
+                <p className="text-white font-mono text-lg">{studies.length}</p>
               </div>
               <div className="h-8 w-px bg-white/10"></div>
               <div className="text-right">
@@ -532,19 +616,23 @@ const ResearcherDashboard = () => {
                     <h2 className="text-lg font-medium text-white mb-2">My Studies</h2>
                     <p className="text-white/40 text-sm">Track your research studies and saved cohorts</p>
                   </div>
-                  <button className="px-6 py-3 bg-white text-black text-xs uppercase tracking-wider font-medium hover:bg-gray-100 transition-colors">
-                    + New Study
+                  <button
+                    onClick={handleCreateStudy}
+                    disabled={isCreatingStudy}
+                    className="px-6 py-3 bg-white text-black text-xs uppercase tracking-wider font-medium hover:bg-gray-100 transition-colors disabled:opacity-50"
+                  >
+                    {isCreatingStudy ? 'Creating...' : '+ New Study'}
                   </button>
                 </div>
-                
+
                 {loading ? (
                   <div className="text-center py-12">
                     <div className="w-8 h-8 border border-white/20 border-t-white/60 rounded-full animate-spin mx-auto mb-4"></div>
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {/* Active Studies */}
-                    {mockStudies.map((study) => (
+                    {/* Studies */}
+                    {studies.length > 0 ? studies.map((study) => (
                       <div key={study.id} className="card-glass p-6">
                         <div className="flex items-start justify-between mb-4">
                           <div>
@@ -553,34 +641,63 @@ const ResearcherDashboard = () => {
                               <span className="px-2 py-0.5 text-xs bg-blue-500/20 text-blue-400 uppercase">
                                 {study.status.replace('_', ' ')}
                               </span>
+                              <span className={`px-2 py-0.5 text-xs uppercase ${study.is_recruiting ? 'bg-[#00d4aa]/20 text-[#00d4aa]' : 'bg-white/10 text-white/40'}`}>
+                                {study.is_recruiting ? 'Recruiting' : 'Not Recruiting'}
+                              </span>
                             </div>
-                            <p className="text-white/40 text-sm">{study.patient_count} patients</p>
+                            <p className="text-white/40 text-sm">{study.enrolled_count} patient{study.enrolled_count === 1 ? '' : 's'} enrolled</p>
+                            {study.eligibility_summary && (
+                              <p className="text-white/30 text-xs mt-2 max-w-xl">{study.eligibility_summary}</p>
+                            )}
                           </div>
-                          <button className="px-4 py-2 border border-white/20 text-white text-xs uppercase tracking-wider hover:bg-white hover:text-black transition-all">
-                            View Details
-                          </button>
-                        </div>
-                        
-                        {/* Regulatory Quick Status */}
-                        <div className="pt-4 border-t border-white/10">
-                          <p className="text-white/40 text-xs uppercase tracking-wider mb-3">Regulatory Status</p>
-                          <div className="flex flex-wrap gap-4">
-                            <div className="flex items-center gap-2">
-                              <span className="w-2 h-2 rounded-full bg-[#00d4aa]"></span>
-                              <span className="text-white/60 text-sm">Central IRB</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="w-2 h-2 rounded-full bg-[#00d4aa]"></span>
-                              <span className="text-white/60 text-sm">DUA</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                              <span className="text-white/60 text-sm">Site Approvals (1/3)</span>
-                            </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleToggleRecruiting(study)}
+                              disabled={recruitingActionId === study.id}
+                              className="px-4 py-2 border border-white/20 text-white text-xs uppercase tracking-wider hover:bg-white hover:text-black transition-all disabled:opacity-50"
+                            >
+                              {study.is_recruiting ? 'Close Recruiting' : 'Open Recruiting'}
+                            </button>
+                            <button
+                              onClick={() => handleToggleParticipants(study.id)}
+                              className="px-4 py-2 border border-white/20 text-white text-xs uppercase tracking-wider hover:bg-white hover:text-black transition-all"
+                            >
+                              {expandedParticipants === study.id ? 'Hide Participants' : 'View Participants'}
+                            </button>
                           </div>
                         </div>
+
+                        {expandedParticipants === study.id && (
+                          <div className="pt-4 border-t border-white/10">
+                            <p className="text-white/40 text-xs uppercase tracking-wider mb-3">Enrolled Participants</p>
+                            {loadingParticipants ? (
+                              <p className="text-white/30 text-sm">Loading...</p>
+                            ) : participants.length > 0 ? (
+                              <div className="space-y-2">
+                                {participants.map((p) => (
+                                  <div key={p.id} className="flex items-center justify-between text-sm">
+                                    <span className="text-white/60 font-mono">{p.patient_ref}</span>
+                                    <div className="flex items-center gap-3">
+                                      <span className={`px-2 py-0.5 text-xs uppercase ${p.status === 'enrolled' ? 'bg-[#00d4aa]/20 text-[#00d4aa]' : 'bg-white/10 text-white/40'}`}>
+                                        {p.status}
+                                      </span>
+                                      <span className="text-white/30 text-xs">{p.enrolled_at ? new Date(p.enrolled_at).toLocaleDateString() : ''}</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-white/30 text-sm">No patients have joined this study yet.</p>
+                            )}
+                          </div>
+                        )}
                       </div>
-                    ))}
+                    )) : (
+                      <div className="card-glass p-8 text-center">
+                        <p className="text-white/40">No studies yet</p>
+                        <p className="text-white/30 text-sm mt-2">Create a study and open it for recruiting to connect with consented patients.</p>
+                      </div>
+                    )}
 
                     {/* Saved Cohorts */}
                     <h3 className="text-white/40 text-xs uppercase tracking-wider pt-8 pb-4">Saved Cohorts</h3>
