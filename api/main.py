@@ -119,10 +119,10 @@ DEFAULT_INSTITUTIONS = [
 ]
 
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize database on startup"""
-    # Create all tables
+def initialize_database():
+    """Create tables, apply additive schema sync, and seed defaults.
+    Idempotent. Called at import time (serverless runtimes don't reliably
+    run ASGI startup hooks) and again from the startup event."""
     Base.metadata.create_all(bind=engine)
 
     for statement in SCHEMA_SYNC_STATEMENTS:
@@ -151,6 +151,19 @@ async def startup_event():
         db.rollback()
     finally:
         db.close()
+
+
+try:
+    initialize_database()
+except Exception as e:
+    # Never block module import on DB availability; the startup event retries
+    print(f"Database initialization deferred: {e}")
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database on startup"""
+    initialize_database()
 
 
 # ============== Pydantic Models ==============
