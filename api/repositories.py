@@ -12,7 +12,7 @@ from .models import (
     User, Institution, PatientProfile, Consent,
     RewardsTransaction, CancerDiagnosis, Treatment, TreatmentResponse,
     MolecularData, Outcome, DataProduct, DataPurchase, DataAccessLog,
-    ResearchCohort
+    ResearchCohort, StudyEnrollment
 )
 
 
@@ -172,8 +172,10 @@ class PatientRepository:
         ).order_by(DataAccessLog.created_at.desc()).limit(limit).all()
 
     def get_studies_count(self, patient_id: str) -> int:
-        return self.db.query(func.count(DataAccessLog.id)).filter(
-            DataAccessLog.patient_id == str(patient_id)
+        """Count studies the patient is actively enrolled/contributing to"""
+        return self.db.query(func.count(StudyEnrollment.id)).filter(
+            StudyEnrollment.patient_id == str(patient_id),
+            StudyEnrollment.status == "enrolled"
         ).scalar() or 0
 
 

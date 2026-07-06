@@ -27,6 +27,9 @@ const PatientPortal = () => {
   const [connections, setConnections] = useState([]);
   const [extractedData, setExtractedData] = useState([]);
   const [dataSummary, setDataSummary] = useState(null);
+  const [availableStudies, setAvailableStudies] = useState([]);
+  const [myStudies, setMyStudies] = useState([]);
+  const [studyActionId, setStudyActionId] = useState(null);
 
   // Modal state
   const [showConsentModal, setShowConsentModal] = useState(false);
@@ -51,7 +54,7 @@ const PatientPortal = () => {
     try {
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [profileRes, consentsRes, templatesRes, rewardsRes, logRes, connectionsRes, dataRes, summaryRes] = await Promise.all([
+      const [profileRes, consentsRes, templatesRes, rewardsRes, logRes, connectionsRes, dataRes, summaryRes, availableStudiesRes, myStudiesRes] = await Promise.all([
         fetch(`${API_URL}/api/patient/profile`, { headers }),
         fetch(`${API_URL}/api/patient/consents`, { headers }),
         fetch(`${API_URL}/api/consent/templates`, { headers }),
@@ -60,6 +63,8 @@ const PatientPortal = () => {
         fetch(`${API_URL}/api/patient/connections`, { headers }),
         fetch(`${API_URL}/api/patient/extracted-data`, { headers }),
         fetch(`${API_URL}/api/patient/data-summary`, { headers }),
+        fetch(`${API_URL}/api/studies/available`, { headers }),
+        fetch(`${API_URL}/api/patient/studies`, { headers }),
       ]);
 
       if (profileRes.ok) setProfile(await profileRes.json());
@@ -70,6 +75,8 @@ const PatientPortal = () => {
       if (connectionsRes.ok) setConnections(await connectionsRes.json());
       if (dataRes.ok) setExtractedData(await dataRes.json());
       if (summaryRes.ok) setDataSummary(await summaryRes.json());
+      setAvailableStudies(availableStudiesRes.ok ? await availableStudiesRes.json() : []);
+      if (myStudiesRes.ok) setMyStudies(await myStudiesRes.json());
 
       setPageState(STATES.READY);
     } catch (err) {
@@ -166,14 +173,57 @@ const PatientPortal = () => {
     }
   };
 
+  const handleJoinStudy = async (studyId) => {
+    setStudyActionId(studyId);
+    try {
+      const response = await fetch(`${API_URL}/api/studies/${studyId}/join`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (response.ok) {
+        await fetchData();
+      } else {
+        alert(data.detail || 'Failed to join study');
+      }
+    } catch (err) {
+      alert('Error joining study. Please try again.');
+    } finally {
+      setStudyActionId(null);
+    }
+  };
+
+  const handleLeaveStudy = async (studyId) => {
+    if (!window.confirm('Are you sure you want to leave this study?')) return;
+    setStudyActionId(studyId);
+    try {
+      const response = await fetch(`${API_URL}/api/studies/${studyId}/leave`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        await fetchData();
+      } else {
+        const data = await response.json();
+        alert(data.detail || 'Failed to leave study');
+      }
+    } catch (err) {
+      alert('Error leaving study. Please try again.');
+    } finally {
+      setStudyActionId(null);
+    }
+  };
+
   const tabs = [
     { id: 'overview', label: 'Overview' },
     { id: 'consent', label: 'Consent' },
+    { id: 'studies', label: 'Studies' },
     { id: 'data', label: 'My Data' },
     { id: 'rewards', label: 'Rewards' },
   ];
 
   const hasActiveResearchConsent = consents.some(c => c.consent_type === 'research_data_sharing' && c.status === 'active');
+  const hasActiveTrialMatchingConsent = consents.some(c => c.consent_type === 'clinical_trial_matching' && c.status === 'active');
 
   if (pageState === STATES.LOADING) {
     return (
@@ -472,6 +522,101 @@ const PatientPortal = () => {
                         ))}
                       </div>
                     </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {/* STUDIES TAB */}
+            {activeTab === 'studies' && (
+              <motion.div key="studies" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <div className="max-w-4xl">
+                  <h2 className="text-lg font-medium text-white mb-2">Research Studies</h2>
+                  <p className="text-white/40 mb-8">Browse studies recruiting participants and manage the studies you've joined.</p>
+
+                  {!hasActiveTrialMatchingConsent ? (
+                    <div className="card-glass p-8 text-center border border-amber-500/20">
+                      <span className="text-4xl mb-4 block">🔒</span>
+                      <h3 className="text-white font-medium mb-2">Consent Required</h3>
+                      <p className="text-white/40 mb-6">Sign the Clinical Trial Matching consent to browse and join research studies.</p>
+                      <button
+                        onClick={() => setActiveTab('consent')}
+                        className="px-6 py-3 bg-amber-500 text-black text-xs uppercase tracking-wider font-medium"
+                      >
+                        Sign Consent First
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {/* My Enrollments */}
+                      {myStudies.filter(s => s.status === 'enrolled').length > 0 && (
+                        <div className="mb-12">
+                          <h3 className="text-sm uppercase tracking-wider text-white/40 mb-4">Studies You've Joined</h3>
+                          <div className="space-y-3">
+                            {myStudies.filter(s => s.status === 'enrolled').map((s) => (
+                              <div key={s.id} className="card-glass p-6 border-l-2 border-[#00d4aa]">
+                                <div className="flex items-start justify-between">
+                                  <div>
+                                    <h4 className="text-white font-medium mb-1">{s.study_name}</h4>
+                                    <p className="text-white/40 text-sm">Joined {new Date(s.enrolled_at).toLocaleDateString()}</p>
+                                  </div>
+                                  <button
+                                    onClick={() => handleLeaveStudy(s.study_id)}
+                                    disabled={studyActionId === s.study_id}
+                                    className="px-3 py-1 border border-red-500/30 text-red-400 text-xs uppercase tracking-wider hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                                  >
+                                    Leave
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Available Studies */}
+                      <div>
+                        <h3 className="text-sm uppercase tracking-wider text-white/40 mb-4">Recruiting Now</h3>
+                        {availableStudies.length > 0 ? (
+                          <div className="space-y-3">
+                            {availableStudies.map((study) => (
+                              <div key={study.id} className={`card-glass p-6 ${study.already_enrolled ? 'opacity-50' : ''}`}>
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-3 mb-2">
+                                      <h4 className="text-white font-medium">{study.name}</h4>
+                                      {study.already_enrolled && <span className="px-2 py-0.5 text-xs bg-[#00d4aa]/20 text-[#00d4aa]">JOINED</span>}
+                                    </div>
+                                    {study.description && <p className="text-white/40 text-sm mb-3">{study.description}</p>}
+                                    {study.eligibility_summary && (
+                                      <p className="text-white/50 text-sm mb-3"><span className="text-white/30 uppercase text-xs tracking-wider">Eligibility: </span>{study.eligibility_summary}</p>
+                                    )}
+                                    <div className="flex items-center gap-4 text-white/30 text-xs">
+                                      {study.principal_investigator && <span>PI: {study.principal_investigator}</span>}
+                                      <span>{study.enrolled_count} participant{study.enrolled_count === 1 ? '' : 's'}</span>
+                                    </div>
+                                  </div>
+                                  {!study.already_enrolled && (
+                                    <button
+                                      onClick={() => handleJoinStudy(study.id)}
+                                      disabled={studyActionId === study.id}
+                                      className="ml-4 px-4 py-2 bg-white text-black text-xs uppercase tracking-wider font-medium hover:bg-gray-100 transition-colors disabled:opacity-50"
+                                    >
+                                      {studyActionId === study.id ? 'Joining...' : 'Join Study'}
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="card-glass p-8 text-center">
+                            <p className="text-white/40">No studies are currently recruiting</p>
+                            <p className="text-white/30 text-sm mt-2">Check back later for new research opportunities matching your profile.</p>
+                          </div>
+                        )}
+                      </div>
+                    </>
                   )}
                 </div>
               </motion.div>
