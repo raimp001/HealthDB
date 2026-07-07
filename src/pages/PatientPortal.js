@@ -307,12 +307,12 @@ const PatientPortal = () => {
       {/* Tabs */}
       <section className="border-b border-white/5">
         <div className="max-w-6xl mx-auto px-6">
-          <div className="flex gap-1">
+          <div className="flex gap-1 overflow-x-auto">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-6 py-4 text-xs uppercase tracking-wider transition-colors ${
+                className={`px-4 sm:px-6 py-4 text-xs uppercase tracking-wider transition-colors whitespace-nowrap ${
                   activeTab === tab.id ? 'text-white border-b-2 border-white' : 'text-white/40 hover:text-white/60'
                 }`}
               >

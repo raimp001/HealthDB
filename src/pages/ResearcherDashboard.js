@@ -485,7 +485,7 @@ const ResearcherDashboard = () => {
             {/* COHORT BUILDER TAB */}
             {activeTab === 'cohort' && (
               <motion.div key="cohort" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <div className="grid lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                   {/* Criteria Panel */}
                   <div className="lg:col-span-2 space-y-8">
                     <div>
@@ -585,25 +585,25 @@ const ResearcherDashboard = () => {
                       {/* Date Range */}
                       <div className="mb-6">
                         <label className="block text-xs text-white/50 mb-3">Diagnosis Date Range</label>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3">
                           <input
                             type="date"
                             value={cohortCriteria.dateRange.start}
-                            onChange={(e) => setCohortCriteria(prev => ({ 
-                              ...prev, 
-                              dateRange: { ...prev.dateRange, start: e.target.value } 
+                            onChange={(e) => setCohortCriteria(prev => ({
+                              ...prev,
+                              dateRange: { ...prev.dateRange, start: e.target.value }
                             }))}
-                            className="px-3 py-2 bg-white/5 border border-white/10 text-white text-sm focus:border-white/30 focus:outline-none"
+                            className="min-w-0 flex-1 px-3 py-2 bg-white/5 border border-white/10 text-white text-sm focus:border-white/30 focus:outline-none"
                           />
-                          <span className="text-white/30 text-sm">to</span>
+                          <span className="text-white/30 text-sm shrink-0">to</span>
                           <input
                             type="date"
                             value={cohortCriteria.dateRange.end}
-                            onChange={(e) => setCohortCriteria(prev => ({ 
-                              ...prev, 
-                              dateRange: { ...prev.dateRange, end: e.target.value } 
+                            onChange={(e) => setCohortCriteria(prev => ({
+                              ...prev,
+                              dateRange: { ...prev.dateRange, end: e.target.value }
                             }))}
-                            className="px-3 py-2 bg-white/5 border border-white/10 text-white text-sm focus:border-white/30 focus:outline-none"
+                            className="min-w-0 flex-1 px-3 py-2 bg-white/5 border border-white/10 text-white text-sm focus:border-white/30 focus:outline-none"
                           />
                         </div>
                       </div>
@@ -731,7 +731,7 @@ const ResearcherDashboard = () => {
             {/* STUDIES TAB */}
             {activeTab === 'studies' && (
               <motion.div key="studies" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <div className="flex items-center justify-between mb-8">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
                   <div>
                     <h2 className="text-lg font-medium text-white mb-2">My Studies</h2>
                     <p className="text-white/40 text-sm">Track your research studies and saved cohorts</p>
@@ -739,7 +739,7 @@ const ResearcherDashboard = () => {
                   <button
                     onClick={handleCreateStudy}
                     disabled={isCreatingStudy}
-                    className="px-6 py-3 bg-white text-black text-xs uppercase tracking-wider font-medium hover:bg-gray-100 transition-colors disabled:opacity-50"
+                    className="px-6 py-3 bg-white text-black text-xs uppercase tracking-wider font-medium hover:bg-gray-100 transition-colors disabled:opacity-50 shrink-0 self-start sm:self-auto"
                   >
                     {isCreatingStudy ? 'Creating...' : '+ New Study'}
                   </button>
@@ -754,9 +754,9 @@ const ResearcherDashboard = () => {
                     {/* Studies */}
                     {studies.length > 0 ? studies.map((study) => (
                       <div key={study.id} className="card-glass p-6">
-                        <div className="flex items-start justify-between mb-4">
+                        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4">
                           <div>
-                            <div className="flex items-center gap-3 mb-2">
+                            <div className="flex flex-wrap items-center gap-2 mb-2">
                               <h3 className="text-white font-medium">{study.name}</h3>
                               <span className="px-2 py-0.5 text-xs bg-blue-500/20 text-blue-400 uppercase">
                                 {study.status.replace('_', ' ')}
@@ -770,7 +770,7 @@ const ResearcherDashboard = () => {
                               <p className="text-white/30 text-xs mt-2 max-w-xl">{study.eligibility_summary}</p>
                             )}
                           </div>
-                          <div className="flex gap-2">
+                          <div className="flex flex-wrap gap-2 shrink-0">
                             <button
                               onClick={() => handleToggleRecruiting(study)}
                               disabled={recruitingActionId === study.id}
@@ -824,12 +824,12 @@ const ResearcherDashboard = () => {
                     {savedCohorts.length > 0 ? (
                       savedCohorts.map((cohort) => (
                         <div key={cohort.id} className="card-glass card-hover p-4">
-                          <div className="flex items-center justify-between">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div>
                               <h4 className="text-white font-medium">{cohort.name}</h4>
                               <p className="text-white/40 text-sm">{cohort.description}</p>
                             </div>
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-4 shrink-0">
                               <span className="text-white font-mono">{cohort.patient_count} pts</span>
                               <button className="px-3 py-1 border border-white/20 text-white/60 text-xs hover:bg-white hover:text-black transition-all">
                                 Convert to Study
@@ -1065,7 +1065,7 @@ const ResearcherDashboard = () => {
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto p-6">
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {Object.entries(variableCategories).map(([category, variables]) => (
                     <div key={category}>
                       <h3 className="text-sm uppercase tracking-wider text-white/40 mb-3">
