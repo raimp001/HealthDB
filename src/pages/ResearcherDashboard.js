@@ -35,6 +35,8 @@ const ResearcherDashboard = () => {
   const [collaborations, setCollaborations] = useState([]);
   const [showAddSite, setShowAddSite] = useState(false);
   const [regActionId, setRegActionId] = useState(null);
+  const [extractionJobs, setExtractionJobs] = useState([]);
+  const [extractActionId, setExtractActionId] = useState(null);
   const navigate = useNavigate();
 
   // Cancer types with ICD-10 codes
@@ -99,16 +101,19 @@ const ResearcherDashboard = () => {
     if (!studyId) return;
     const token = sessionStorage.getItem('token');
     try {
-      const [sitesRes, teamRes] = await Promise.all([
+      const [sitesRes, teamRes, jobsRes] = await Promise.all([
         fetch(`${API_URL}/api/researcher/studies/${studyId}/sites`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${API_URL}/api/study/${studyId}/team`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_URL}/api/extraction/jobs?study_id=${encodeURIComponent(studyId)}`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
       setSiteData(sitesRes.ok ? await sitesRes.json() : null);
       setTeam(teamRes.ok ? await teamRes.json() : []);
+      setExtractionJobs(jobsRes.ok ? await jobsRes.json() : []);
     } catch (err) {
       console.error('Failed to fetch regulatory data:', err);
       setSiteData(null);
       setTeam([]);
+      setExtractionJobs([]);
     }
   }, []);
 
@@ -414,6 +419,67 @@ const ResearcherDashboard = () => {
     }
   };
 
+  const handleRequestExtract = async () => {
+    if (!selectedStudyId) return;
+    setExtractActionId('create');
+    const token = sessionStorage.getItem('token');
+    try {
+      const response = await fetch(`${API_URL}/api/extraction/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          study_id: selectedStudyId,
+          variables: [],
+          output_format: 'csv',
+          deidentification_level: 'limited_dataset',
+        }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        await fetchRegulatory(selectedStudyId);
+      } else {
+        alert(data.detail || 'Failed to request extract');
+      }
+    } catch (err) {
+      console.error('Failed to request extract:', err);
+      alert('Failed to request extract');
+    } finally {
+      setExtractActionId(null);
+    }
+  };
+
+  const handleDownloadExtract = async (job) => {
+    setExtractActionId(job.id);
+    const token = sessionStorage.getItem('token');
+    try {
+      const response = await fetch(`${API_URL}${job.download_url}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        alert(data.detail || 'Failed to download extract');
+        return;
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${job.job_name}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to download extract:', err);
+      alert('Failed to download extract');
+    } finally {
+      setExtractActionId(null);
+    }
+  };
+
   const regulatoryStudies = [
     ...studies.map(s => ({ id: s.id, name: s.name, mine: true })),
     ...collaborations
@@ -424,6 +490,13 @@ const ResearcherDashboard = () => {
   const docStatusStyle = (status) => {
     if (status === 'approved' || status === 'signed') return 'bg-[#00d4aa]/20 text-[#00d4aa]';
     if (status === 'submitted' || status === 'under_review') return 'bg-amber-500/20 text-amber-500';
+    return 'bg-white/10 text-white/40';
+  };
+
+  const jobStatusStyle = (status) => {
+    if (status === 'completed') return 'bg-[#00d4aa]/20 text-[#00d4aa]';
+    if (status === 'queued' || status === 'running') return 'bg-amber-500/20 text-amber-500';
+    if (status === 'failed') return 'bg-red-500/20 text-red-400';
     return 'bg-white/10 text-white/40';
   };
 
@@ -1008,6 +1081,49 @@ const ResearcherDashboard = () => {
                         <p className="text-white/40 text-sm">No collaborators yet. Invite researchers from other institutions to work on this study.</p>
                       )}
                     </div>
+
+                    {regulatoryStudies.find(s => s.id === selectedStudyId)?.mine && (
+                      <div className="card-glass p-6 mb-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-sm uppercase tracking-wider text-white/40">DATA EXTRACTION</h3>
+                          <button
+                            onClick={handleRequestExtract}
+                            disabled={extractActionId === 'create'}
+                            className="px-4 py-2 border border-white/20 text-white text-xs uppercase tracking-wider hover:bg-white hover:text-black transition-all disabled:opacity-50"
+                          >
+                            Request Extract
+                          </button>
+                        </div>
+                        {extractionJobs.length > 0 ? (
+                          <div className="space-y-2">
+                            {extractionJobs.map((job) => (
+                              <div key={job.id} className="flex items-center justify-between gap-4 py-3 border-b border-white/5 last:border-b-0">
+                                <div>
+                                  <p className="text-white/80 text-sm">{job.job_name}</p>
+                                  <p className="text-white/30 text-xs">
+                                    {job.patient_count || 0} patient{job.patient_count === 1 ? '' : 's'} • {new Date(job.created_at).toLocaleDateString()}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <span className={`px-2 py-0.5 text-xs uppercase ${jobStatusStyle(job.status)}`}>{job.status}</span>
+                                  {job.status === 'completed' && job.download_url && (
+                                    <button
+                                      onClick={() => handleDownloadExtract(job)}
+                                      disabled={extractActionId === job.id}
+                                      className="px-3 py-1 border border-white/20 text-white text-xs uppercase tracking-wider hover:bg-white hover:text-black transition-all disabled:opacity-50"
+                                    >
+                                      Download CSV
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-white/40 text-sm">No extracts yet. Extraction requires an approved IRB protocol and signed DUA.</p>
+                        )}
+                      </div>
+                    )}
 
                     {/* Shared with me */}
                     {collaborations.length > 0 && (
