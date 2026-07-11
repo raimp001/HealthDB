@@ -481,6 +481,7 @@ class ExtractionJob(Base):
     completed_at = Column(DateTime)
     download_url = Column(Text)
     download_expires_at = Column(DateTime)
+    result_csv = Column(Text)
     error_message = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -602,4 +603,3 @@ class DiseaseVariableSet(Base):
     outcome_variables = Column(JSON)  # Response, survival
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
-

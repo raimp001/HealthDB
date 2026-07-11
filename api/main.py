@@ -2,7 +2,7 @@
 HealthDB API - FastAPI Backend
 Main application entry point with real database integration
 """
-from fastapi import FastAPI, HTTPException, Depends, status, Query, BackgroundTasks, Request
+from fastapi import FastAPI, HTTPException, Depends, status, Query, BackgroundTasks, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr, Field
@@ -12,6 +12,10 @@ from decimal import Decimal
 from uuid import UUID
 import uuid
 import os
+import csv
+import hashlib
+import io
+import json
 from jose import jwt
 from passlib.context import CryptContext
 import re
@@ -26,7 +30,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 from sqlalchemy.orm import Session
 
-from sqlalchemy import text, func
+from sqlalchemy import text, func, or_
 from .database import get_db, init_db, engine
 from .models import (
     Base, User, PatientProfile, Consent, ConsentTemplate,
@@ -109,6 +113,7 @@ SCHEMA_SYNC_STATEMENTS = [
     "ALTER TABLE studies ADD COLUMN is_recruiting BOOLEAN DEFAULT FALSE",
     "ALTER TABLE studies ADD COLUMN eligibility_summary TEXT",
     "ALTER TABLE regulatory_submissions ALTER COLUMN study_id DROP NOT NULL",
+    "ALTER TABLE extraction_jobs ADD COLUMN result_csv TEXT",
 ]
 
 DEFAULT_INSTITUTIONS = [
@@ -508,6 +513,117 @@ def require_study_access(db: Session, study_id: str, user_id: str) -> "Study":
     if not collaborator:
         raise HTTPException(status_code=403, detail="You do not have access to this study")
     return study
+
+
+def require_export_access(db: Session, study_id: str, user_id: str) -> "Study":
+    """Return the study if the user can export its data, else 403"""
+    study = db.query(Study).filter(Study.id == study_id).first()
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found")
+
+    if study.user_id == user_id:
+        return study
+
+    collaborator = db.query(StudyCollaborator).filter(
+        StudyCollaborator.study_id == study_id,
+        StudyCollaborator.user_id == user_id,
+        StudyCollaborator.status == "accepted",
+    ).first()
+    permissions = collaborator.permissions if collaborator else {}
+    if collaborator and permissions and permissions.get("export") is True:
+        return study
+
+    raise HTTPException(status_code=403, detail="You do not have export access to this study")
+
+
+def scrub_deidentified_data(value: Any) -> Any:
+    """Remove obvious direct identifiers from extracted record JSON"""
+    blocked = ("name", "email", "phone", "address", "ssn", "mrn", "dob", "birth", "zip", "contact")
+
+    if isinstance(value, dict):
+        return {
+            key: scrub_deidentified_data(item)
+            for key, item in value.items()
+            if not any(term in str(key).lower() for term in blocked)
+        }
+    if isinstance(value, list):
+        return [scrub_deidentified_data(item) for item in value]
+    return value
+
+
+def process_extraction_job(db: Session, job: ExtractionJob, study: Study, requester_user_id: str) -> None:
+    """Build a consent-gated limited dataset CSV for an extraction job"""
+    now = datetime.utcnow()
+    eligible_patients = db.query(PatientProfile).join(
+        StudyEnrollment,
+        StudyEnrollment.patient_id == PatientProfile.id,
+    ).join(
+        Consent,
+        Consent.patient_id == PatientProfile.id,
+    ).filter(
+        StudyEnrollment.study_id == study.id,
+        StudyEnrollment.status == "enrolled",
+        Consent.consent_type == "research_data_sharing",
+        Consent.status == "active",
+        or_(Consent.expires_at == None, Consent.expires_at > now),
+    ).distinct().all()
+    patient_ids = [str(patient.id) for patient in eligible_patients]
+
+    records = []
+    if patient_ids:
+        records = db.query(ExtractedMedicalData).filter(
+            ExtractedMedicalData.patient_id.in_(patient_ids)
+        ).order_by(
+            ExtractedMedicalData.patient_id,
+            ExtractedMedicalData.original_date,
+            ExtractedMedicalData.created_at,
+        ).all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["patient_pseudonym", "data_category", "data_type", "year", "quality_score", "data_json"])
+
+    rows_by_patient: Dict[str, int] = {}
+    for record in records:
+        patient_id = str(record.patient_id)
+        rows_by_patient[patient_id] = rows_by_patient.get(patient_id, 0) + 1
+        patient_pseudonym = "P-" + hashlib.sha256(f"{study.id}:{patient_id}".encode()).hexdigest()[:12]
+        scrubbed = scrub_deidentified_data(record.deidentified_data or {})
+        writer.writerow([
+            patient_pseudonym,
+            record.data_category,
+            record.data_type or "",
+            record.original_date.year if record.original_date else "",
+            record.data_quality_score if record.data_quality_score is not None else "",
+            json.dumps(scrubbed),
+        ])
+
+    job.result_csv = output.getvalue()
+    job.status = "completed"
+    job.completed_at = now
+    job.patient_count = len(patient_ids)
+    job.download_url = f"/api/extraction/jobs/{job.id}/download"
+    job.download_expires_at = now + timedelta(days=7)
+
+    patient_repo = PatientRepository(db)
+    for patient_id, record_count in rows_by_patient.items():
+        db.add(DataAccessLog(
+            user_id=requester_user_id,
+            patient_id=patient_id,
+            access_type="research_extraction",
+            data_type="extracted_medical_data",
+            purpose=f"Data extract for study: {study.name}",
+            record_count=record_count,
+        ))
+        patient_repo.add_points(
+            patient_id,
+            10,
+            f"Data used in research: {study.name}",
+            "extraction",
+            str(job.id),
+        )
+
+    db.commit()
 
 
 def hash_password(password: str) -> str:
@@ -1980,10 +2096,7 @@ async def create_extraction_job(
     db: Session = Depends(get_db)
 ):
     """Create a data extraction job"""
-    study = db.query(Study).filter(Study.id == request.study_id).first()
-    
-    if not study:
-        raise HTTPException(status_code=404, detail="Study not found")
+    study = require_export_access(db, request.study_id, token_data["sub"])
     
     # Check if study has all required approvals
     submissions = db.query(RegulatorySubmission).filter(
@@ -2020,6 +2133,8 @@ async def create_extraction_job(
     
     db.commit()
     db.refresh(job)
+    process_extraction_job(db, job, study, token_data["sub"])
+    db.refresh(job)
     
     return {
         "success": True,
@@ -2029,22 +2144,34 @@ async def create_extraction_job(
         "patient_count": job.patient_count,
         "variable_count": job.variable_count,
         "estimated_completion": estimated_completion.isoformat(),
-        "message": "Extraction job queued. You will be notified when data is ready.",
+        "download_url": job.download_url,
+        "message": "Extraction job completed. Data is ready for download.",
     }
 
 
 @app.get("/api/extraction/jobs")
 async def get_extraction_jobs(
+    study_id: Optional[str] = Query(None),
     token_data: Dict = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
-    """Get all extraction jobs for the current user's studies"""
+    """Get extraction jobs for studies the current user can access"""
     user_id = token_data["sub"]
-    
-    # Get user's studies
-    studies = db.query(Study).filter(Study.user_id == user_id).all()
-    study_ids = [str(s.id) for s in studies]
-    
+
+    if study_id:
+        require_study_access(db, study_id, user_id)
+        study_ids = [study_id]
+    else:
+        owned_studies = db.query(Study).filter(Study.user_id == user_id).all()
+        collaborations = db.query(StudyCollaborator).filter(
+            StudyCollaborator.user_id == user_id,
+            StudyCollaborator.status == "accepted",
+        ).all()
+        study_ids = list({str(s.id) for s in owned_studies} | {str(c.study_id) for c in collaborations})
+
+    if not study_ids:
+        return []
+
     jobs = db.query(ExtractionJob).filter(
         ExtractionJob.study_id.in_(study_ids)
     ).order_by(ExtractionJob.created_at.desc()).all()
@@ -2064,6 +2191,32 @@ async def get_extraction_jobs(
         }
         for job in jobs
     ]
+
+
+@app.get("/api/extraction/jobs/{job_id}/download")
+async def download_extraction_job(
+    job_id: str,
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Download a completed extraction job CSV"""
+    job = db.query(ExtractionJob).filter(ExtractionJob.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Extraction job not found")
+
+    require_export_access(db, job.study_id, token_data["sub"])
+
+    if job.status != "completed" or job.result_csv is None:
+        raise HTTPException(status_code=400, detail="Extraction job is not ready for download")
+    if job.download_expires_at and job.download_expires_at < datetime.utcnow():
+        raise HTTPException(status_code=410, detail="Extraction job download has expired")
+
+    filename = re.sub(r'[^A-Za-z0-9._-]', '_', job.job_name or "extract") + ".csv"
+    return Response(
+        content=job.result_csv,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @app.get("/api/emr/connections")
