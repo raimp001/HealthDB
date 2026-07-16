@@ -4,6 +4,7 @@ Main application entry point with real database integration
 """
 from fastapi import FastAPI, HTTPException, Depends, status, Query, BackgroundTasks, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List, Dict, Any
@@ -14,10 +15,11 @@ import uuid
 import os
 import csv
 import hashlib
+import hmac
 import io
 import json
+import secrets
 from jose import jwt
-from passlib.context import CryptContext
 import re
 import logging
 
@@ -25,8 +27,10 @@ import logging
 audit_logger = logging.getLogger("healthdb.audit")
 audit_logger.setLevel(logging.INFO)
 
-# Password hashing context using bcrypt
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Password hashing: PBKDF2-HMAC-SHA256 via stdlib (no native dependencies).
+# Legacy bcrypt hashes from earlier deployments are verified via the bcrypt
+# library when available and upgraded to PBKDF2 on successful login.
+PBKDF2_ITERATIONS = 600_000
 
 from sqlalchemy.orm import Session
 
@@ -89,6 +93,20 @@ async def audit_log_middleware(request: Request, call_next):
         )
 
     return response
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    """Log unhandled errors with traceback and return a diagnosable but
+    sanitized response (exception class name only, never the message)."""
+    audit_logger.error(
+        f"Unhandled error on {request.method} {request.url.path}", exc_info=exc
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error", "error_type": type(exc).__name__},
+    )
+
 
 # Security
 security = HTTPBearer(auto_error=False)
@@ -627,13 +645,41 @@ def process_extraction_job(db: Session, job: ExtractionJob, study: Study, reques
 
 
 def hash_password(password: str) -> str:
-    """Hash password using bcrypt via passlib"""
-    return pwd_context.hash(password)
+    """Hash password using PBKDF2-HMAC-SHA256 (stdlib, no native deps)"""
+    salt = secrets.token_hex(16)
+    digest = hashlib.pbkdf2_hmac(
+        "sha256", password.encode(), salt.encode(), PBKDF2_ITERATIONS
+    ).hex()
+    return f"pbkdf2_sha256${PBKDF2_ITERATIONS}${salt}${digest}"
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify password against bcrypt hash"""
-    return pwd_context.verify(plain_password, hashed_password)
+    """Verify a password against a PBKDF2 hash, or a legacy bcrypt hash"""
+    if not hashed_password:
+        return False
+
+    if hashed_password.startswith("pbkdf2_sha256$"):
+        try:
+            _, iterations, salt, digest = hashed_password.split("$", 3)
+            candidate = hashlib.pbkdf2_hmac(
+                "sha256", plain_password.encode(), salt.encode(), int(iterations)
+            ).hex()
+            return hmac.compare_digest(candidate, digest)
+        except (ValueError, TypeError):
+            return False
+
+    # Legacy bcrypt hash from earlier deployments; bcrypt truncates at 72 bytes
+    try:
+        import bcrypt
+        return bcrypt.checkpw(plain_password.encode()[:72], hashed_password.encode())
+    except Exception:
+        audit_logger.warning("Legacy bcrypt verification unavailable or failed")
+        return False
+
+
+def is_legacy_password_hash(hashed_password: str) -> bool:
+    """True for hashes that predate the PBKDF2 scheme"""
+    return bool(hashed_password) and not hashed_password.startswith("pbkdf2_sha256$")
 
 
 def validate_password_strength(password: str) -> str | None:
@@ -734,6 +780,11 @@ async def login(credentials: UserLogin, db: Session = Depends(get_db)):
     if not user or not verify_password(credentials.password, user.password_hash):
         audit_logger.warning(f"Failed login attempt for email: {credentials.email}")
         raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    # Transparently upgrade legacy bcrypt hashes to PBKDF2
+    if is_legacy_password_hash(user.password_hash):
+        user.password_hash = hash_password(credentials.password)
+        db.commit()
 
     # Update last login
     user_repo.update_last_login(user.id)
