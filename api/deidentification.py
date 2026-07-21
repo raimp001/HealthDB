@@ -94,6 +94,19 @@ CLINICAL_NAME_ALLOWLIST = frozenset({
     "lab_name", "panel_name", "assay_name", "study_name", "trial_name",
 })
 
+# Safe structured fields that happen to contain an identifier term as a
+# substring ("ethnicity" contains "city").
+SAFE_KEY_ALLOWLIST = CLINICAL_NAME_ALLOWLIST | frozenset({"ethnicity"})
+
+
+def _is_identifier_key(key: Any) -> bool:
+    """Return whether a structured key denotes a direct identifier."""
+    lowered_key = str(key).lower()
+    return (
+        lowered_key not in SAFE_KEY_ALLOWLIST
+        and any(term in lowered_key for term in IDENTIFIER_KEY_TERMS)
+    )
+
 
 def _replace_full_date(match: re.Match[str]) -> str:
     """Reduce a full date to its four-digit year, when one is present."""
@@ -115,6 +128,39 @@ def redact_text(text: str) -> str:
     return scrubbed
 
 
+# Clinical terminology systems whose numeric concept identifiers (e.g. SNOMED
+# CT and RxNorm codes are long digit runs) are legitimate research data, not
+# personal identifiers. A "code" value is exempted from numeric-identifier
+# redaction only when its sibling "code_system" names one of these, so an
+# arbitrary number smuggled into a code field without a recognized system is
+# still treated as a potential identifier.
+RECOGNIZED_CODE_SYSTEMS = frozenset({"ICD-10", "SNOMED", "LOINC", "RxNorm"})
+CODE_VALUE_KEYS = frozenset({"code"})
+
+# The numeric-identifier patterns that collide with clinical concept codes;
+# skipped for recognized code values, while contact/date identifiers are not.
+_NUMERIC_ID_PATTERNS = (IDCODE_RE, ZIP_RE, LONG_DIGIT_RE)
+
+
+def _redact_code_value(text: str) -> str:
+    """Redact contact/date identifiers from a code value but preserve the
+    numeric concept identifier itself (SNOMED/RxNorm codes are digit runs)."""
+    scrubbed = EMAIL_RE.sub("[REDACTED]", text)
+    scrubbed = URL_RE.sub("[REDACTED]", scrubbed)
+    scrubbed = FULL_DATE_RE.sub(_replace_full_date, scrubbed)
+    scrubbed = SSN_RE.sub("[REDACTED]", scrubbed)
+    scrubbed = PHONE_RE.sub("[REDACTED]", scrubbed)
+    scrubbed = IPV4_RE.sub("[REDACTED]", scrubbed)
+    return scrubbed
+
+
+def _has_recognized_code_system(mapping) -> bool:
+    """True if a dict carries a code_system naming a known terminology."""
+    if not isinstance(mapping, dict):
+        return False
+    return str(mapping.get("code_system", "")).strip() in RECOGNIZED_CODE_SYSTEMS
+
+
 def _cap_age(value: Any) -> Any:
     """Apply Safe Harbor's top-coding rule to ages over 89."""
     if isinstance(value, (int, float)) and not isinstance(value, bool):
@@ -129,14 +175,15 @@ def _cap_age(value: Any) -> Any:
 def deidentify_value(value: Any) -> Any:
     """Recursively remove identifier fields and redact string values."""
     if isinstance(value, dict):
+        preserve_code = _has_recognized_code_system(value)
         scrubbed = {}
         for key, item in value.items():
             lowered_key = str(key).lower()
-            if any(term in lowered_key for term in IDENTIFIER_KEY_TERMS):
-                # Keep clinical entity-name fields (gene_name, drug_name, ...);
-                # drop everything else that looks like a direct identifier.
-                if lowered_key not in CLINICAL_NAME_ALLOWLIST:
-                    continue
+            if _is_identifier_key(key):
+                continue
+            if preserve_code and lowered_key in CODE_VALUE_KEYS and isinstance(item, str):
+                scrubbed[key] = _redact_code_value(item)
+                continue
             if _AGE_KEY_RE.search(lowered_key):
                 item = _cap_age(item)
             scrubbed[key] = deidentify_value(item)
@@ -157,13 +204,28 @@ def find_residual_identifiers(value: Any) -> list[str]:
     """Conservatively describe potential identifiers remaining in a value."""
     findings: list[str] = []
 
-    def scan(item: Any) -> None:
+    contact_date_checks = (
+        ("email", EMAIL_RE),
+        ("phone", PHONE_RE),
+        ("ssn", SSN_RE),
+        ("full date", FULL_DATE_RE),
+        ("url", URL_RE),
+        ("ip address", IPV4_RE),
+    )
+    numeric_id_checks = (
+        ("id code", IDCODE_RE),
+        ("long digit run", LONG_DIGIT_RE),
+        ("zip code", ZIP_RE),
+    )
+
+    def scan(item: Any, exempt_numeric: bool = False) -> None:
         if isinstance(item, dict):
+            preserve_code = _has_recognized_code_system(item)
             for key, nested in item.items():
-                lowered_key = str(key).lower()
-                if any(term in lowered_key for term in IDENTIFIER_KEY_TERMS):
+                if _is_identifier_key(key):
                     findings.append(f"identifier key: {key}")
-                scan(nested)
+                child_exempt = preserve_code and str(key).lower() in CODE_VALUE_KEYS
+                scan(nested, exempt_numeric=child_exempt)
             return
         if isinstance(item, list):
             for nested in item:
@@ -172,17 +234,7 @@ def find_residual_identifiers(value: Any) -> list[str]:
         if not isinstance(item, str):
             return
 
-        checks = (
-            ("email", EMAIL_RE),
-            ("phone", PHONE_RE),
-            ("ssn", SSN_RE),
-            ("id code", IDCODE_RE),
-            ("long digit run", LONG_DIGIT_RE),
-            ("full date", FULL_DATE_RE),
-            ("url", URL_RE),
-            ("ip address", IPV4_RE),
-            ("zip code", ZIP_RE),
-        )
+        checks = contact_date_checks if exempt_numeric else contact_date_checks + numeric_id_checks
         for identifier_type, pattern in checks:
             if pattern.search(item):
                 findings.append(f"residual {identifier_type} in value")

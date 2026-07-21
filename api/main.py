@@ -49,6 +49,7 @@ from .repositories import (
     CohortRepository, DataProductRepository, DataAccessLogRepository
 )
 from .deidentification import deidentify_record, find_residual_identifiers
+from .fhir_ingest import parse_fhir_bundle
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -431,6 +432,10 @@ class MedicalConnectionRequest(BaseModel):
     source_type: str  # epic_mychart, cerner, manual_upload
     source_name: str  # Hospital/provider name
     access_code: Optional[str] = None  # OAuth code or auth token
+
+class FHIRUploadRequest(BaseModel):
+    bundle: Dict[str, Any]
+    source_name: Optional[str] = "Uploaded FHIR Records"
 
 class MedicalConnectionResponse(BaseModel):
     id: str
@@ -1299,6 +1304,120 @@ async def connect_medical_records(
         "connection_id": str(connection.id),
         "status": "pending",
         "message": "Connection initiated. Data extraction will begin shortly.",
+    }
+
+
+def _parse_fhir_original_date(value: Any) -> Optional[date]:
+    """Convert a FHIR date/dateTime to a Date, padding partial dates safely."""
+    if not isinstance(value, str):
+        return None
+    match = re.match(
+        r"^((?:19|20)\d{2})(?:-(0[1-9]|1[0-2])"
+        r"(?:-(0[1-9]|[12]\d|3[01])(?:T.*)?)?)?$",
+        value.strip(),
+    )
+    if not match:
+        return None
+    year, month, day = match.groups()
+    try:
+        return date.fromisoformat(f"{year}-{month or '01'}-{day or '01'}")
+    except ValueError:
+        return None
+
+
+@app.post("/api/patient/connections/fhir")
+async def connect_fhir_records(
+    req: FHIRUploadRequest,
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    """Import supported records from a patient-supplied FHIR R4 Bundle."""
+    patient_repo = PatientRepository(db)
+    profile = patient_repo.get_profile(UUID(token_data["sub"]))
+
+    if not profile:
+        raise HTTPException(status_code=404, detail="Patient profile not found")
+
+    # Check for active consent
+    active_consent = db.query(Consent).filter(
+        Consent.patient_id == profile.id,
+        Consent.consent_type == "research_data_sharing",
+        Consent.status == "active"
+    ).first()
+
+    if not active_consent:
+        raise HTTPException(
+            status_code=400,
+            detail="You must sign the Research Data Sharing consent before connecting medical records"
+        )
+
+    if not isinstance(req.bundle, dict) or req.bundle.get("resourceType") != "Bundle":
+        raise HTTPException(status_code=400, detail="Not a valid FHIR Bundle")
+
+    connection = MedicalRecordConnection(
+        patient_id=profile.id,
+        source_type="fhir_bundle",
+        source_name=req.source_name,
+        connection_status="connected",
+        last_sync=datetime.utcnow(),
+    )
+    db.add(connection)
+    db.commit()
+    db.refresh(connection)
+
+    records = parse_fhir_bundle(req.bundle)
+    prepared_records = []
+    deidentification_failed = False
+    for record in records:
+        scrubbed_data = deidentify_record(record["data"])
+        if find_residual_identifiers(scrubbed_data):
+            deidentification_failed = True
+        prepared_records.append((record, scrubbed_data))
+
+    if deidentification_failed:
+        connection.connection_status = "error"
+        connection.error_message = "De-identification check failed; upload rejected"
+        connection.records_synced = 0
+        db.commit()
+        raise HTTPException(
+            status_code=422,
+            detail="Uploaded records could not be fully de-identified and were rejected",
+        )
+
+    for record, scrubbed_data in prepared_records:
+        db.add(ExtractedMedicalData(
+            connection_id=connection.id,
+            patient_id=profile.id,
+            data_category=record["data_category"],
+            data_type=record["data_type"],
+            original_date=_parse_fhir_original_date(record.get("original_date")),
+            deidentified_data=scrubbed_data,
+            data_quality_score=100.0,
+            is_verified=True,
+            verification_date=datetime.utcnow(),
+        ))
+
+    records_imported = len(prepared_records)
+    connection.records_synced = records_imported
+    if records_imported:
+        patient_repo.add_points(
+            profile.id,
+            100,
+            f"Uploaded health records ({connection.source_name})",
+            "connection",
+            str(connection.id),
+        )
+    db.commit()
+
+    if records_imported:
+        message = f"Successfully imported {records_imported} de-identified health records."
+    else:
+        message = "No supported clinical resources were found in the FHIR Bundle."
+    return {
+        "success": True,
+        "connection_id": str(connection.id),
+        "records_imported": records_imported,
+        "message": message,
     }
 
 

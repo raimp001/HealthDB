@@ -173,6 +173,44 @@ const PatientPortal = () => {
     }
   };
 
+  const handleFHIRUpload = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    let bundle;
+    try {
+      bundle = JSON.parse(await file.text());
+    } catch (err) {
+      alert('That file is not valid JSON.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${API_URL}/api/patient/connections/fhir`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ bundle, source_name: file.name }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setShowConnectionModal(false);
+        alert(data.message);
+        await fetchData();
+      } else {
+        alert(data.detail || 'Failed to upload FHIR records');
+      }
+    } catch (err) {
+      alert('Error uploading FHIR records. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleJoinStudy = async (studyId) => {
     setStudyActionId(studyId);
     try {
@@ -910,6 +948,24 @@ const PatientPortal = () => {
                     </div>
                   </button>
                 ))}
+
+                <label className={`w-full card-glass card-hover p-4 text-left flex items-center gap-4 cursor-pointer ${isSubmitting ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <span className="text-2xl">⬆️</span>
+                  <div>
+                    <p className="text-white font-medium">Upload health records (FHIR export)</p>
+                    <p className="text-white/40 text-sm">Choose a JSON file exported by your patient portal</p>
+                  </div>
+                  <input
+                    type="file"
+                    accept=".json,application/json"
+                    onChange={handleFHIRUpload}
+                    disabled={isSubmitting}
+                    className="hidden"
+                  />
+                </label>
+                <p className="text-white/40 text-xs leading-relaxed">
+                  Export your records as FHIR from your patient portal (Epic MyChart, Apple Health, etc.) and upload the file. Data is de-identified on upload.
+                </p>
               </div>
             </motion.div>
           </motion.div>
