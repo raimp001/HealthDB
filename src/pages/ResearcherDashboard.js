@@ -4,6 +4,33 @@ import { useNavigate } from 'react-router-dom';
 
 const API_URL = process.env.NODE_ENV === 'production' ? '' : (process.env.REACT_APP_API_URL || 'http://localhost:8000');
 
+const AnalyticsBars = ({ items, emptyMessage }) => {
+  const maxValue = Math.max(...items.map(item => item.value), 0);
+
+  if (items.length === 0) {
+    return <p className="text-white/30 text-sm">{emptyMessage}</p>;
+  }
+
+  return (
+    <div className="space-y-4">
+      {items.map(item => (
+        <div key={item.label}>
+          <div className="flex items-center justify-between gap-4 mb-2 text-sm">
+            <span className="text-white/60 truncate">{item.label}</span>
+            <span className="text-white font-mono shrink-0">{item.value.toLocaleString()}</span>
+          </div>
+          <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-[#00d4aa] rounded-full"
+              style={{ width: `${maxValue ? (item.value / maxValue) * 100 : 0}%` }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 const ResearcherDashboard = () => {
   const [activeTab, setActiveTab] = useState('cohort');
   const [cohortCriteria, setCohortCriteria] = useState({
@@ -21,6 +48,7 @@ const ResearcherDashboard = () => {
   const [isBuilding, setIsBuilding] = useState(false);
   const [savedCohorts, setSavedCohorts] = useState([]);
   const [studies, setStudies] = useState([]);
+  const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showVariableSelector, setShowVariableSelector] = useState(false);
   const [isCreatingStudy, setIsCreatingStudy] = useState(false);
@@ -72,6 +100,7 @@ const ResearcherDashboard = () => {
 
   const tabs = [
     { id: 'cohort', label: 'Cohort Builder' },
+    { id: 'analytics', label: 'Analytics' },
     { id: 'studies', label: 'My Studies' },
     { id: 'regulatory', label: 'Regulatory Status' },
   ];
@@ -79,14 +108,16 @@ const ResearcherDashboard = () => {
   const fetchData = useCallback(async () => {
     const token = sessionStorage.getItem('token');
     try {
-      const [cohortsRes, studiesRes, collabsRes, instRes] = await Promise.all([
+      const [cohortsRes, analyticsRes, studiesRes, collabsRes, instRes] = await Promise.all([
         fetch(`${API_URL}/api/cohort/saved`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_URL}/api/researcher/analytics`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${API_URL}/api/researcher/studies`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${API_URL}/api/researcher/collaborations`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${API_URL}/api/institutions`),
       ]);
 
       if (cohortsRes.ok) setSavedCohorts(await cohortsRes.json());
+      if (analyticsRes.ok) setAnalytics(await analyticsRes.json());
       if (studiesRes.ok) setStudies(await studiesRes.json());
       if (collabsRes.ok) setCollaborations(await collabsRes.json());
       if (instRes.ok) setInstitutions(await instRes.json());
@@ -798,6 +829,98 @@ const ResearcherDashboard = () => {
                     </div>
                   </div>
                 </div>
+              </motion.div>
+            )}
+
+            {/* ANALYTICS TAB */}
+            {activeTab === 'analytics' && (
+              <motion.div key="analytics" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <div className="mb-8">
+                  <h2 className="text-lg font-medium text-white mb-2">Research Analytics</h2>
+                  <p className="text-white/40 text-sm">Aggregate insights across consented, de-identified contributions.</p>
+                </div>
+
+                {!analytics ? (
+                  <div className="card-glass p-8 text-center">
+                    <p className="text-white/40 text-sm">Loading aggregate analytics...</p>
+                  </div>
+                ) : analytics.total_patients === 0 ? (
+                  <div className="card-glass p-8 text-center">
+                    <p className="text-white/40">No consented data yet.</p>
+                    <p className="text-white/30 text-sm mt-2">
+                      Aggregate analytics appear once patients contribute de-identified data under active consent.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {[
+                        ['Contributing Patients', analytics.total_patients],
+                        ['Data Records', analytics.total_records],
+                        ['Diagnosis Types', analytics.diagnoses.length],
+                      ].map(([label, value]) => (
+                        <div key={label} className="card-glass p-6">
+                          <p className="text-sm uppercase tracking-wider text-white/40 mb-3">{label}</p>
+                          <p className="text-3xl font-light text-white font-mono">{value.toLocaleString()}</p>
+                        </div>
+                      ))}
+                      <div className="card-glass p-6 flex items-center">
+                        <p className="text-white/30 text-sm">Counts reflect distinct consented patients, not clinical event volume.</p>
+                      </div>
+                    </div>
+
+                    <div className="card-glass p-6">
+                      <h3 className="text-sm uppercase tracking-wider text-white/40 mb-6">Data by Category</h3>
+                      <AnalyticsBars
+                        items={Object.entries(analytics.records_by_category).map(([label, value]) => ({ label, value }))}
+                        emptyMessage="No extracted data categories yet."
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div className="card-glass p-6">
+                        <h3 className="text-sm uppercase tracking-wider text-white/40 mb-6">Top Diagnoses</h3>
+                        <AnalyticsBars
+                          items={analytics.diagnoses.map(item => ({ label: item.label, value: item.patient_count }))}
+                          emptyMessage={`Not enough data to display groups (min ${analytics.min_cell_size} patients per group).`}
+                        />
+                      </div>
+
+                      <div className="card-glass p-6">
+                        <h3 className="text-sm uppercase tracking-wider text-white/40 mb-6">Treatments</h3>
+                        <AnalyticsBars
+                          items={analytics.treatments.map(item => ({ label: item.label, value: item.patient_count }))}
+                          emptyMessage={`Not enough data to display groups (min ${analytics.min_cell_size} patients per group).`}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="card-glass p-6">
+                      <h3 className="text-sm uppercase tracking-wider text-white/40 mb-6">Demographics</h3>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div>
+                          <p className="text-white/50 text-xs uppercase tracking-wider mb-4">Age Bands</p>
+                          <AnalyticsBars
+                            items={Object.entries(analytics.age_bands).map(([label, value]) => ({ label, value }))}
+                            emptyMessage={`Not enough data to display groups (min ${analytics.min_cell_size} patients per group).`}
+                          />
+                        </div>
+                        <div>
+                          <p className="text-white/50 text-xs uppercase tracking-wider mb-4">Sex</p>
+                          <AnalyticsBars
+                            items={Object.entries(analytics.sex).map(([label, value]) => ({ label, value }))}
+                            emptyMessage={`Not enough data to display groups (min ${analytics.min_cell_size} patients per group).`}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <p className="text-white/30 text-xs">
+                      Groups with fewer than {analytics.min_cell_size} patients are hidden to protect privacy.
+                      {analytics.suppressed_groups > 0 && ` ${analytics.suppressed_groups} group(s) hidden.`}
+                    </p>
+                  </div>
+                )}
               </motion.div>
             )}
 
