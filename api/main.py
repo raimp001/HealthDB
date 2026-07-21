@@ -48,6 +48,7 @@ from .repositories import (
     UserRepository, PatientRepository, ClinicalDataRepository,
     CohortRepository, DataProductRepository, DataAccessLogRepository
 )
+from .deidentification import deidentify_record, find_residual_identifiers
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -555,18 +556,8 @@ def require_export_access(db: Session, study_id: str, user_id: str) -> "Study":
 
 
 def scrub_deidentified_data(value: Any) -> Any:
-    """Remove obvious direct identifiers from extracted record JSON"""
-    blocked = ("name", "email", "phone", "address", "ssn", "mrn", "dob", "birth", "zip", "contact")
-
-    if isinstance(value, dict):
-        return {
-            key: scrub_deidentified_data(item)
-            for key, item in value.items()
-            if not any(term in str(key).lower() for term in blocked)
-        }
-    if isinstance(value, list):
-        return [scrub_deidentified_data(item) for item in value]
-    return value
+    """Remove direct identifiers from extracted record JSON."""
+    return deidentify_record(value)
 
 
 def process_extraction_job(db: Session, job: ExtractionJob, study: Study, requester_user_id: str) -> None:
@@ -597,17 +588,16 @@ def process_extraction_job(db: Session, job: ExtractionJob, study: Study, reques
             ExtractedMedicalData.created_at,
         ).all()
 
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(["patient_pseudonym", "data_category", "data_type", "year", "quality_score", "data_json"])
-
     rows_by_patient: Dict[str, int] = {}
+    export_rows = []
+    scrubbed_records = []
     for record in records:
         patient_id = str(record.patient_id)
         rows_by_patient[patient_id] = rows_by_patient.get(patient_id, 0) + 1
         patient_pseudonym = "P-" + hashlib.sha256(f"{study.id}:{patient_id}".encode()).hexdigest()[:12]
-        scrubbed = scrub_deidentified_data(record.deidentified_data or {})
-        writer.writerow([
+        scrubbed = deidentify_record(record.deidentified_data or {})
+        scrubbed_records.append(scrubbed)
+        export_rows.append([
             patient_pseudonym,
             record.data_category,
             record.data_type or "",
@@ -615,6 +605,26 @@ def process_extraction_job(db: Session, job: ExtractionJob, study: Study, reques
             record.data_quality_score if record.data_quality_score is not None else "",
             json.dumps(scrubbed),
         ])
+
+    residual_count = sum(
+        len(find_residual_identifiers(scrubbed))
+        for scrubbed in scrubbed_records
+    )
+    if residual_count:
+        job.status = "failed"
+        job.error_message = (
+            "De-identification verification failed: "
+            f"{residual_count} potential identifier(s) detected; export blocked"
+        )
+        job.result_csv = None
+        job.completed_at = now
+        db.commit()
+        return
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["patient_pseudonym", "data_category", "data_type", "year", "quality_score", "data_json"])
+    writer.writerows(export_rows)
 
     job.result_csv = output.getvalue()
     job.status = "completed"
@@ -1347,13 +1357,15 @@ async def simulate_data_extraction(connection_id: str, patient_id: str):
         
         records_count = 0
         for category, data_type, data in data_categories:
+            # Real EMR connectors must de-identify each record before storage too.
+            scrubbed_data = deidentify_record(data)
             extracted = ExtractedMedicalData(
                 connection_id=connection_id,
                 patient_id=patient_id,
                 data_category=category,
                 data_type=data_type,
                 original_date=date.today() - timedelta(days=random.randint(30, 365)),
-                deidentified_data=data,
+                deidentified_data=scrubbed_data,
                 data_quality_score=random.uniform(75, 98),
                 is_verified=True,
                 verification_date=datetime.utcnow(),
@@ -2186,9 +2198,10 @@ async def create_extraction_job(
     db.refresh(job)
     process_extraction_job(db, job, study, token_data["sub"])
     db.refresh(job)
-    
+
+    failed = job.status == "failed"
     return {
-        "success": True,
+        "success": not failed,
         "job_id": str(job.id),
         "job_name": job.job_name,
         "status": job.status,
@@ -2196,7 +2209,11 @@ async def create_extraction_job(
         "variable_count": job.variable_count,
         "estimated_completion": estimated_completion.isoformat(),
         "download_url": job.download_url,
-        "message": "Extraction job completed. Data is ready for download.",
+        "message": (
+            job.error_message
+            if failed
+            else "Extraction job completed. Data is ready for download."
+        ),
     }
 
 
