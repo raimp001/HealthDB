@@ -115,6 +115,10 @@ security = HTTPBearer(auto_error=False)
 JWT_SECRET = os.environ.get("JWT_SECRET", "")
 JWT_ALGORITHM = "HS256"
 
+# HHS-style small-cell suppression; groups with fewer distinct patients are
+# hidden to prevent re-identification. Lower via env for demos/small datasets.
+MIN_AGGREGATE_CELL_SIZE = int(os.environ.get("MIN_AGGREGATE_CELL_SIZE", "11"))
+
 # Validate JWT secret at import time - must be set in production
 if not JWT_SECRET:
     if os.environ.get("ENVIRONMENT", "development") == "production":
@@ -728,6 +732,20 @@ def has_active_consent(db: Session, patient_id: str, consent_type: str) -> bool:
         Consent.consent_type == consent_type,
         Consent.status == "active",
     ).first() is not None
+
+
+def _consented_patient_ids(db: Session) -> List[str]:
+    """Return patients with active, unexpired research data sharing consent."""
+    now = datetime.utcnow()
+    patient_ids = db.query(PatientProfile.id).join(
+        Consent,
+        Consent.patient_id == PatientProfile.id,
+    ).filter(
+        Consent.consent_type == "research_data_sharing",
+        Consent.status == "active",
+        or_(Consent.expires_at == None, Consent.expires_at > now),
+    ).distinct().all()
+    return [str(patient_id) for (patient_id,) in patient_ids]
 
 
 def get_enrolled_count(db: Session, study_id: str) -> int:
@@ -1873,6 +1891,103 @@ async def create_study(
         eligibility_summary=study.eligibility_summary,
         enrolled_count=0,
     )
+
+
+@app.get("/api/researcher/analytics")
+async def get_research_analytics(
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    """Aggregate de-identified data from patients with current sharing consent."""
+    patient_ids = _consented_patient_ids(db)
+    empty_payload = {
+        "total_patients": 0,
+        "total_records": 0,
+        "records_by_category": {},
+        "diagnoses": [],
+        "treatments": [],
+        "age_bands": {},
+        "sex": {},
+        "min_cell_size": MIN_AGGREGATE_CELL_SIZE,
+        "suppressed_groups": 0,
+    }
+    if not patient_ids:
+        return empty_payload
+
+    records = db.query(ExtractedMedicalData).filter(
+        ExtractedMedicalData.patient_id.in_(patient_ids)
+    ).all()
+
+    records_by_category: Dict[str, int] = {}
+    diagnoses: Dict[str, set] = {}
+    treatments: Dict[str, set] = {}
+    age_bands: Dict[str, set] = {}
+    sex: Dict[str, set] = {}
+
+    for record in records:
+        category = record.data_category
+        records_by_category[category] = records_by_category.get(category, 0) + 1
+
+        data = record.deidentified_data
+        if isinstance(data, str):
+            try:
+                data = json.loads(data)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                continue
+        if not isinstance(data, dict):
+            continue
+
+        patient_id = str(record.patient_id)
+        if category == "diagnosis":
+            label = data.get("display") or data.get("cancer_type") or "Unknown"
+            diagnoses.setdefault(str(label), set()).add(patient_id)
+        elif category == "treatment":
+            label = data.get("medication") or data.get("procedure") or data.get("regimen") or "Unknown"
+            treatments.setdefault(str(label), set()).add(patient_id)
+        elif category == "demographics":
+            age_band = data.get("age_band") or data.get("age_range")
+            if age_band:
+                age_bands.setdefault(str(age_band), set()).add(patient_id)
+            sex_value = data.get("sex")
+            if sex_value:
+                sex.setdefault(str(sex_value), set()).add(patient_id)
+
+    def suppress(groups: Dict[str, set]) -> tuple[Dict[str, int], int]:
+        counts = {label: len(patient_set) for label, patient_set in groups.items()}
+        visible = {
+            label: count
+            for label, count in counts.items()
+            if count >= MIN_AGGREGATE_CELL_SIZE
+        }
+        return visible, len(counts) - len(visible)
+
+    visible_diagnoses, suppressed_diagnoses = suppress(diagnoses)
+    visible_treatments, suppressed_treatments = suppress(treatments)
+    visible_age_bands, suppressed_age_bands = suppress(age_bands)
+    visible_sex, suppressed_sex = suppress(sex)
+
+    def ranked_groups(groups: Dict[str, int]) -> List[Dict[str, Any]]:
+        return [
+            {"label": label, "patient_count": count}
+            for label, count in sorted(groups.items(), key=lambda item: (-item[1], item[0]))[:20]
+        ]
+
+    return {
+        "total_patients": len(patient_ids),
+        "total_records": len(records),
+        "records_by_category": dict(sorted(records_by_category.items())),
+        "diagnoses": ranked_groups(visible_diagnoses),
+        "treatments": ranked_groups(visible_treatments),
+        "age_bands": dict(sorted(visible_age_bands.items())),
+        "sex": dict(sorted(visible_sex.items())),
+        "min_cell_size": MIN_AGGREGATE_CELL_SIZE,
+        "suppressed_groups": (
+            suppressed_diagnoses
+            + suppressed_treatments
+            + suppressed_age_bands
+            + suppressed_sex
+        ),
+    }
 
 
 @app.get("/api/researcher/studies")
