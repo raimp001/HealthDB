@@ -915,6 +915,26 @@ const ResearcherDashboard = () => {
                       </div>
                     </div>
 
+                    <div className="card-glass p-6">
+                      <h3 className="text-sm uppercase tracking-wider text-white/40 mb-6">Real-World Outcomes</h3>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div>
+                          <p className="text-white/50 text-xs uppercase tracking-wider mb-4">Treatment Response</p>
+                          <AnalyticsBars
+                            items={(analytics.responses || []).map(item => ({ label: item.label, value: item.patient_count }))}
+                            emptyMessage={`Not enough data to display groups (min ${analytics.min_cell_size} patients per group).`}
+                          />
+                        </div>
+                        <div>
+                          <p className="text-white/50 text-xs uppercase tracking-wider mb-4">Vital Status</p>
+                          <AnalyticsBars
+                            items={Object.entries(analytics.vital_status || {}).map(([label, value]) => ({ label, value }))}
+                            emptyMessage={`Not enough data to display groups (min ${analytics.min_cell_size} patients per group).`}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
                     <p className="text-white/30 text-xs">
                       Groups with fewer than {analytics.min_cell_size} patients are hidden to protect privacy.
                       {analytics.suppressed_groups > 0 && ` ${analytics.suppressed_groups} group(s) hidden.`}

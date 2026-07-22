@@ -217,6 +217,25 @@ def parse_fhir_bundle(bundle: dict, ref_date=None) -> list[dict]:
                 }
                 records.append(_record("demographics", "patient", None, data))
 
+                # Vital status as a de-identified outcome (death year only, never
+                # a full death date). Emitted only when the bundle states it.
+                deceased_datetime = resource.get("deceasedDateTime")
+                if isinstance(deceased_datetime, str) and deceased_datetime.strip():
+                    records.append(_record("outcome", "vital_status", deceased_datetime, {
+                        "vital_status": "Deceased",
+                        "death_year": _year(deceased_datetime),
+                    }))
+                elif resource.get("deceasedBoolean") is True:
+                    records.append(_record("outcome", "vital_status", None, {
+                        "vital_status": "Deceased",
+                        "death_year": None,
+                    }))
+                elif resource.get("deceasedBoolean") is False:
+                    records.append(_record("outcome", "vital_status", None, {
+                        "vital_status": "Alive",
+                        "death_year": None,
+                    }))
+
             elif resource_type == "Condition":
                 code_concept = resource.get("code")
                 code, code_system = _coding_code(code_concept)
