@@ -1490,6 +1490,15 @@ async def simulate_data_extraction(connection_id: str, patient_id: str):
                 "mutations_found": random.randint(0, 5),
                 "has_actionable": random.choice([True, False]),
             }),
+            ("outcome", "treatment_response", {
+                "response": random.choice([
+                    "Complete Response", "Partial Response",
+                    "Stable Disease", "Progressive Disease",
+                ]),
+                "response_system": "RECIST",
+                "vital_status": random.choice(["Alive", "Deceased"]),
+                "assessment_year": random.randint(2020, 2024),
+            }),
         ]
         
         records_count = 0
@@ -1908,6 +1917,8 @@ async def get_research_analytics(
         "treatments": [],
         "age_bands": {},
         "sex": {},
+        "responses": [],
+        "vital_status": {},
         "min_cell_size": MIN_AGGREGATE_CELL_SIZE,
         "suppressed_groups": 0,
     }
@@ -1923,6 +1934,8 @@ async def get_research_analytics(
     treatments: Dict[str, set] = {}
     age_bands: Dict[str, set] = {}
     sex: Dict[str, set] = {}
+    responses: Dict[str, set] = {}
+    vital_status: Dict[str, set] = {}
 
     for record in records:
         category = record.data_category
@@ -1951,6 +1964,13 @@ async def get_research_analytics(
             sex_value = data.get("sex")
             if sex_value:
                 sex.setdefault(str(sex_value), set()).add(patient_id)
+        elif category == "outcome":
+            response = data.get("response")
+            if response:
+                responses.setdefault(str(response), set()).add(patient_id)
+            status = data.get("vital_status")
+            if status:
+                vital_status.setdefault(str(status), set()).add(patient_id)
 
     def suppress(groups: Dict[str, set]) -> tuple[Dict[str, int], int]:
         counts = {label: len(patient_set) for label, patient_set in groups.items()}
@@ -1965,6 +1985,8 @@ async def get_research_analytics(
     visible_treatments, suppressed_treatments = suppress(treatments)
     visible_age_bands, suppressed_age_bands = suppress(age_bands)
     visible_sex, suppressed_sex = suppress(sex)
+    visible_responses, suppressed_responses = suppress(responses)
+    visible_vital_status, suppressed_vital_status = suppress(vital_status)
 
     def ranked_groups(groups: Dict[str, int]) -> List[Dict[str, Any]]:
         return [
@@ -1980,12 +2002,16 @@ async def get_research_analytics(
         "treatments": ranked_groups(visible_treatments),
         "age_bands": dict(sorted(visible_age_bands.items())),
         "sex": dict(sorted(visible_sex.items())),
+        "responses": ranked_groups(visible_responses),
+        "vital_status": dict(sorted(visible_vital_status.items())),
         "min_cell_size": MIN_AGGREGATE_CELL_SIZE,
         "suppressed_groups": (
             suppressed_diagnoses
             + suppressed_treatments
             + suppressed_age_bands
             + suppressed_sex
+            + suppressed_responses
+            + suppressed_vital_status
         ),
     }
 
