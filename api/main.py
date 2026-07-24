@@ -1908,7 +1908,11 @@ async def get_research_analytics(
     db: Session = Depends(get_db),
 ):
     """Aggregate de-identified data from patients with current sharing consent."""
-    patient_ids = _consented_patient_ids(db)
+    return _compute_analytics(db, _consented_patient_ids(db))
+
+
+def _compute_analytics(db: Session, patient_ids: List[str]) -> Dict[str, Any]:
+    """Build consent-gated, small-cell-suppressed aggregates for a patient set."""
     empty_payload = {
         "total_patients": 0,
         "total_records": 0,
@@ -2014,6 +2018,33 @@ async def get_research_analytics(
             + suppressed_vital_status
         ),
     }
+
+
+@app.get("/api/researcher/studies/{study_id}/analytics")
+async def get_study_analytics(
+    study_id: str,
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    """Aggregate outcomes for a study's enrolled, consented participants.
+    Restricted to the study PI and accepted collaborators."""
+    require_study_access(db, study_id, token_data["sub"])
+
+    now = datetime.utcnow()
+    rows = db.query(PatientProfile.id).join(
+        StudyEnrollment, StudyEnrollment.patient_id == PatientProfile.id,
+    ).join(
+        Consent, Consent.patient_id == PatientProfile.id,
+    ).filter(
+        StudyEnrollment.study_id == study_id,
+        StudyEnrollment.status == "enrolled",
+        Consent.consent_type == "research_data_sharing",
+        Consent.status == "active",
+        or_(Consent.expires_at == None, Consent.expires_at > now),
+    ).distinct().all()
+    patient_ids = [str(pid) for (pid,) in rows]
+
+    return _compute_analytics(db, patient_ids)
 
 
 @app.get("/api/researcher/studies")
