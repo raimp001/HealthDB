@@ -49,6 +49,7 @@ const ResearcherDashboard = () => {
   const [savedCohorts, setSavedCohorts] = useState([]);
   const [studies, setStudies] = useState([]);
   const [analytics, setAnalytics] = useState(null);
+  const [analyticsScope, setAnalyticsScope] = useState('all');
   const [loading, setLoading] = useState(true);
   const [showVariableSelector, setShowVariableSelector] = useState(false);
   const [isCreatingStudy, setIsCreatingStudy] = useState(false);
@@ -164,6 +165,24 @@ const ResearcherDashboard = () => {
 
     fetchData();
   }, [navigate, fetchData]);
+
+  const fetchAnalytics = useCallback(async (scope) => {
+    const token = sessionStorage.getItem('token');
+    const url = scope === 'all'
+      ? `${API_URL}/api/researcher/analytics`
+      : `${API_URL}/api/researcher/studies/${scope}/analytics`;
+    setAnalytics(null);
+    try {
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) setAnalytics(await res.json());
+    } catch (err) {
+      console.error('Failed to fetch analytics:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'analytics') fetchAnalytics(analyticsScope);
+  }, [activeTab, analyticsScope, fetchAnalytics]);
 
   useEffect(() => {
     if (activeTab !== 'regulatory') return;
@@ -838,6 +857,28 @@ const ResearcherDashboard = () => {
                 <div className="mb-8">
                   <h2 className="text-lg font-medium text-white mb-2">Research Analytics</h2>
                   <p className="text-white/40 text-sm">Aggregate insights across consented, de-identified contributions.</p>
+                </div>
+
+                <div className="flex flex-wrap gap-2 mb-8">
+                  <button
+                    onClick={() => setAnalyticsScope('all')}
+                    className={`px-4 py-2 text-xs uppercase tracking-wider transition-colors ${
+                      analyticsScope === 'all' ? 'bg-white text-black' : 'bg-transparent text-white/50 border border-white/20 hover:border-white/40'
+                    }`}
+                  >
+                    All Consented Data
+                  </button>
+                  {studies.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => setAnalyticsScope(s.id)}
+                      className={`px-4 py-2 text-xs uppercase tracking-wider transition-colors ${
+                        analyticsScope === s.id ? 'bg-white text-black' : 'bg-transparent text-white/50 border border-white/20 hover:border-white/40'
+                      }`}
+                    >
+                      {s.name}
+                    </button>
+                  ))}
                 </div>
 
                 {!analytics ? (
