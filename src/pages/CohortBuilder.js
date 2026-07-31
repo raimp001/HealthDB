@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+
+const API_URL = process.env.NODE_ENV === 'production' ? '' : (process.env.REACT_APP_API_URL || 'http://localhost:8000');
 
 const CohortBuilder = () => {
   const [step, setStep] = useState(1);
@@ -19,6 +21,9 @@ const CohortBuilder = () => {
     outcomes: ['pfs', 'os']
   });
   const [feasibilityRun, setFeasibilityRun] = useState(false);
+  const [cohortResult, setCohortResult] = useState(null);
+  const [institutions, setInstitutions] = useState([]);
+  const [queryError, setQueryError] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
   const [showAddRule, setShowAddRule] = useState(null); // 'inclusion' or 'exclusion'
   const [newRule, setNewRule] = useState({ field: '', operator: 'IS', value: '' });
@@ -159,12 +164,6 @@ const CohortBuilder = () => {
     }
   ];
 
-  const institutions = [
-    { name: 'OHSU Knight', n: 847, completeness: 92, status: 'active' },
-    { name: 'Fred Hutchinson', n: 512, completeness: 87, status: 'pending' },
-    { name: 'Emory Winship', n: 234, completeness: 78, status: 'setup' }
-  ];
-
   const variables = {
     demographics: [
       { id: 'age_at_dx', label: 'Age at Diagnosis', completeness: 99 },
@@ -258,13 +257,41 @@ const CohortBuilder = () => {
     setStudyName(preset.name);
   };
 
-  // Run feasibility
-  const runFeasibility = () => {
+  // Load real partner institutions
+  useEffect(() => {
+    fetch(`${API_URL}/api/institutions`)
+      .then(res => (res.ok ? res.json() : []))
+      .then(setInstitutions)
+      .catch(() => setInstitutions([]));
+  }, []);
+
+  // Run feasibility against the live cohort API
+  const runFeasibility = async () => {
     setIsRunning(true);
-    setTimeout(() => {
+    setQueryError(null);
+    const token = sessionStorage.getItem('token');
+    const cancerTypes = inclusions
+      .filter(r => r.field === 'diagnosis')
+      .map(r => String(r.value).replace(/\s*\([^)]*\)\s*$/, '').trim())
+      .filter(Boolean);
+    try {
+      const response = await fetch(`${API_URL}/api/cohort/build`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ cancer_types: cancerTypes.length > 0 ? cancerTypes : null }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setCohortResult(data);
+        setFeasibilityRun(true);
+      } else {
+        setQueryError(data.detail || 'Failed to run feasibility query.');
+      }
+    } catch (err) {
+      setQueryError('Failed to reach the server. Please sign in and try again.');
+    } finally {
       setIsRunning(false);
-      setFeasibilityRun(true);
-    }, 1500);
+    }
   };
 
   // Calculate total selected variables
@@ -465,6 +492,9 @@ const CohortBuilder = () => {
               <div className="bg-white/5 border border-white/10 p-5">
                 <h2 className="font-medium mb-4">Feasibility</h2>
                 
+                {queryError && (
+                  <p className="text-red-400 text-xs mb-3">{queryError}</p>
+                )}
                 {!feasibilityRun ? (
                   <button 
                     onClick={runFeasibility}
@@ -482,36 +512,40 @@ const CohortBuilder = () => {
                 ) : (
                   <>
                     <div className="text-center mb-4">
-                      <div className="text-4xl font-bold text-emerald-400">1,593</div>
+                      <div className="text-4xl font-bold text-emerald-400">
+                        {(cohortResult?.patient_count ?? 0).toLocaleString()}
+                      </div>
                       <div className="text-white/40 text-sm">eligible patients</div>
                     </div>
-                    
-                    <div className="space-y-3">
-                      {institutions.map((inst, i) => (
-                        <div key={i} className="bg-white/5 p-3">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm font-medium">{inst.name}</span>
-                            <span className={`text-xs px-1.5 py-0.5 ${
-                              inst.status === 'active' ? 'bg-emerald-500/20 text-emerald-400' :
-                              inst.status === 'pending' ? 'bg-amber-500/20 text-amber-400' :
-                              'bg-white/10 text-white/40'
-                            }`}>
-                              {inst.status}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-white/40">N = {inst.n}</span>
-                            <span className="text-white/30">{inst.completeness}%</span>
-                          </div>
-                          <div className="mt-2 h-1 bg-white/10 overflow-hidden">
-                            <div 
-                              className="h-full bg-emerald-500"
-                              style={{ width: `${inst.completeness}%` }}
-                            />
-                          </div>
+
+                    <div className="space-y-2 mb-4">
+                      {[
+                        ['Diagnoses', cohortResult?.diagnosis_count],
+                        ['Treatments', cohortResult?.treatment_count],
+                        ['Molecular', cohortResult?.molecular_count],
+                        ['Data points', cohortResult?.data_points],
+                      ].map(([label, value]) => (
+                        <div key={label} className="flex items-center justify-between text-sm">
+                          <span className="text-white/40">{label}</span>
+                          <span className="text-white font-mono">{(value ?? 0).toLocaleString()}</span>
                         </div>
                       ))}
                     </div>
+
+                    {institutions.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="text-xs uppercase tracking-wider text-white/40">Partner institutions</div>
+                        {institutions.map(inst => (
+                          <div key={inst.id} className="bg-white/5 p-3 text-sm">
+                            <div className="font-medium">{inst.name}</div>
+                            <div className="text-white/30 text-xs">
+                              {[inst.city, inst.state].filter(Boolean).join(', ')}
+                              {inst.emr_system ? ` \u00b7 ${inst.emr_system}` : ''}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </>
                 )}
                 
@@ -662,8 +696,10 @@ const CohortBuilder = () => {
               {/* Cohort Summary */}
               <div className="bg-white/5 border border-white/10 p-5">
                 <h3 className="text-sm font-medium mb-3">Cohort</h3>
-                <div className="text-2xl font-bold text-emerald-400 mb-1">1,593</div>
-                <div className="text-xs text-white/40">patients across 3 sites</div>
+                <div className="text-2xl font-bold text-emerald-400 mb-1">{(cohortResult?.patient_count ?? 0).toLocaleString()}</div>
+                <div className="text-xs text-white/40">
+                  patients{institutions.length > 0 ? ` across ${institutions.length} sites` : ''}
+                </div>
               </div>
             </div>
           </div>
@@ -780,7 +816,7 @@ const CohortBuilder = () => {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-white/40">Patients</span>
-                    <span>1,593</span>
+                    <span>{(cohortResult?.patient_count ?? 0).toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-white/40">Variables</span>
@@ -872,7 +908,7 @@ const CohortBuilder = () => {
                   <h3 className="text-sm font-medium mb-3">Extraction Summary</h3>
                   <div className="grid grid-cols-3 gap-4 text-center">
                     <div>
-                      <div className="text-2xl font-bold text-emerald-400">1,593</div>
+                      <div className="text-2xl font-bold text-emerald-400">{(cohortResult?.patient_count ?? 0).toLocaleString()}</div>
                       <div className="text-xs text-white/40">Patients</div>
                     </div>
                     <div>
@@ -912,7 +948,7 @@ const CohortBuilder = () => {
                 </div>
                 <h2 className="text-xl font-semibold mb-2">Extraction Queued</h2>
                 <p className="text-white/40 mb-6">
-                  1,593 patients · {totalVars} variables · Est. completion: 2 days
+                  {(cohortResult?.patient_count ?? 0).toLocaleString()} patients · {totalVars} variables
                 </p>
                 
                 <div className="bg-white/5 p-4 text-left mb-6">

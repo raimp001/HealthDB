@@ -589,6 +589,25 @@ class StudyEnrollment(Base):
     patient = relationship("PatientProfile", back_populates="study_enrollments")
 
 
+class ContactSubmission(Base):
+    """Contact form and data-product inquiry submissions"""
+    __tablename__ = "contact_submissions"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    name = Column(String(255), nullable=False)
+    email = Column(String(255), nullable=False)
+    organization = Column(String(255))
+    message = Column(Text)
+    interest_type = Column(String(100))
+    submission_type = Column(String(50), default="contact")  # contact, product_inquiry
+    product_id = Column(String(36), ForeignKey("data_products.id"))
+    status = Column(String(50), default="new")  # new, contacted, closed
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    product = relationship("DataProduct")
+
+
 class DiseaseVariableSet(Base):
     """Pre-defined variable sets for specific diseases"""
     __tablename__ = "disease_variable_sets"

@@ -931,9 +931,8 @@ const PatientPortal = () => {
                 <p className="text-white/40 text-sm mb-6">Choose how you'd like to connect your medical records:</p>
                 
                 {[
-                  { type: 'epic_mychart', name: 'Epic MyChart', icon: '🏥', desc: 'Connect via MyChart patient portal' },
-                  { type: 'cerner_patient_portal', name: 'Cerner', icon: '🏨', desc: 'Connect via Cerner patient portal' },
-                  { type: 'manual_upload', name: 'Manual Upload', icon: '📄', desc: 'Upload medical records manually' },
+                  { type: 'epic_mychart', name: 'Epic MyChart (demo)', icon: '🏥', desc: 'Preview the flow with sample data — no real EMR connection yet' },
+                  { type: 'cerner_patient_portal', name: 'Cerner (demo)', icon: '🏨', desc: 'Preview the flow with sample data — no real EMR connection yet' },
                 ].map((source) => (
                   <button
                     key={source.type}

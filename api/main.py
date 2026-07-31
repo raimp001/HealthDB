@@ -20,6 +20,7 @@ import io
 import json
 import secrets
 from jose import jwt
+from jose.exceptions import ExpiredSignatureError, JWTError
 import re
 import logging
 
@@ -42,7 +43,7 @@ from .models import (
     MedicalRecordConnection, ExtractedMedicalData, RewardsTransaction,
     Study, RegulatorySubmission, ExtractionJob, EMRConnection, Institution,
     StudyCollaborator, StudyDocument, StudyComment, DiseaseVariableSet,
-    StudyEnrollment
+    StudyEnrollment, ContactSubmission
 )
 from .repositories import (
     UserRepository, PatientRepository, ClinicalDataRepository,
@@ -487,9 +488,12 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) 
     try:
         payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         return payload
-    except jwt.ExpiredSignatureError:
+    except ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError:
+    except JWTError:
+        # Base class for every jose decode failure (malformed, bad signature,
+        # bad claims). Without this an invalid token raised an unhandled 500,
+        # which also stripped CORS headers and surfaced as a browser CORS error.
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
@@ -1745,13 +1749,23 @@ async def submit_inquiry(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    # TODO: Send email notification, create CRM record
-    # background_tasks.add_task(send_inquiry_email, contact, product)
+    submission = ContactSubmission(
+        name=contact.name,
+        email=contact.email,
+        organization=contact.organization,
+        message=contact.message,
+        interest_type=contact.interest_type,
+        submission_type="product_inquiry",
+        product_id=str(product.id),
+    )
+    db.add(submission)
+    db.commit()
 
     return {
         "status": "success",
         "message": "Thank you for your inquiry. Our team will contact you within 24 hours.",
         "product_name": product.name,
+        "inquiry_id": str(submission.id),
     }
 
 
@@ -3137,12 +3151,21 @@ async def submit_contact(
     db: Session = Depends(get_db)
 ):
     """Submit contact form"""
-    # TODO: Store in database, send email
-    # background_tasks.add_task(send_contact_email, contact)
+    submission = ContactSubmission(
+        name=contact.name,
+        email=contact.email,
+        organization=contact.organization,
+        message=contact.message,
+        interest_type=contact.interest_type,
+        submission_type="contact",
+    )
+    db.add(submission)
+    db.commit()
 
     return {
         "status": "success",
         "message": "Thank you for reaching out. We'll respond within 24 hours.",
+        "submission_id": str(submission.id),
     }
 
 
