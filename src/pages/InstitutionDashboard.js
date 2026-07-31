@@ -267,13 +267,7 @@ const IRBTab = ({ protocols }) => {
     draft: 'bg-white/10 text-white/60'
   };
 
-  // Mock data for demo
-  const demoProtocols = protocols.length > 0 ? protocols : [
-    { id: '1', protocol_number: 'HEALTHDB-2024-001', name: 'Multiple Myeloma Registry', status: 'approved', approved_at: '2024-01-15', expires_at: '2025-01-15' },
-    { id: '2', protocol_number: 'HEALTHDB-2024-002', name: 'CAR-T Outcomes Study', status: 'approved', approved_at: '2024-02-20', expires_at: '2025-02-20' },
-    { id: '3', protocol_number: 'HEALTHDB-2024-003', name: 'AML Treatment Patterns', status: 'under_review', submitted_at: '2024-03-01' },
-    { id: '4', protocol_number: 'HEALTHDB-2024-004', name: 'DLBCL Real-World Evidence', status: 'draft' }
-  ];
+  const demoProtocols = protocols;
 
   return (
     <div>
@@ -303,6 +297,11 @@ const IRBTab = ({ protocols }) => {
           <div className="col-span-2">Approval Date</div>
           <div className="col-span-2">Expires</div>
         </div>
+        {demoProtocols.length === 0 && (
+          <div className="p-8 text-center text-white/40 text-sm border-t border-white/5">
+            No IRB protocols yet. Protocols submitted for your institution's studies appear here.
+          </div>
+        )}
         {demoProtocols.map((protocol, i) => (
           <div 
             key={protocol.id} 
@@ -353,14 +352,7 @@ const AgreementsTab = ({ agreements }) => {
     draft: 'bg-white/10 text-white/60'
   };
 
-  // Mock data for demo
-  const demoAgreements = agreements.length > 0 ? agreements : [
-    { id: '1', document_type: 'dua', name: 'HealthDB Master DUA', status: 'signed', signed_at: '2024-01-01', expires_at: '2026-01-01', counterparty: 'HealthDB Inc.' },
-    { id: '2', document_type: 'baa', name: 'HIPAA BAA', status: 'signed', signed_at: '2024-01-01', expires_at: '2026-01-01', counterparty: 'HealthDB Inc.' },
-    { id: '3', document_type: 'reliance', name: 'Fred Hutch Reliance', status: 'signed', signed_at: '2024-02-15', counterparty: 'Fred Hutchinson Cancer Center' },
-    { id: '4', document_type: 'reliance', name: 'Emory Reliance', status: 'pending', counterparty: 'Emory University' },
-    { id: '5', document_type: 'dua', name: 'MM Registry DUA', status: 'under_review', counterparty: 'Multi-site consortium' }
-  ];
+  const demoAgreements = agreements;
 
   return (
     <div>
@@ -384,6 +376,11 @@ const AgreementsTab = ({ agreements }) => {
           <h3 className="font-medium">All Agreements</h3>
           <button className="text-xs text-blue-400 hover:underline">New Agreement</button>
         </div>
+        {demoAgreements.length === 0 && (
+          <div className="p-8 text-center text-white/40 text-sm border-t border-white/5">
+            No agreements yet. DUAs, BAAs, and reliance agreements for your institution appear here.
+          </div>
+        )}
         {demoAgreements.map((agreement, i) => (
           <div 
             key={agreement.id} 
@@ -419,10 +416,7 @@ const EMRTab = ({ connections }) => {
     { name: 'athenahealth', status: 'available', icon: 'A' }
   ];
 
-  // Mock connections for demo
-  const demoConnections = connections.length > 0 ? connections : [
-    { id: '1', emr_vendor: 'Epic', connection_type: 'fhir_r4', status: 'active', last_sync: '2024-03-10T10:30:00Z', patient_count: 12453 },
-  ];
+  const demoConnections = connections;
 
   const statusColors = {
     active: 'bg-green-400/10 text-green-400',
@@ -522,12 +516,7 @@ const EMRTab = ({ connections }) => {
 
 // Collaborations Tab
 const CollaborationsTab = ({ collaborations }) => {
-  // Mock data for demo
-  const demoCollaborations = collaborations.length > 0 ? collaborations : [
-    { id: '1', study_name: 'MM Registry Phase 2', pi: 'Dr. Smith (OHSU)', role: 'Data Provider', status: 'active', patient_contributed: 234 },
-    { id: '2', study_name: 'CAR-T Real World Outcomes', pi: 'Dr. Johnson (Fred Hutch)', role: 'Collaborating Site', status: 'active', patient_contributed: 156 },
-    { id: '3', study_name: 'DLBCL Treatment Patterns', pi: 'Dr. Williams (Emory)', role: 'Lead Site', status: 'pending', patient_contributed: 0 },
-  ];
+  const demoCollaborations = collaborations;
 
   const statusColors = {
     active: 'bg-green-400/10 text-green-400',
@@ -544,6 +533,11 @@ const CollaborationsTab = ({ collaborations }) => {
           <h3 className="font-medium">Study Collaborations</h3>
           <span className="text-xs text-white/40">{demoCollaborations.length} total</span>
         </div>
+        {demoCollaborations.length === 0 && (
+          <div className="p-8 text-center text-white/40 text-sm border-t border-white/5">
+            No collaborations yet. Studies you join as a participating site appear here.
+          </div>
+        )}
         {demoCollaborations.map((collab, i) => (
           <div 
             key={collab.id} 
