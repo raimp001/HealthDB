@@ -34,3 +34,6 @@ data/*.db
 .idea/
 *.swp
 *.swo
+
+# Build caches (regenerated on every build)
+node_modules/.cache/
