@@ -211,9 +211,9 @@ const ForInstitutions = () => {
             <Link to="/register" className="px-8 py-3 bg-white text-black font-medium hover:bg-gray-100 transition-colors">
               Get Started
             </Link>
-            <a href="https://calendly.com/healthdb/institutions" className="px-8 py-3 border border-white/20 hover:bg-white/5 transition-colors">
-              Schedule Call
-            </a>
+            <Link to="/contact" className="px-8 py-3 border border-white/20 hover:bg-white/5 transition-colors">
+              Talk to Us
+            </Link>
           </div>
         </div>
       </section>

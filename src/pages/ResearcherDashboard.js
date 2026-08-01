@@ -222,8 +222,10 @@ const ResearcherDashboard = () => {
           diagnosis_count: data.diagnosis_count,
           treatment_count: data.treatment_count,
           molecular_count: data.molecular_count,
-          institutions: data.institutions || ['OHSU Knight', 'Fred Hutch'],
-          data_completeness: data.data_completeness || 0.87,
+          institutions: data.institutions || [],
+          data_completeness: data.data_completeness ?? 0,
+          suppressed: data.suppressed,
+          min_cell_size: data.min_cell_size,
           criteria: cohortCriteria,
         });
       } else {
@@ -780,8 +782,16 @@ const ResearcherDashboard = () => {
                               {cohortResult.patient_count.toLocaleString()}
                             </p>
                             <p className="text-white/30 text-sm mt-1">
-                              across {cohortResult.institutions.length} institutions
+                              {cohortResult.institutions.length > 0
+                                ? `across ${cohortResult.institutions.length} participating institutions`
+                                : 'no participating institutions registered yet'}
                             </p>
+                            {cohortResult.suppressed && (
+                              <p className="text-amber-400 text-xs mt-2">
+                                A cohort exists but is smaller than the {cohortResult.min_cell_size}-patient
+                                reporting floor, so the exact count is withheld. Broaden your criteria.
+                              </p>
+                            )}
                           </div>
 
                           <div>
@@ -1281,14 +1291,14 @@ const ResearcherDashboard = () => {
                         {extractionJobs.length > 0 ? (
                           <div className="space-y-2">
                             {extractionJobs.map((job) => (
-                              <div key={job.id} className="flex items-center justify-between gap-4 py-3 border-b border-white/5 last:border-b-0">
-                                <div>
-                                  <p className="text-white/80 text-sm">{job.job_name}</p>
+                              <div key={job.id} className="flex flex-wrap items-center justify-between gap-3 py-3 border-b border-white/5 last:border-b-0">
+                                <div className="min-w-0">
+                                  <p className="text-white/80 text-sm break-all">{job.job_name}</p>
                                   <p className="text-white/30 text-xs">
                                     {job.patient_count || 0} patient{job.patient_count === 1 ? '' : 's'} • {new Date(job.created_at).toLocaleDateString()}
                                   </p>
                                 </div>
-                                <div className="flex items-center gap-3">
+                                <div className="flex flex-wrap items-center gap-3">
                                   <span className={`px-2 py-0.5 text-xs uppercase ${jobStatusStyle(job.status)}`}>{job.status}</span>
                                   {job.status === 'completed' && job.download_url && (
                                     <button

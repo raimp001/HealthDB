@@ -142,37 +142,6 @@ const PatientPortal = () => {
     }
   };
 
-  const handleConnectRecords = async (sourceType, sourceName) => {
-    setIsSubmitting(true);
-    try {
-      const response = await fetch(`${API_URL}/api/patient/connections`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          source_type: sourceType,
-          source_name: sourceName,
-        }),
-      });
-
-      const data = await response.json();
-      if (response.ok) {
-        setShowConnectionModal(false);
-        alert(data.message);
-        // Poll for completion
-        setTimeout(() => fetchData(), 3000);
-      } else {
-        alert(data.detail || 'Failed to connect records');
-      }
-    } catch (err) {
-      alert('Error connecting records. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleFHIRUpload = async (event) => {
     const file = event.target.files?.[0];
     event.target.value = '';
@@ -928,30 +897,17 @@ const PatientPortal = () => {
                 </button>
               </div>
               <div className="p-6 space-y-4">
-                <p className="text-white/40 text-sm mb-6">Choose how you'd like to connect your medical records:</p>
-                
-                {[
-                  { type: 'epic_mychart', name: 'Epic MyChart (demo)', icon: '🏥', desc: 'Preview the flow with sample data — no real EMR connection yet' },
-                  { type: 'cerner_patient_portal', name: 'Cerner (demo)', icon: '🏨', desc: 'Preview the flow with sample data — no real EMR connection yet' },
-                ].map((source) => (
-                  <button
-                    key={source.type}
-                    onClick={() => handleConnectRecords(source.type, source.name)}
-                    disabled={isSubmitting}
-                    className="w-full card-glass card-hover p-4 text-left flex items-center gap-4 disabled:opacity-50"
-                  >
-                    <span className="text-2xl">{source.icon}</span>
-                    <div>
-                      <p className="text-white font-medium">{source.name}</p>
-                      <p className="text-white/40 text-sm">{source.desc}</p>
-                    </div>
-                  </button>
-                ))}
+                <p className="text-white/40 text-sm mb-6">
+                  Upload a FHIR export of your own records. Under your HIPAA right of access, your
+                  provider must give you a machine-readable copy on request.
+                </p>
 
                 <label className={`w-full card-glass card-hover p-4 text-left flex items-center gap-4 cursor-pointer ${isSubmitting ? 'opacity-50 pointer-events-none' : ''}`}>
                   <span className="text-2xl">⬆️</span>
                   <div>
-                    <p className="text-white font-medium">Upload health records (FHIR export)</p>
+                    <p className="text-white font-medium">
+                      {isSubmitting ? 'Importing…' : 'Upload health records (FHIR export)'}
+                    </p>
                     <p className="text-white/40 text-sm">Choose a JSON file exported by your patient portal</p>
                   </div>
                   <input
@@ -962,8 +918,20 @@ const PatientPortal = () => {
                     className="hidden"
                   />
                 </label>
+
+                <div className="border border-white/10 p-4 space-y-2">
+                  <p className="text-white/60 text-xs uppercase tracking-wider">How to get your file</p>
+                  <ol className="text-white/40 text-xs leading-relaxed space-y-1 list-decimal list-inside">
+                    <li>Epic MyChart: Menu → Sharing → Download My Record → Download (FHIR JSON).</li>
+                    <li>Apple Health (iOS): Profile → Export All Health Data, then use the FHIR clinical records file.</li>
+                    <li>Any portal: request your records in "USCDI / FHIR JSON" format.</li>
+                  </ol>
+                </div>
+
                 <p className="text-white/40 text-xs leading-relaxed">
-                  Export your records as FHIR from your patient portal (Epic MyChart, Apple Health, etc.) and upload the file. Data is de-identified on upload.
+                  Your file is de-identified in transit: names, addresses, contact details, record
+                  numbers and exact dates are stripped before anything is stored. Only coded clinical
+                  facts (conditions, medications, procedures, labs), age bands and years are kept.
                 </p>
               </div>
             </motion.div>

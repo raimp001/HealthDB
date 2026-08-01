@@ -156,9 +156,9 @@ const Pricing = () => {
           <h2 className="text-2xl font-bold mb-4">Get started</h2>
           <p className="text-white/40 mb-8">Schedule a demo to see HealthDB in action</p>
           <div className="flex gap-4 justify-center">
-            <a href="https://calendly.com/healthdb/demo" className="px-8 py-3 bg-emerald-500 text-black font-medium hover:bg-emerald-400 transition-colors">
-              Schedule Demo
-            </a>
+            <Link to="/contact" className="px-8 py-3 bg-emerald-500 text-black font-medium hover:bg-emerald-400 transition-colors">
+              Talk to Us
+            </Link>
             <a href="mailto:contact@healthdb.ai" className="px-8 py-3 border border-white/20 hover:bg-white/5 transition-colors">
               Contact
             </a>

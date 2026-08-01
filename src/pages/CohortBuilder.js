@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -7,19 +7,9 @@ const API_URL = process.env.NODE_ENV === 'production' ? '' : (process.env.REACT_
 const CohortBuilder = () => {
   const [step, setStep] = useState(1);
   const [studyName, setStudyName] = useState('');
-  const [inclusions, setInclusions] = useState([
-    { id: 1, field: 'diagnosis', operator: 'IS', value: 'Multiple Myeloma (C90.0)' },
-    { id: 2, field: 'treatment', operator: 'INCLUDES', value: 'Bispecific antibody' }
-  ]);
-  const [exclusions, setExclusions] = useState([
-    { id: 1, field: 'prior_cart', operator: 'IS', value: 'TRUE', enabled: true }
-  ]);
-  const [selectedVars, setSelectedVars] = useState({
-    demographics: ['age_at_dx', 'sex'],
-    labs: ['hemoglobin', 'ldh', 'b2m'],
-    staging: ['iss', 'riss'],
-    outcomes: ['pfs', 'os']
-  });
+  const [inclusions, setInclusions] = useState([]);
+  const [exclusions, setExclusions] = useState([]);
+  const [selectedVars, setSelectedVars] = useState({});
   const [feasibilityRun, setFeasibilityRun] = useState(false);
   const [cohortResult, setCohortResult] = useState(null);
   const [institutions, setInstitutions] = useState([]);
@@ -118,33 +108,18 @@ const CohortBuilder = () => {
     }
   };
 
-  // Disease presets
+  // Query templates: one-click starting criteria. These fill the query form only;
+  // they carry no data of their own.
   const diseasePresets = [
     {
       name: 'Multiple Myeloma Registry',
-      inclusions: [
-        { field: 'diagnosis', operator: 'IS', value: 'Multiple Myeloma (C90.0)' }
-      ],
-      exclusions: [],
-      variables: {
-        demographics: ['age_at_dx', 'sex', 'race'],
-        labs: ['hemoglobin', 'creatinine', 'ldh', 'b2m', 'albumin'],
-        staging: ['iss', 'riss'],
-        cytogenetics: ['del17p', 't_4_14', 't_14_16', 'gain_1q'],
-        outcomes: ['pfs', 'os', 'best_response']
-      }
+      inclusions: [{ field: 'diagnosis', operator: 'IS', value: 'Multiple Myeloma (C90.0)' }],
+      exclusions: []
     },
     {
       name: 'CAR-T Outcomes',
-      inclusions: [
-        { field: 'treatment', operator: 'INCLUDES', value: 'CAR-T therapy' }
-      ],
-      exclusions: [],
-      variables: {
-        demographics: ['age_at_dx', 'sex'],
-        labs: ['ldh', 'crp', 'ferritin'],
-        outcomes: ['pfs', 'os', 'crs_grade', 'icans_grade', 'best_response']
-      }
+      inclusions: [{ field: 'treatment', operator: 'INCLUDES', value: 'CAR-T therapy' }],
+      exclusions: []
     },
     {
       name: 'Bispecific Antibody Study',
@@ -152,69 +127,23 @@ const CohortBuilder = () => {
         { field: 'diagnosis', operator: 'IS', value: 'Multiple Myeloma (C90.0)' },
         { field: 'treatment', operator: 'INCLUDES', value: 'Bispecific antibody' }
       ],
-      exclusions: [
-        { field: 'prior_cart', operator: 'IS', value: 'TRUE', enabled: true }
-      ],
-      variables: {
-        demographics: ['age_at_dx', 'sex'],
-        labs: ['hemoglobin', 'ldh', 'b2m'],
-        staging: ['iss', 'riss'],
-        outcomes: ['pfs', 'os', 'crs_grade', 'icans_grade']
-      }
+      exclusions: [{ field: 'prior_cart', operator: 'IS', value: 'TRUE', enabled: true }]
     }
   ];
 
-  const variables = {
-    demographics: [
-      { id: 'age_at_dx', label: 'Age at Diagnosis', completeness: 99 },
-      { id: 'sex', label: 'Sex', completeness: 99 },
-      { id: 'race', label: 'Race/Ethnicity', completeness: 85 },
-      { id: 'zip_3digit', label: 'ZIP (3-digit)', completeness: 92 }
-    ],
-    labs: [
-      { id: 'hemoglobin', label: 'Hemoglobin', completeness: 94 },
-      { id: 'creatinine', label: 'Creatinine', completeness: 93 },
-      { id: 'ldh', label: 'LDH', completeness: 78 },
-      { id: 'b2m', label: 'Beta-2 Microglobulin', completeness: 72 },
-      { id: 'albumin', label: 'Albumin', completeness: 89 },
-      { id: 'flc_kappa', label: 'FLC Kappa', completeness: 65 },
-      { id: 'flc_lambda', label: 'FLC Lambda', completeness: 65 }
-    ],
-    staging: [
-      { id: 'iss', label: 'ISS Stage', completeness: 82 },
-      { id: 'riss', label: 'R-ISS Stage', completeness: 68 },
-      { id: 'bone_lesions', label: 'Bone Lesions', completeness: 71 },
-      { id: 'extramedullary', label: 'Extramedullary Disease', completeness: 59 }
-    ],
-    treatments: [
-      { id: 'regimen', label: 'Regimen Name', completeness: 95 },
-      { id: 'start_date', label: 'Start Date', completeness: 97 },
-      { id: 'stop_date', label: 'Stop Date', completeness: 88 },
-      { id: 'cycles', label: 'Cycles Completed', completeness: 75 },
-      { id: 'best_response', label: 'Best Response', completeness: 82 }
-    ],
-    outcomes: [
-      { id: 'pfs', label: 'Progression-Free Survival', completeness: 76 },
-      { id: 'os', label: 'Overall Survival', completeness: 89 },
-      { id: 'crs_grade', label: 'CRS Grade', completeness: 91 },
-      { id: 'icans_grade', label: 'ICANS Grade', completeness: 88 },
-      { id: 'infections', label: 'Infections', completeness: 67 }
-    ],
-    cytogenetics: [
-      { id: 'del17p', label: 'del(17p)', completeness: 74 },
-      { id: 't_4_14', label: 't(4;14)', completeness: 72 },
-      { id: 't_14_16', label: 't(14;16)', completeness: 68 },
-      { id: 'gain_1q', label: 'gain(1q)', completeness: 65 },
-      { id: 't_11_14', label: 't(11;14)', completeness: 62 }
-    ]
-  };
+  // Variable inventory, measured from the records consented patients actually
+  // contributed. Loaded from the API — nothing here is assumed or estimated.
+  const [variableInventory, setVariableInventory] = useState(null);
+  const [inventoryError, setInventoryError] = useState(null);
 
-  const [regulatorySteps, setRegulatorySteps] = useState([
-    { id: 1, name: 'Central IRB', status: 'approved', date: '2025-01-05', doc: true },
-    { id: 2, name: 'Data Use Agreement', status: 'signed', date: '2025-01-06', doc: true },
-    { id: 3, name: 'OHSU Reliance', status: 'pending', date: null, doc: false },
-    { id: 4, name: 'Fred Hutch Reliance', status: 'not_started', date: null, doc: false }
-  ]);
+  // Real study + regulatory state, loaded from the API.
+  const [studies, setStudies] = useState([]);
+  const [activeStudyId, setActiveStudyId] = useState('');
+  const [siteData, setSiteData] = useState(null);
+  const [regBusy, setRegBusy] = useState(false);
+  const [regError, setRegError] = useState(null);
+  const [extractJob, setExtractJob] = useState(null);
+  const [extractError, setExtractError] = useState(null);
 
   const steps = ['Define Cohort', 'Select Variables', 'Regulatory', 'Extract'];
 
@@ -253,8 +182,12 @@ const CohortBuilder = () => {
   const applyPreset = (preset) => {
     setInclusions(preset.inclusions.map((r, i) => ({ ...r, id: i + 1 })));
     setExclusions(preset.exclusions.map((r, i) => ({ ...r, id: i + 1 })));
-    setSelectedVars(preset.variables);
     setStudyName(preset.name);
+  };
+
+  const authHeaders = () => {
+    const token = sessionStorage.getItem('token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
   };
 
   // Load real partner institutions
@@ -265,11 +198,49 @@ const CohortBuilder = () => {
       .catch(() => setInstitutions([]));
   }, []);
 
+  // Load the measured variable inventory and the researcher's real studies
+  useEffect(() => {
+    if (!sessionStorage.getItem('token')) {
+      setInventoryError('Sign in as a researcher to load the variable inventory.');
+      return;
+    }
+    fetch(`${API_URL}/api/cohort/variables`, { headers: authHeaders() })
+      .then(async res => {
+        if (!res.ok) throw new Error((await res.json()).detail || 'Failed to load variables');
+        return res.json();
+      })
+      .then(data => { setVariableInventory(data); setInventoryError(null); })
+      .catch(err => setInventoryError(err.message));
+
+    fetch(`${API_URL}/api/researcher/studies`, { headers: authHeaders() })
+      .then(res => (res.ok ? res.json() : []))
+      .then(list => {
+        setStudies(list);
+        if (list.length > 0) setActiveStudyId(prev => prev || list[0].id);
+      })
+      .catch(() => setStudies([]));
+  }, []);
+
+  const loadSiteData = useCallback(async (studyId) => {
+    if (!studyId) { setSiteData(null); return; }
+    try {
+      const res = await fetch(`${API_URL}/api/researcher/studies/${studyId}/sites`, { headers: authHeaders() });
+      setSiteData(res.ok ? await res.json() : null);
+    } catch (err) {
+      setSiteData(null);
+    }
+  }, []);
+
+  // Refresh regulatory status on entering the step, so an approval granted while
+  // the researcher waits shows up without a full reload.
+  useEffect(() => {
+    if (step === 3 || step === 4) loadSiteData(activeStudyId);
+  }, [step, activeStudyId, loadSiteData]);
+
   // Run feasibility against the live cohort API
   const runFeasibility = async () => {
     setIsRunning(true);
     setQueryError(null);
-    const token = sessionStorage.getItem('token');
     const cancerTypes = inclusions
       .filter(r => r.field === 'diagnosis')
       .map(r => String(r.value).replace(/\s*\([^)]*\)\s*$/, '').trim())
@@ -277,7 +248,7 @@ const CohortBuilder = () => {
     try {
       const response = await fetch(`${API_URL}/api/cohort/build`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ cancer_types: cancerTypes.length > 0 ? cancerTypes : null }),
       });
       const data = await response.json();
@@ -285,7 +256,11 @@ const CohortBuilder = () => {
         setCohortResult(data);
         setFeasibilityRun(true);
       } else {
-        setQueryError(data.detail || 'Failed to run feasibility query.');
+        setQueryError(
+          response.status === 401
+            ? 'Your session has expired. Please sign in again to run a feasibility query.'
+            : data.detail || 'Failed to run feasibility query.'
+        );
       }
     } catch (err) {
       setQueryError('Failed to reach the server. Please sign in and try again.');
@@ -294,23 +269,95 @@ const CohortBuilder = () => {
     }
   };
 
-  // Calculate total selected variables
-  const totalVars = Object.values(selectedVars).reduce((sum, arr) => sum + arr.length, 0);
-
-  // Calculate average completeness
-  const avgCompleteness = () => {
-    let total = 0;
-    let count = 0;
-    Object.entries(selectedVars).forEach(([cat, vars]) => {
-      vars.forEach(v => {
-        const varDef = variables[cat]?.find(x => x.id === v);
-        if (varDef) {
-          total += varDef.completeness;
-          count++;
-        }
+  // Create a real study from the cohort definition
+  const createStudy = async () => {
+    if (!studyName.trim()) { setRegError('Give the study a name first.'); return; }
+    setRegBusy(true); setRegError(null);
+    try {
+      const res = await fetch(`${API_URL}/api/researcher/studies`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({
+          name: studyName.trim(),
+          description: `Inclusions: ${inclusions.map(r => `${r.field} ${r.operator} ${r.value}`).join('; ') || 'none'}. `
+            + `Exclusions: ${exclusions.map(r => `${r.field} ${r.operator} ${r.value}`).join('; ') || 'none'}.`,
+          principal_investigator: JSON.parse(sessionStorage.getItem('user') || '{}').name || 'Principal Investigator',
+        }),
       });
-    });
-    return count > 0 ? Math.round(total / count) : 0;
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Failed to create study.');
+      setStudies(prev => [...prev, data]);
+      setActiveStudyId(data.id);
+    } catch (err) {
+      setRegError(err.message);
+    } finally {
+      setRegBusy(false);
+    }
+  };
+
+  // Submit a real regulatory document against the selected study
+  const submitRegulatory = async (documentType) => {
+    if (!activeStudyId) { setRegError('Select or create a study first.'); return; }
+    setRegBusy(true); setRegError(null);
+    try {
+      const res = await fetch(`${API_URL}/api/regulatory/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ study_id: activeStudyId, document_type: documentType }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Submission failed.');
+      await loadSiteData(activeStudyId);
+    } catch (err) {
+      setRegError(err.message);
+    } finally {
+      setRegBusy(false);
+    }
+  };
+
+  // Queue a real extraction job
+  const startExtraction = async () => {
+    if (!activeStudyId) { setExtractError('Select or create a study first.'); return; }
+    setExtracting(true); setExtractError(null); setExtractJob(null);
+    try {
+      const res = await fetch(`${API_URL}/api/extraction/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({
+          study_id: activeStudyId,
+          variables: selectedVariableIds,
+          output_format: outputFormat,
+          deidentification_level: deidentLevel,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Extraction failed.');
+      setExtractJob(data);
+    } catch (err) {
+      setExtractError(err.message);
+    } finally {
+      setExtracting(false);
+    }
+  };
+
+  const selectedVariableIds = Object.values(selectedVars).flat();
+  const totalVars = selectedVariableIds.length;
+
+  const regDocuments = siteData?.central || [];
+  const approvedDocs = regDocuments.filter(d => ['approved', 'signed'].includes(d.status));
+  const hasIrb = regDocuments.some(d => d.document_type === 'irb_protocol' && d.status === 'approved');
+  const hasDua = regDocuments.some(d => d.document_type === 'dua' && ['approved', 'signed'].includes(d.status));
+  const siteCount = siteData?.sites?.length || 0;
+
+  // Completeness measured across the variables the user actually picked
+  const avgCompleteness = () => {
+    const cats = variableInventory?.categories || [];
+    const picked = [];
+    cats.forEach(c => (c.variables || []).forEach(v => {
+      if (selectedVars[c.category]?.includes(v.id)) picked.push(v.completeness);
+    }));
+    if (picked.length === 0) return null;
+    return Math.round(picked.reduce((a, b) => a + b, 0) / picked.length);
   };
 
   return (
@@ -498,16 +545,14 @@ const CohortBuilder = () => {
                 {!feasibilityRun ? (
                   <button 
                     onClick={runFeasibility}
-                    disabled={isRunning || inclusions.length === 0}
+                    disabled={isRunning}
                     className={`w-full font-medium py-2 mb-4 transition-colors ${
-                      inclusions.length === 0 
-                        ? 'bg-white/10 text-white/30 cursor-not-allowed'
-                        : isRunning 
-                          ? 'bg-emerald-500/50 text-black/50' 
-                          : 'bg-emerald-500 hover:bg-emerald-400 text-black'
+                      isRunning 
+                        ? 'bg-emerald-500/50 text-black/50' 
+                        : 'bg-emerald-500 hover:bg-emerald-400 text-black'
                     }`}
                   >
-                    {isRunning ? 'Running Query...' : 'Run Query'}
+                    {isRunning ? 'Running Query...' : inclusions.length === 0 ? 'Count all consented patients' : 'Run Query'}
                   </button>
                 ) : (
                   <>
@@ -591,57 +636,86 @@ const CohortBuilder = () => {
                     {totalVars} selected
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  {Object.entries(variables).map(([category, vars]) => (
-                    <div key={category} className="bg-white/5 p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-medium text-white/60 capitalize">{category}</h3>
-                        <button
-                          onClick={() => {
-                            const allSelected = vars.every(v => selectedVars[category]?.includes(v.id));
-                            if (allSelected) {
-                              setSelectedVars({ ...selectedVars, [category]: [] });
-                            } else {
-                              setSelectedVars({ ...selectedVars, [category]: vars.map(v => v.id) });
-                            }
-                          }}
-                          className="text-xs text-emerald-400 hover:underline"
-                        >
-                          {vars.every(v => selectedVars[category]?.includes(v.id)) ? 'Clear' : 'Select All'}
-                        </button>
+                {inventoryError && (
+                  <p className="text-amber-400 text-sm">{inventoryError}</p>
+                )}
+                {!inventoryError && !variableInventory && (
+                  <p className="text-white/40 text-sm">Loading variable inventory…</p>
+                )}
+                {variableInventory && variableInventory.categories.length === 0 && (
+                  <div className="text-sm text-white/40 space-y-2">
+                    <p>No variables are available yet.</p>
+                    <p className="text-xs">
+                      Variables appear here once enough consented patients have contributed records.
+                      Fields held by fewer than {variableInventory.min_cell_size} patients are withheld
+                      so a rare variable cannot itself identify someone.
+                    </p>
+                  </div>
+                )}
+                {variableInventory && variableInventory.categories.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {variableInventory.categories.map(({ category, variables: vars }) => (
+                      <div key={category} className="bg-white/5 p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="text-sm font-medium text-white/60 capitalize">
+                            {category.replace(/_/g, ' ')}
+                          </h3>
+                          <button
+                            onClick={() => {
+                              const allSelected = vars.every(v => selectedVars[category]?.includes(v.id));
+                              setSelectedVars({
+                                ...selectedVars,
+                                [category]: allSelected ? [] : vars.map(v => v.id),
+                              });
+                            }}
+                            className="text-xs text-emerald-400 hover:underline"
+                          >
+                            {vars.every(v => selectedVars[category]?.includes(v.id)) ? 'Clear' : 'Select All'}
+                          </button>
+                        </div>
+                        <div className="space-y-2">
+                          {vars.map(v => (
+                            <label key={v.id} className="flex items-center gap-2 text-sm cursor-pointer hover:text-emerald-400 group">
+                              <input
+                                type="checkbox"
+                                checked={selectedVars[category]?.includes(v.id) || false}
+                                onChange={() => {
+                                  const current = selectedVars[category] || [];
+                                  setSelectedVars({
+                                    ...selectedVars,
+                                    [category]: current.includes(v.id)
+                                      ? current.filter(x => x !== v.id)
+                                      : [...current, v.id],
+                                  });
+                                }}
+                                className="rounded bg-white/10 border-white/20 text-emerald-500 focus:ring-emerald-500"
+                              />
+                              <span className="text-white/50 flex-1">{v.label}</span>
+                              <span
+                                title={`${v.patients_with_data} of ${variableInventory.total_patients} contributing patients have this field`}
+                                className={`text-xs ${
+                                  v.completeness >= 90 ? 'text-emerald-400' :
+                                  v.completeness >= 70 ? 'text-amber-400' : 'text-red-400'
+                                }`}
+                              >
+                                {v.completeness}%
+                              </span>
+                            </label>
+                          ))}
+                        </div>
                       </div>
-                      <div className="space-y-2">
-                        {vars.map(v => (
-                          <label key={v.id} className="flex items-center gap-2 text-sm cursor-pointer hover:text-emerald-400 group">
-                            <input 
-                              type="checkbox" 
-                              checked={selectedVars[category]?.includes(v.id)}
-                              onChange={() => {
-                                const updated = { ...selectedVars };
-                                if (!updated[category]) updated[category] = [];
-                                if (updated[category].includes(v.id)) {
-                                  updated[category] = updated[category].filter(x => x !== v.id);
-                                } else {
-                                  updated[category].push(v.id);
-                                }
-                                setSelectedVars(updated);
-                              }}
-                              className="rounded bg-white/10 border-white/20 text-emerald-500 focus:ring-emerald-500"
-                            />
-                            <span className="text-white/50 flex-1">{v.label}</span>
-                            <span className={`text-xs ${
-                              v.completeness >= 90 ? 'text-emerald-400' :
-                              v.completeness >= 70 ? 'text-amber-400' :
-                              'text-red-400'
-                            } opacity-0 group-hover:opacity-100 transition-opacity`}>
-                              {v.completeness}%
-                            </span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
+                {variableInventory && (
+                  <p className="text-white/30 text-xs mt-4">
+                    Completeness is measured against {variableInventory.total_patients} contributing
+                    {variableInventory.total_patients === 1 ? ' patient' : ' patients'}
+                    {variableInventory.suppressed_variables > 0 &&
+                      ` · ${variableInventory.suppressed_variables} rare field(s) withheld below the ${variableInventory.min_cell_size}-patient floor`}
+                    .
+                  </p>
+                )}
               </div>
             </div>
 
@@ -661,16 +735,18 @@ const CohortBuilder = () => {
                   </div>
                 </div>
                 
-                <div className="bg-white/5 p-3 mb-4">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-white/40">Est. Completeness</span>
-                    <span className={
-                      avgCompleteness() >= 85 ? 'text-emerald-400' :
-                      avgCompleteness() >= 70 ? 'text-amber-400' :
-                      'text-red-400'
-                    }>{avgCompleteness()}%</span>
+                {avgCompleteness() !== null && (
+                  <div className="bg-white/5 p-3 mb-4">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-white/40">Measured completeness</span>
+                      <span className={
+                        avgCompleteness() >= 85 ? 'text-emerald-400' :
+                        avgCompleteness() >= 70 ? 'text-amber-400' :
+                        'text-red-400'
+                      }>{avgCompleteness()}%</span>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div className="flex gap-2">
                   <button 
@@ -707,110 +783,129 @@ const CohortBuilder = () => {
 
         {/* Step 3: Regulatory */}
         {step === 3 && (
-          <div className="grid grid-cols-3 gap-6">
-            <div className="col-span-2 space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-4">
+              <div className="bg-white/5 border border-white/10 p-5">
+                <h2 className="font-medium mb-4">Study</h2>
+                {studies.length > 0 && (
+                  <div className="mb-4">
+                    <label className="block text-xs uppercase tracking-wider text-white/40 mb-2">
+                      Attach this cohort to a study
+                    </label>
+                    <select
+                      value={activeStudyId}
+                      onChange={(e) => setActiveStudyId(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:border-emerald-500"
+                    >
+                      {studies.map(st => (
+                        <option key={st.id} value={st.id} className="bg-black">{st.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                <div className="flex flex-wrap items-center gap-3">
+                  <input
+                    type="text"
+                    value={studyName}
+                    onChange={(e) => setStudyName(e.target.value)}
+                    placeholder="New study name"
+                    className="flex-1 min-w-[200px] bg-white/5 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:border-emerald-500"
+                  />
+                  <button
+                    onClick={createStudy}
+                    disabled={regBusy || !studyName.trim()}
+                    className="bg-white/10 hover:bg-white/20 px-4 py-2 text-sm transition-colors disabled:opacity-40"
+                  >
+                    {regBusy ? 'Working…' : 'Create study'}
+                  </button>
+                </div>
+                {studies.length === 0 && (
+                  <p className="text-white/40 text-xs mt-3">
+                    You have no studies yet. Create one to submit regulatory documents against it.
+                  </p>
+                )}
+              </div>
+
               <div className="bg-white/5 border border-white/10 p-5">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="font-medium">Regulatory Pipeline</h2>
                   <div className="text-xs text-white/40">
-                    {regulatorySteps.filter(s => s.status === 'approved' || s.status === 'signed').length}/{regulatorySteps.length} complete
+                    {approvedDocs.length}/{regDocuments.length} approved
                   </div>
                 </div>
-                <div className="space-y-3">
-                  {regulatorySteps.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between bg-white/5 p-4">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 flex items-center justify-center ${
-                          item.status === 'approved' || item.status === 'signed' ? 'bg-emerald-500/20' :
-                          item.status === 'pending' ? 'bg-amber-500/20' : 'bg-white/10'
-                        }`}>
-                          {item.status === 'approved' || item.status === 'signed' ? (
-                            <span className="text-emerald-400">✓</span>
-                          ) : item.status === 'pending' ? (
-                            <div className="w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
-                          ) : (
-                            <div className="w-2 h-2 bg-white/30 rounded-full" />
-                          )}
-                        </div>
-                        <div>
-                          <div className="font-medium text-sm">{item.name}</div>
-                          <div className="text-xs text-white/40">
-                            {item.status === 'approved' || item.status === 'signed' 
-                              ? `Completed ${item.date}` 
-                              : item.status === 'pending' 
-                                ? 'Under review (est. 3-5 days)'
-                                : 'Not started'}
+
+                {regError && <p className="text-red-400 text-sm mb-3">{regError}</p>}
+
+                {!activeStudyId ? (
+                  <p className="text-white/40 text-sm">Select or create a study to see its regulatory status.</p>
+                ) : regDocuments.length === 0 ? (
+                  <p className="text-white/40 text-sm">
+                    No documents submitted yet. Submit an IRB protocol and a data use agreement below —
+                    both must be approved by a reviewer before any extraction can run.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {regDocuments.map((doc) => {
+                      const done = ['approved', 'signed'].includes(doc.status);
+                      const pending = doc.status === 'submitted' || doc.status === 'under_review';
+                      return (
+                        <div key={doc.id} className="flex items-center justify-between bg-white/5 p-4 gap-3 flex-wrap">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 flex items-center justify-center ${
+                              done ? 'bg-emerald-500/20' : pending ? 'bg-amber-500/20' : 'bg-white/10'
+                            }`}>
+                              {done ? <span className="text-emerald-400">✓</span>
+                                : pending ? <div className="w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
+                                : <div className="w-2 h-2 bg-white/30 rounded-full" />}
+                            </div>
+                            <div>
+                              <div className="font-medium text-sm capitalize">
+                                {String(doc.document_type || '').replace(/_/g, ' ')}
+                              </div>
+                              <div className="text-xs text-white/40">
+                                {doc.protocol_number ? `${doc.protocol_number} · ` : ''}
+                                {doc.status}
+                                {doc.approved_at ? ` · approved ${new Date(doc.approved_at).toLocaleDateString()}` : ''}
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div className="flex gap-2">
-                        {item.doc && (
-                          <button className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 transition-colors">
-                            View
-                          </button>
-                        )}
-                        {item.status === 'not_started' && (
-                          <button 
-                            onClick={() => {
-                              setRegulatorySteps(regulatorySteps.map(s => 
-                                s.id === item.id ? { ...s, status: 'pending' } : s
-                              ));
-                            }}
-                            className="text-xs bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 px-3 py-1.5 transition-colors"
-                          >
-                            Generate
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Timeline */}
-              <div className="bg-white/5 border border-white/10 p-5">
-                <h2 className="font-medium mb-4">Estimated Timeline</h2>
-                <div className="flex items-center gap-4">
-                  <div className="flex-1 h-2 bg-white/10 relative">
-                    <div className="absolute left-0 w-1/4 h-full bg-emerald-500" />
-                    <div className="absolute left-1/4 w-1/4 h-full bg-emerald-500/50" />
+                      );
+                    })}
                   </div>
-                  <span className="text-sm text-white/60">~2-3 weeks</span>
+                )}
+
+                <div className="flex flex-wrap gap-2 mt-4">
+                  <button
+                    onClick={() => submitRegulatory('irb_protocol')}
+                    disabled={regBusy || !activeStudyId}
+                    className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 px-4 py-2 text-sm transition-colors disabled:opacity-40"
+                  >
+                    Submit IRB protocol
+                  </button>
+                  <button
+                    onClick={() => submitRegulatory('dua')}
+                    disabled={regBusy || !activeStudyId}
+                    className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 px-4 py-2 text-sm transition-colors disabled:opacity-40"
+                  >
+                    Submit data use agreement
+                  </button>
+                  <button
+                    onClick={() => submitRegulatory('reliance_agreement')}
+                    disabled={regBusy || !activeStudyId}
+                    className="bg-white/10 hover:bg-white/20 px-4 py-2 text-sm transition-colors disabled:opacity-40"
+                  >
+                    Submit reliance agreement
+                  </button>
                 </div>
-                <div className="flex justify-between text-xs text-white/40 mt-2">
-                  <span>IRB</span>
-                  <span>DUA</span>
-                  <span>Reliance</span>
-                  <span>Data Ready</span>
-                </div>
+                <p className="text-white/30 text-xs mt-3">
+                  Submissions are reviewed by an institutional reviewer. You cannot approve your own
+                  submission, and extraction stays blocked until the IRB protocol and DUA are both approved.
+                </p>
               </div>
             </div>
 
             <div className="space-y-4">
-              <div className="bg-white/5 border border-white/10 p-5">
-                <h2 className="font-medium mb-3">Quick Actions</h2>
-                <div className="space-y-2">
-                  <button className="w-full bg-white/10 hover:bg-white/20 py-2 text-sm transition-colors flex items-center justify-center gap-2">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    IRB Protocol
-                  </button>
-                  <button className="w-full bg-white/10 hover:bg-white/20 py-2 text-sm transition-colors flex items-center justify-center gap-2">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    DUA Template
-                  </button>
-                  <button className="w-full bg-white/10 hover:bg-white/20 py-2 text-sm transition-colors flex items-center justify-center gap-2">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    Reliance Form
-                  </button>
-                </div>
-              </div>
-
               <div className="bg-white/5 border border-white/10 p-5">
                 <h3 className="text-sm font-medium mb-3">Study Summary</h3>
                 <div className="space-y-2 text-sm">
@@ -824,21 +919,30 @@ const CohortBuilder = () => {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-white/40">Sites</span>
-                    <span>3</span>
+                    <span>{siteCount}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/40">IRB approved</span>
+                    <span className={hasIrb ? 'text-emerald-400' : 'text-white/40'}>{hasIrb ? 'Yes' : 'No'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/40">DUA approved</span>
+                    <span className={hasDua ? 'text-emerald-400' : 'text-white/40'}>{hasDua ? 'Yes' : 'No'}</span>
                   </div>
                 </div>
               </div>
 
               <div className="flex gap-2">
-                <button 
+                <button
                   onClick={() => setStep(2)}
                   className="flex-1 bg-white/10 hover:bg-white/20 py-2 text-sm transition-colors"
                 >
                   ← Back
                 </button>
-                <button 
+                <button
                   onClick={() => setStep(4)}
-                  className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-black font-medium py-2 text-sm transition-colors"
+                  disabled={!activeStudyId}
+                  className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-black font-medium py-2 text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Extract →
                 </button>
@@ -850,14 +954,14 @@ const CohortBuilder = () => {
         {/* Step 4: Extract */}
         {step === 4 && (
           <div className="max-w-2xl mx-auto">
-            {!extracting ? (
+            {!extractJob ? (
               <div className="bg-white/5 border border-white/10 p-8">
                 <h2 className="text-xl font-semibold mb-6">Configure Extraction</h2>
-                
+
                 <div className="space-y-6 mb-8">
                   <div>
                     <label className="block text-sm text-white/60 mb-2">Output Format</label>
-                    <div className="flex gap-3">
+                    <div className="flex flex-wrap gap-3">
                       {[
                         { id: 'csv', label: 'CSV', desc: 'REDCap-ready' },
                         { id: 'parquet', label: 'Parquet', desc: 'For Python/R' },
@@ -866,9 +970,9 @@ const CohortBuilder = () => {
                         <button
                           key={opt.id}
                           onClick={() => setOutputFormat(opt.id)}
-                          className={`flex-1 p-3 border transition-colors ${
-                            outputFormat === opt.id 
-                              ? 'border-emerald-500 bg-emerald-500/10' 
+                          className={`flex-1 min-w-[120px] p-3 border transition-colors ${
+                            outputFormat === opt.id
+                              ? 'border-emerald-500 bg-emerald-500/10'
                               : 'border-white/10 hover:border-white/20'
                           }`}
                         >
@@ -883,16 +987,16 @@ const CohortBuilder = () => {
                     <label className="block text-sm text-white/60 mb-2">De-identification Level</label>
                     <div className="space-y-2">
                       {[
-                        { id: 'limited_dataset', label: 'Limited Dataset', desc: 'Dates shifted, ZIP-3 only' },
-                        { id: 'safe_harbor', label: 'Safe Harbor', desc: '18 identifiers removed' },
-                        { id: 'expert', label: 'Expert Determination', desc: 'Statistical verification' }
+                        { id: 'limited_dataset', label: 'Limited Dataset', desc: 'Year-level dates, no geography below state' },
+                        { id: 'safe_harbor', label: 'Safe Harbor', desc: 'All 18 HIPAA identifiers removed' },
+                        { id: 'expert', label: 'Expert Determination', desc: 'Requires a documented statistical determination' }
                       ].map(opt => (
                         <button
                           key={opt.id}
                           onClick={() => setDeidentLevel(opt.id)}
                           className={`w-full p-3 border text-left transition-colors ${
-                            deidentLevel === opt.id 
-                              ? 'border-emerald-500 bg-emerald-500/10' 
+                            deidentLevel === opt.id
+                              ? 'border-emerald-500 bg-emerald-500/10'
                               : 'border-white/10 hover:border-white/20'
                           }`}
                         >
@@ -908,7 +1012,9 @@ const CohortBuilder = () => {
                   <h3 className="text-sm font-medium mb-3">Extraction Summary</h3>
                   <div className="grid grid-cols-3 gap-4 text-center">
                     <div>
-                      <div className="text-2xl font-bold text-emerald-400">{(cohortResult?.patient_count ?? 0).toLocaleString()}</div>
+                      <div className="text-2xl font-bold text-emerald-400">
+                        {(cohortResult?.patient_count ?? 0).toLocaleString()}
+                      </div>
                       <div className="text-xs text-white/40">Patients</div>
                     </div>
                     <div>
@@ -916,29 +1022,38 @@ const CohortBuilder = () => {
                       <div className="text-xs text-white/40">Variables</div>
                     </div>
                     <div>
-                      <div className="text-2xl font-bold">~2 days</div>
-                      <div className="text-xs text-white/40">Est. Time</div>
+                      <div className="text-2xl font-bold">{siteCount}</div>
+                      <div className="text-xs text-white/40">Sites</div>
                     </div>
                   </div>
                 </div>
 
+                {(!hasIrb || !hasDua) && (
+                  <p className="text-amber-400 text-sm mb-4">
+                    Extraction is blocked until this study has an approved IRB protocol and an approved
+                    data use agreement.
+                  </p>
+                )}
+                {extractError && <p className="text-red-400 text-sm mb-4">{extractError}</p>}
+
                 <div className="flex gap-3">
-                  <button 
+                  <button
                     onClick={() => setStep(3)}
                     className="flex-1 bg-white/10 hover:bg-white/20 py-3 font-medium transition-colors"
                   >
                     ← Back
                   </button>
-                  <button 
-                    onClick={() => setExtracting(true)}
-                    className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-black font-medium py-3 transition-colors"
+                  <button
+                    onClick={startExtraction}
+                    disabled={extracting || !activeStudyId}
+                    className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-black font-medium py-3 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    Start Extraction
+                    {extracting ? 'Running…' : 'Start Extraction'}
                   </button>
                 </div>
               </div>
             ) : (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 className="bg-white/5 border border-white/10 p-8 text-center"
@@ -946,44 +1061,71 @@ const CohortBuilder = () => {
                 <div className="w-16 h-16 bg-emerald-500/20 flex items-center justify-center mx-auto mb-4">
                   <span className="text-2xl text-emerald-400">✓</span>
                 </div>
-                <h2 className="text-xl font-semibold mb-2">Extraction Queued</h2>
+                <h2 className="text-xl font-semibold mb-2">
+                  {extractJob.status === 'completed' ? 'Extraction Complete' : 'Extraction Queued'}
+                </h2>
                 <p className="text-white/40 mb-6">
-                  {(cohortResult?.patient_count ?? 0).toLocaleString()} patients · {totalVars} variables
+                  {(extractJob.patient_count ?? 0).toLocaleString()} patients · {totalVars} variables
                 </p>
-                
+
                 <div className="bg-white/5 p-4 text-left mb-6">
                   <div className="text-sm space-y-2">
-                    <div className="flex justify-between">
+                    <div className="flex justify-between gap-4">
                       <span className="text-white/40">Job ID</span>
-                      <span className="font-mono text-emerald-400">extract_{Date.now().toString(36)}</span>
+                      <span className="font-mono text-emerald-400 break-all">{extractJob.job_id}</span>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between gap-4">
+                      <span className="text-white/40">Status</span>
+                      <span>{extractJob.status}</span>
+                    </div>
+                    <div className="flex justify-between gap-4">
                       <span className="text-white/40">Study</span>
-                      <span>{studyName || 'Untitled Study'}</span>
+                      <span>{studies.find(st => st.id === activeStudyId)?.name || studyName}</span>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between gap-4">
                       <span className="text-white/40">Format</span>
                       <span>{outputFormat.toUpperCase()}</span>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between gap-4">
                       <span className="text-white/40">De-identification</span>
                       <span>{deidentLevel.replace(/_/g, ' ')}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex gap-3 justify-center">
+                <div className="flex flex-wrap gap-3 justify-center">
+                  {extractJob.status === 'completed' && (
+                    <button
+                      onClick={async () => {
+                        const res = await fetch(`${API_URL}/api/extraction/jobs/${extractJob.job_id}/download`, {
+                          headers: authHeaders(),
+                        });
+                        if (!res.ok) { setExtractError('Download failed.'); return; }
+                        const blob = await res.blob();
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `${extractJob.job_id}.csv`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                      className="bg-emerald-500 hover:bg-emerald-400 text-black font-medium px-4 py-2 text-sm transition-colors"
+                    >
+                      Download dataset
+                    </button>
+                  )}
                   <Link to="/research" className="bg-white/10 hover:bg-white/20 px-4 py-2 text-sm transition-colors">
                     View All Jobs
                   </Link>
-                  <button 
-                    onClick={() => { 
-                      setStep(1); 
-                      setFeasibilityRun(false); 
-                      setExtracting(false);
+                  <button
+                    onClick={() => {
+                      setStep(1);
+                      setFeasibilityRun(false);
+                      setExtractJob(null);
+                      setExtractError(null);
                       setStudyName('');
                     }}
-                    className="bg-emerald-500 hover:bg-emerald-400 text-black font-medium px-4 py-2 text-sm transition-colors"
+                    className="bg-white/10 hover:bg-white/20 px-4 py-2 text-sm transition-colors"
                   >
                     New Query
                   </button>

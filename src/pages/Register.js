@@ -178,9 +178,9 @@ const Register = () => {
               />
               <label className="text-sm text-white/40">
                 I agree to the{' '}
-                <a href="#" className="text-white/60 hover:text-white">Terms</a>
+                <Link to="/terms" className="text-white/60 hover:text-white">Terms</Link>
                 {' '}and{' '}
-                <a href="#" className="text-white/60 hover:text-white">Privacy Policy</a>
+                <Link to="/privacy" className="text-white/60 hover:text-white">Privacy Policy</Link>
               </label>
             </div>
 
