@@ -190,7 +190,7 @@ const CohortBuilder = () => {
     return token ? { Authorization: `Bearer ${token}` } : {};
   };
 
-  // Load real partner institutions
+  // Load the directory of institutions a study can be filed with
   useEffect(() => {
     fetch(`${API_URL}/api/institutions`)
       .then(res => (res.ok ? res.json() : []))
@@ -579,7 +579,7 @@ const CohortBuilder = () => {
 
                     {institutions.length > 0 && (
                       <div className="space-y-2">
-                        <div className="text-xs uppercase tracking-wider text-white/40">Partner institutions</div>
+                        <div className="text-xs uppercase tracking-wider text-white/40">Sites you can file a study with</div>
                         {institutions.map(inst => (
                           <div key={inst.id} className="bg-white/5 p-3 text-sm">
                             <div className="font-medium">{inst.name}</div>
@@ -773,9 +773,7 @@ const CohortBuilder = () => {
               <div className="bg-white/5 border border-white/10 p-5">
                 <h3 className="text-sm font-medium mb-3">Cohort</h3>
                 <div className="text-2xl font-bold text-emerald-400 mb-1">{(cohortResult?.patient_count ?? 0).toLocaleString()}</div>
-                <div className="text-xs text-white/40">
-                  patients{institutions.length > 0 ? ` across ${institutions.length} sites` : ''}
-                </div>
+                <div className="text-xs text-white/40">consented and matching</div>
               </div>
             </div>
           </div>
