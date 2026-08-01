@@ -267,7 +267,7 @@ const IRBTab = ({ protocols }) => {
     draft: 'bg-white/10 text-white/60'
   };
 
-  const demoProtocols = protocols;
+  const institutionProtocols = protocols;
 
   return (
     <div>
@@ -297,12 +297,12 @@ const IRBTab = ({ protocols }) => {
           <div className="col-span-2">Approval Date</div>
           <div className="col-span-2">Expires</div>
         </div>
-        {demoProtocols.length === 0 && (
+        {institutionProtocols.length === 0 && (
           <div className="p-8 text-center text-white/40 text-sm border-t border-white/5">
             No IRB protocols yet. Protocols submitted for your institution's studies appear here.
           </div>
         )}
-        {demoProtocols.map((protocol, i) => (
+        {institutionProtocols.map((protocol, i) => (
           <div 
             key={protocol.id} 
             className="grid grid-cols-12 gap-4 p-4 border-t border-white/5 hover:bg-white/[0.02] cursor-pointer"
@@ -352,14 +352,14 @@ const AgreementsTab = ({ agreements }) => {
     draft: 'bg-white/10 text-white/60'
   };
 
-  const demoAgreements = agreements;
+  const institutionAgreements = agreements;
 
   return (
     <div>
       {/* Agreement Categories */}
       <div className="grid md:grid-cols-4 gap-4 mb-8">
         {agreementTypes.map(type => {
-          const count = demoAgreements.filter(a => a.document_type === type.type).length;
+          const count = institutionAgreements.filter(a => a.document_type === type.type).length;
           return (
             <div key={type.type} className="p-4 border border-white/10 hover:border-white/20 cursor-pointer transition-colors">
               <div className="text-2xl font-bold mb-1">{count}</div>
@@ -376,12 +376,12 @@ const AgreementsTab = ({ agreements }) => {
           <h3 className="font-medium">All Agreements</h3>
           <button className="text-xs text-blue-400 hover:underline">New Agreement</button>
         </div>
-        {demoAgreements.length === 0 && (
+        {institutionAgreements.length === 0 && (
           <div className="p-8 text-center text-white/40 text-sm border-t border-white/5">
             No agreements yet. DUAs, BAAs, and reliance agreements for your institution appear here.
           </div>
         )}
-        {demoAgreements.map((agreement, i) => (
+        {institutionAgreements.map((agreement, i) => (
           <div 
             key={agreement.id} 
             className="p-4 border-t border-white/5 hover:bg-white/[0.02] cursor-pointer"
@@ -416,7 +416,7 @@ const EMRTab = ({ connections }) => {
     { name: 'athenahealth', status: 'available', icon: 'A' }
   ];
 
-  const demoConnections = connections;
+  const institutionConnections = connections;
 
   const statusColors = {
     active: 'bg-green-400/10 text-green-400',
@@ -431,7 +431,7 @@ const EMRTab = ({ connections }) => {
       {/* Active Connections */}
       <div className="mb-8">
         <h3 className="font-medium mb-4">Active Connections</h3>
-        {demoConnections.length === 0 ? (
+        {institutionConnections.length === 0 ? (
           <div className="p-8 border border-white/10 text-center">
             <p className="text-white/40 mb-4">No EMR connections configured</p>
             <button className="px-4 py-2 bg-white text-black text-sm hover:bg-gray-100 transition-colors">
@@ -440,7 +440,7 @@ const EMRTab = ({ connections }) => {
           </div>
         ) : (
           <div className="space-y-4">
-            {demoConnections.map(conn => (
+            {institutionConnections.map(conn => (
               <div key={conn.id} className="p-6 border border-white/10">
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex items-center gap-4">
@@ -516,7 +516,7 @@ const EMRTab = ({ connections }) => {
 
 // Collaborations Tab
 const CollaborationsTab = ({ collaborations }) => {
-  const demoCollaborations = collaborations;
+  const institutionCollaborations = collaborations;
 
   const statusColors = {
     active: 'bg-green-400/10 text-green-400',
@@ -531,14 +531,14 @@ const CollaborationsTab = ({ collaborations }) => {
       <div className="border border-white/10">
         <div className="p-4 bg-white/[0.02] flex justify-between items-center">
           <h3 className="font-medium">Study Collaborations</h3>
-          <span className="text-xs text-white/40">{demoCollaborations.length} total</span>
+          <span className="text-xs text-white/40">{institutionCollaborations.length} total</span>
         </div>
-        {demoCollaborations.length === 0 && (
+        {institutionCollaborations.length === 0 && (
           <div className="p-8 text-center text-white/40 text-sm border-t border-white/5">
             No collaborations yet. Studies you join as a participating site appear here.
           </div>
         )}
-        {demoCollaborations.map((collab, i) => (
+        {institutionCollaborations.map((collab, i) => (
           <div 
             key={collab.id} 
             className="p-4 border-t border-white/5 hover:bg-white/[0.02] cursor-pointer"

@@ -274,6 +274,7 @@ class DataProductDetail(DataProductSummary):
 
 class CohortCriteria(BaseModel):
     cancer_types: Optional[List[str]] = None
+    icd_codes: Optional[List[str]] = None
     stages: Optional[List[str]] = None
     age_min: Optional[int] = None
     age_max: Optional[int] = None
@@ -288,6 +289,10 @@ class CohortResult(BaseModel):
     diagnosis_count: int
     treatment_count: int
     molecular_count: int
+    institutions: List[str] = []
+    data_completeness: float = 0.0
+    min_cell_size: int = 0
+    suppressed: bool = False
 
 class SaveCohortRequest(BaseModel):
     name: str
@@ -432,11 +437,6 @@ class SignConsentRequest(BaseModel):
     template_id: str
     signature: str  # Base64 encoded signature or typed name
     consent_options: Dict[str, bool]  # Granular consent choices
-
-class MedicalConnectionRequest(BaseModel):
-    source_type: str  # epic_mychart, cerner, manual_upload
-    source_name: str  # Hospital/provider name
-    access_code: Optional[str] = None  # OAuth code or auth token
 
 class FHIRUploadRequest(BaseModel):
     bundle: Dict[str, Any]
@@ -1276,59 +1276,6 @@ async def get_medical_connections(
     ]
 
 
-@app.post("/api/patient/connections")
-async def connect_medical_records(
-    connection_req: MedicalConnectionRequest,
-    background_tasks: BackgroundTasks,
-    token_data: Dict = Depends(require_auth),
-    db: Session = Depends(get_db)
-):
-    """Connect to a medical records source"""
-    patient_repo = PatientRepository(db)
-    profile = patient_repo.get_profile(UUID(token_data["sub"]))
-    
-    if not profile:
-        raise HTTPException(status_code=404, detail="Patient profile not found")
-    
-    # Check for active consent
-    active_consent = db.query(Consent).filter(
-        Consent.patient_id == profile.id,
-        Consent.consent_type == "research_data_sharing",
-        Consent.status == "active"
-    ).first()
-    
-    if not active_consent:
-        raise HTTPException(
-            status_code=400, 
-            detail="You must sign the Research Data Sharing consent before connecting medical records"
-        )
-    
-    # Create connection record
-    connection = MedicalRecordConnection(
-        patient_id=profile.id,
-        source_type=connection_req.source_type,
-        source_name=connection_req.source_name,
-        connection_status="pending",
-    )
-    db.add(connection)
-    db.commit()
-    db.refresh(connection)
-    
-    # Simulate async data extraction (in production, this would be a real EMR integration)
-    background_tasks.add_task(
-        simulate_data_extraction,
-        connection_id=str(connection.id),
-        patient_id=str(profile.id),
-    )
-    
-    return {
-        "success": True,
-        "connection_id": str(connection.id),
-        "status": "pending",
-        "message": "Connection initiated. Data extraction will begin shortly.",
-    }
-
-
 def _parse_fhir_original_date(value: Any) -> Optional[date]:
     """Convert a FHIR date/dateTime to a Date, padding partial dates safely."""
     if not isinstance(value, str):
@@ -1441,116 +1388,6 @@ async def connect_fhir_records(
         "records_imported": records_imported,
         "message": message,
     }
-
-
-async def simulate_data_extraction(connection_id: str, patient_id: str):
-    """Simulate extracting de-identified data from medical records"""
-    import asyncio
-    import random
-    
-    # Simulate processing time
-    await asyncio.sleep(2)
-    
-    # Get fresh database session
-    from .database import SessionLocal
-    db = SessionLocal()
-    
-    try:
-        connection = db.query(MedicalRecordConnection).filter(
-            MedicalRecordConnection.id == connection_id
-        ).first()
-        
-        if not connection:
-            return
-        
-        # Update connection status
-        connection.connection_status = "connected"
-        connection.last_sync = datetime.utcnow()
-        
-        # Generate simulated de-identified data categories
-        data_categories = [
-            ("demographics", "age_range", {"age_range": "45-54", "sex": "M", "race": "White"}),
-            ("diagnosis", "cancer_diagnosis", {
-                "cancer_type": random.choice(["DLBCL", "AML", "Breast Cancer", "NSCLC"]),
-                "stage": random.choice(["Stage II", "Stage III", "Stage IV"]),
-                "diagnosis_year": random.randint(2018, 2024),
-                "icd10": random.choice(["C83.3", "C92.0", "C50.9", "C34.9"]),
-            }),
-            ("treatment", "chemotherapy", {
-                "regimen": random.choice(["R-CHOP", "7+3", "AC-T", "Pembrolizumab"]),
-                "cycles": random.randint(4, 8),
-                "start_year": random.randint(2019, 2024),
-                "status": random.choice(["completed", "ongoing"]),
-            }),
-            ("lab_results", "blood_counts", {
-                "wbc_range": "4.5-11.0",
-                "hemoglobin_range": "12-16",
-                "platelet_range": "150-400",
-                "test_count": random.randint(10, 50),
-            }),
-            ("molecular", "genomic_testing", {
-                "test_type": random.choice(["NGS", "FISH", "IHC"]),
-                "genes_tested": random.randint(50, 500),
-                "mutations_found": random.randint(0, 5),
-                "has_actionable": random.choice([True, False]),
-            }),
-            ("outcome", "treatment_response", {
-                "response": random.choice([
-                    "Complete Response", "Partial Response",
-                    "Stable Disease", "Progressive Disease",
-                ]),
-                "response_system": "RECIST",
-                "vital_status": random.choice(["Alive", "Deceased"]),
-                "assessment_year": random.randint(2020, 2024),
-            }),
-        ]
-        
-        records_count = 0
-        for category, data_type, data in data_categories:
-            # Real EMR connectors must de-identify each record before storage too.
-            scrubbed_data = deidentify_record(data)
-            extracted = ExtractedMedicalData(
-                connection_id=connection_id,
-                patient_id=patient_id,
-                data_category=category,
-                data_type=data_type,
-                original_date=date.today() - timedelta(days=random.randint(30, 365)),
-                deidentified_data=scrubbed_data,
-                data_quality_score=random.uniform(75, 98),
-                is_verified=True,
-                verification_date=datetime.utcnow(),
-            )
-            db.add(extracted)
-            records_count += 1
-        
-        connection.records_synced = records_count
-        
-        # Award points for connecting records
-        profile = db.query(PatientProfile).filter(PatientProfile.id == patient_id).first()
-        if profile:
-            points_earned = 100  # Points for connecting records
-            reward = RewardsTransaction(
-                patient_id=patient_id,
-                transaction_type="earn",
-                points=points_earned,
-                description=f"Connected medical records from {connection.source_name}",
-                reference_type="connection",
-                reference_id=connection_id,
-            )
-            db.add(reward)
-            profile.points_balance += points_earned
-            profile.total_points_earned += points_earned
-        
-        db.commit()
-        
-    except Exception as e:
-        print(f"Error in data extraction: {e}")
-        if connection:
-            connection.connection_status = "error"
-            connection.error_message = str(e)
-            db.commit()
-    finally:
-        db.close()
 
 
 @app.get("/api/patient/extracted-data", response_model=List[ExtractedDataResponse])
@@ -1777,29 +1614,176 @@ async def build_cohort(
     token_data: Dict = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
-    """Build a patient cohort based on criteria"""
-    cohort_repo = CohortRepository(db)
+    """Count patients matching the criteria, over consented, de-identified records.
 
-    # Convert criteria to dict
-    criteria_dict = {
-        "cancer_types": criteria.cancer_types,
-        "stages": criteria.stages,
-        "age_min": criteria.age_min,
-        "age_max": criteria.age_max,
-        "molecular_markers": criteria.molecular_markers,
-        "treatment_types": criteria.treatment_types,
-    }
+    Feasibility is answered from the records patients have actually contributed
+    under an active research-data-sharing consent. Below the aggregate cell-size
+    floor the count is reported as 0 rather than as a small exact number, so a
+    query cannot be narrowed until it isolates one person.
+    """
+    patient_ids = _consented_patient_ids(db)
+    if not patient_ids:
+        return CohortResult(
+            patient_count=0, data_points=0, diagnosis_count=0,
+            treatment_count=0, molecular_count=0,
+            institutions=[], data_completeness=0.0,
+            min_cell_size=MIN_AGGREGATE_CELL_SIZE, suppressed=False,
+        )
 
-    # Build cohort
-    result = cohort_repo.build_cohort(criteria_dict)
+    records = db.query(ExtractedMedicalData).filter(
+        ExtractedMedicalData.patient_id.in_(patient_ids)
+    ).all()
+
+    def _payload(record):
+        data = record.deidentified_data
+        if isinstance(data, str):
+            try:
+                data = json.loads(data)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                return {}
+        return data if isinstance(data, dict) else {}
+
+    def _matches_any(text: str, terms: List[str]) -> bool:
+        lowered = (text or "").lower()
+        return any(term.lower() in lowered for term in terms if term)
+
+    # Narrow to the patients whose records satisfy every supplied criterion.
+    matching = set(patient_ids)
+
+    if criteria.cancer_types or criteria.icd_codes:
+        wanted = set()
+        terms = list(criteria.cancer_types or []) + list(criteria.icd_codes or [])
+        for record in records:
+            if record.data_category != "diagnosis":
+                continue
+            data = _payload(record)
+            haystack = " ".join(str(data.get(k, "")) for k in ("display", "cancer_type", "code", "icd_code"))
+            if _matches_any(haystack, terms):
+                wanted.add(str(record.patient_id))
+        matching &= wanted
+
+    if criteria.treatment_types:
+        wanted = set()
+        for record in records:
+            if record.data_category != "treatment":
+                continue
+            data = _payload(record)
+            haystack = " ".join(str(data.get(k, "")) for k in ("medication", "procedure", "regimen", "display"))
+            if _matches_any(haystack, criteria.treatment_types):
+                wanted.add(str(record.patient_id))
+        matching &= wanted
+
+    if criteria.stages:
+        wanted = set()
+        for record in records:
+            data = _payload(record)
+            if _matches_any(str(data.get("stage", "")), criteria.stages):
+                wanted.add(str(record.patient_id))
+        matching &= wanted
+
+    matched_records = [r for r in records if str(r.patient_id) in matching]
+    patient_count = len(matching)
+
+    # Small-cell suppression: never report a non-zero count below the floor.
+    suppressed = 0 < patient_count < MIN_AGGREGATE_CELL_SIZE
+    if suppressed:
+        return CohortResult(
+            patient_count=0, data_points=0, diagnosis_count=0,
+            treatment_count=0, molecular_count=0,
+            institutions=[], data_completeness=0.0,
+            min_cell_size=MIN_AGGREGATE_CELL_SIZE, suppressed=True,
+        )
+
+    diagnosis_count = sum(1 for r in matched_records if r.data_category == "diagnosis")
+    treatment_count = sum(1 for r in matched_records if r.data_category == "treatment")
+    molecular_count = sum(1 for r in matched_records if r.data_category == "molecular")
+
+    # Measured completeness: the share of core categories each matching patient
+    # actually has, averaged across the cohort.
+    core = ("demographics", "diagnosis", "treatment", "lab_results", "outcome")
+    per_patient: Dict[str, set] = {pid: set() for pid in matching}
+    for record in matched_records:
+        per_patient[str(record.patient_id)].add(record.data_category)
+    completeness = (
+        sum(len(cats & set(core)) / len(core) for cats in per_patient.values()) / patient_count
+        if patient_count else 0.0
+    )
+
+    institution_names = [
+        name for (name,) in db.query(Institution.name).filter(Institution.is_active == True).all()
+    ] if patient_count else []
 
     return CohortResult(
-        patient_count=result["patient_count"],
-        data_points=result["data_points"],
-        diagnosis_count=result["diagnosis_count"],
-        treatment_count=result["treatment_count"],
-        molecular_count=result["molecular_count"],
+        patient_count=patient_count,
+        data_points=len(matched_records),
+        diagnosis_count=diagnosis_count,
+        treatment_count=treatment_count,
+        molecular_count=molecular_count,
+        institutions=institution_names,
+        data_completeness=round(completeness, 3),
+        min_cell_size=MIN_AGGREGATE_CELL_SIZE,
+        suppressed=False,
     )
+
+
+@app.get("/api/cohort/variables")
+async def get_cohort_variables(
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Inventory of variables that consented patients actually have data for.
+
+    Completeness is measured, not estimated: for each field it is the share of
+    contributing patients that carry a non-empty value for that field. Fields
+    below the aggregate cell-size floor are withheld so a variable held by a
+    handful of people cannot itself become an identifier.
+    """
+    patient_ids = _consented_patient_ids(db)
+    total_patients = len(patient_ids)
+    if total_patients == 0:
+        return {"total_patients": 0, "categories": [], "min_cell_size": MIN_AGGREGATE_CELL_SIZE}
+
+    rows = db.query(
+        ExtractedMedicalData.data_category,
+        ExtractedMedicalData.patient_id,
+        ExtractedMedicalData.deidentified_data,
+    ).filter(ExtractedMedicalData.patient_id.in_(patient_ids)).all()
+
+    # category -> field -> set of patients carrying a value for that field
+    holders: Dict[str, Dict[str, set]] = {}
+    for category, patient_id, payload in rows:
+        if not isinstance(payload, dict):
+            continue
+        fields = holders.setdefault(category, {})
+        for field, value in payload.items():
+            if value is None or value == "" or value == []:
+                continue
+            fields.setdefault(field, set()).add(str(patient_id))
+
+    categories = []
+    suppressed = 0
+    for category in sorted(holders):
+        variables = []
+        for field in sorted(holders[category]):
+            count = len(holders[category][field])
+            if count < MIN_AGGREGATE_CELL_SIZE:
+                suppressed += 1
+                continue
+            variables.append({
+                "id": field,
+                "label": field.replace("_", " ").title(),
+                "patients_with_data": count,
+                "completeness": round(100 * count / total_patients),
+            })
+        if variables:
+            categories.append({"category": category, "variables": variables})
+
+    return {
+        "total_patients": total_patients,
+        "categories": categories,
+        "suppressed_variables": suppressed,
+        "min_cell_size": MIN_AGGREGATE_CELL_SIZE,
+    }
 
 
 @app.post("/api/cohort/save")

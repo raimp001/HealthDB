@@ -205,9 +205,9 @@ const LandingPage = () => {
           <h2 className="text-3xl font-bold mb-4">Start your research</h2>
           <p className="text-white/40 mb-8">Get from hypothesis to data in weeks</p>
           <div className="flex gap-4 justify-center">
-            <a href="https://calendly.com/healthdb/demo" className="px-8 py-3 bg-white text-black font-medium hover:bg-gray-100 transition-colors">
-              Schedule Demo
-            </a>
+            <Link to="/contact" className="px-8 py-3 bg-white text-black font-medium hover:bg-gray-100 transition-colors">
+              Talk to Us
+            </Link>
             <Link to="/register" className="px-8 py-3 border border-white/20 hover:bg-white/5 transition-colors">
               Create Account
             </Link>
@@ -235,14 +235,14 @@ const LandingPage = () => {
               <p className="text-xs text-white/30 uppercase tracking-wider mb-4">Company</p>
               <ul className="space-y-2 text-sm">
                 <li><Link to="/about" className="text-white/50 hover:text-white">About</Link></li>
-                <li><a href="mailto:contact@healthdb.ai" className="text-white/50 hover:text-white">Contact</a></li>
+                <li><Link to="/contact" className="text-white/50 hover:text-white">Contact</Link></li>
               </ul>
             </div>
             <div>
               <p className="text-xs text-white/30 uppercase tracking-wider mb-4">Legal</p>
               <ul className="space-y-2 text-sm">
-                <li><a href="#" className="text-white/50 hover:text-white">Privacy</a></li>
-                <li><a href="#" className="text-white/50 hover:text-white">Terms</a></li>
+                <li><Link to="/privacy" className="text-white/50 hover:text-white">Privacy</Link></li>
+                <li><Link to="/terms" className="text-white/50 hover:text-white">Terms</Link></li>
               </ul>
             </div>
           </div>
