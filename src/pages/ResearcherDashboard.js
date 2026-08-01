@@ -229,7 +229,7 @@ const ResearcherDashboard = () => {
           diagnosis_count: data.diagnosis_count,
           treatment_count: data.treatment_count,
           molecular_count: data.molecular_count,
-          institutions: data.institutions || [],
+          available_institutions: data.available_institutions || [],
           data_completeness: data.data_completeness ?? 0,
           suppressed: data.suppressed,
           min_cell_size: data.min_cell_size,
@@ -789,9 +789,7 @@ const ResearcherDashboard = () => {
                               {cohortResult.patient_count.toLocaleString()}
                             </p>
                             <p className="text-white/30 text-sm mt-1">
-                              {cohortResult.institutions.length > 0
-                                ? `across ${cohortResult.institutions.length} participating institutions`
-                                : 'no participating institutions registered yet'}
+                              consented and matching your criteria
                             </p>
                             {cohortResult.suppressed && (
                               <p className="text-amber-400 text-xs mt-2">
@@ -816,13 +814,24 @@ const ResearcherDashboard = () => {
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-3">
-                            {cohortResult.institutions.map((inst) => (
-                              <div key={inst} className="card-glass p-3 text-center">
-                                <p className="text-white/60 text-xs">{inst}</p>
+                          {cohortResult.available_institutions.length > 0 && (
+                            <div>
+                              <p className="text-white/40 text-xs uppercase tracking-wider mb-2">
+                                Sites you can file this study with
+                              </p>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {cohortResult.available_institutions.map((inst) => (
+                                  <div key={inst} className="card-glass p-3 text-center">
+                                    <p className="text-white/60 text-xs">{inst}</p>
+                                  </div>
+                                ))}
                               </div>
-                            ))}
-                          </div>
+                              <p className="text-white/30 text-xs mt-2">
+                                Records are contributed by patients directly, so a cohort is not
+                                attributed to a source institution.
+                              </p>
+                            </div>
+                          )}
 
                           <div className="pt-4 border-t border-white/10 space-y-2">
                             <div className="flex justify-between text-sm">

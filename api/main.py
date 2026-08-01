@@ -289,7 +289,7 @@ class CohortResult(BaseModel):
     diagnosis_count: int
     treatment_count: int
     molecular_count: int
-    institutions: List[str] = []
+    available_institutions: List[str] = []
     data_completeness: float = 0.0
     min_cell_size: int = 0
     suppressed: bool = False
@@ -1626,7 +1626,7 @@ async def build_cohort(
         return CohortResult(
             patient_count=0, data_points=0, diagnosis_count=0,
             treatment_count=0, molecular_count=0,
-            institutions=[], data_completeness=0.0,
+            available_institutions=[], data_completeness=0.0,
             min_cell_size=MIN_AGGREGATE_CELL_SIZE, suppressed=False,
         )
 
@@ -1690,7 +1690,7 @@ async def build_cohort(
         return CohortResult(
             patient_count=0, data_points=0, diagnosis_count=0,
             treatment_count=0, molecular_count=0,
-            institutions=[], data_completeness=0.0,
+            available_institutions=[], data_completeness=0.0,
             min_cell_size=MIN_AGGREGATE_CELL_SIZE, suppressed=True,
         )
 
@@ -1709,9 +1709,12 @@ async def build_cohort(
         if patient_count else 0.0
     )
 
+    # Records arrive patient-mediated, so we cannot attribute a cohort to source
+    # institutions. Report the directory of sites a study can be filed with, and
+    # let the caller label it as such rather than as contributors.
     institution_names = [
         name for (name,) in db.query(Institution.name).filter(Institution.is_active == True).all()
-    ] if patient_count else []
+    ]
 
     return CohortResult(
         patient_count=patient_count,
@@ -1719,7 +1722,7 @@ async def build_cohort(
         diagnosis_count=diagnosis_count,
         treatment_count=treatment_count,
         molecular_count=molecular_count,
-        institutions=institution_names,
+        available_institutions=institution_names,
         data_completeness=round(completeness, 3),
         min_cell_size=MIN_AGGREGATE_CELL_SIZE,
         suppressed=False,
