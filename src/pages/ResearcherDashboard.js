@@ -89,15 +89,13 @@ const ResearcherDashboard = () => {
     'IMiD', 'Anti-CD38', 'BCMA-Targeted'
   ];
 
-  const variableCategories = {
-    demographics: ['Age at diagnosis', 'Sex', 'Race/ethnicity', 'Insurance type'],
-    labs: ['Hemoglobin', 'Creatinine', 'LDH', 'Beta-2 microglobulin', 'Albumin', 'Free light chains'],
-    staging: ['ISS stage', 'R-ISS stage', 'Bone lesions', 'Extramedullary disease'],
-    cytogenetics: ['t(4;14)', 't(14;16)', 't(11;14)', 'del(17p)', '1q gain', 'Hyperdiploidy'],
-    treatments: ['Regimen name', 'Start/stop dates', 'Dose', 'Cycles completed', 'Reason for discontinuation'],
-    outcomes: ['Best response', 'PFS', 'OS', 'MRD status', 'Time to next treatment'],
-    toxicities: ['CRS grade', 'ICANS grade', 'Cytopenias', 'Infections', 'Neuropathy'],
-  };
+  // Variable inventory measured from the records consented patients actually
+  // contributed, loaded from the API. Nothing here is assumed.
+  const [variableInventory, setVariableInventory] = useState(null);
+  const variableCategories = (variableInventory?.categories || []).reduce((acc, c) => {
+    acc[c.category] = c.variables.map(v => v.label);
+    return acc;
+  }, {});
 
   const tabs = [
     { id: 'cohort', label: 'Cohort Builder' },
@@ -183,6 +181,15 @@ const ResearcherDashboard = () => {
   useEffect(() => {
     if (activeTab === 'analytics') fetchAnalytics(analyticsScope);
   }, [activeTab, analyticsScope, fetchAnalytics]);
+
+  useEffect(() => {
+    const token = sessionStorage.getItem('token');
+    if (!token) return;
+    fetch(`${API_URL}/api/cohort/variables`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(res => (res.ok ? res.json() : null))
+      .then(setVariableInventory)
+      .catch(() => setVariableInventory(null));
+  }, []);
 
   useEffect(() => {
     if (activeTab !== 'regulatory') return;
@@ -1186,7 +1193,9 @@ const ResearcherDashboard = () => {
                       {(siteData?.central || []).map((doc) => (
                         <div key={doc.id} className="flex items-center justify-between py-3 border-b border-white/5">
                           <div>
-                            <p className="text-white font-medium">Central IRB (HealthDB sIRB)</p>
+                            <p className="text-white font-medium capitalize">
+                              {String(doc.document_type || 'document').replace(/_/g, ' ')}
+                            </p>
                             {doc.protocol_number && <p className="text-white/40 text-sm">Protocol #{doc.protocol_number}</p>}
                           </div>
                           <div className="flex items-center gap-3">
@@ -1375,6 +1384,15 @@ const ResearcherDashboard = () => {
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto p-6">
+                {Object.keys(variableCategories).length === 0 && (
+                  <p className="text-white/40 text-sm">
+                    No variables available yet. They appear here once enough consented patients have
+                    contributed records
+                    {variableInventory?.min_cell_size
+                      ? ` — fields held by fewer than ${variableInventory.min_cell_size} patients are withheld`
+                      : ''}.
+                  </p>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {Object.entries(variableCategories).map(([category, variables]) => (
                     <div key={category}>
