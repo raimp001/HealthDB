@@ -733,6 +733,11 @@ const CohortBuilder = () => {
                     <span>Total Variables</span>
                     <span className="text-emerald-400">{totalVars}</span>
                   </div>
+                  {totalVars === 0 && (
+                    <p className="text-white/30 text-xs">
+                      Nothing selected — the extract will include every field available for the cohort.
+                    </p>
+                  )}
                 </div>
                 
                 {avgCompleteness() !== null && (
@@ -757,12 +762,7 @@ const CohortBuilder = () => {
                   </button>
                   <button 
                     onClick={() => setStep(3)}
-                    disabled={totalVars === 0}
-                    className={`flex-1 font-medium py-2 text-sm transition-colors ${
-                      totalVars > 0 
-                        ? 'bg-emerald-500 hover:bg-emerald-400 text-black' 
-                        : 'bg-white/10 text-white/30 cursor-not-allowed'
-                    }`}
+                    className="flex-1 font-medium py-2 text-sm transition-colors bg-emerald-500 hover:bg-emerald-400 text-black"
                   >
                     Continue →
                   </button>
