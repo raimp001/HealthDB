@@ -20,6 +20,10 @@ import About from './pages/About';
 import Contact from './pages/Contact';
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
+import PlatformFocusAreas from './pages/PlatformFocusAreas';
+import SecurityPostureMap from './pages/SecurityPostureMap';
+import DataFlowDiagram from './pages/DataFlowDiagram';
+import RepoAnalyzer from './pages/RepoAnalyzer';
 
 // Components
 import Navbar from './components/Navbar';
@@ -42,6 +46,11 @@ function App() {
             <Route path="/research" element={<ResearcherDashboard />} />
             <Route path="/institution" element={<InstitutionDashboard />} />
             <Route path="/cohort-builder" element={<CohortBuilder />} />
+            {/* Platform pages */}
+            <Route path="/platform" element={<PlatformFocusAreas />} />
+            <Route path="/security-posture" element={<SecurityPostureMap />} />
+            <Route path="/data-flow" element={<DataFlowDiagram />} />
+            <Route path="/repo-analyzer" element={<RepoAnalyzer />} />
             {/* Other pages */}
             <Route path="/marketplace" element={<DataMarketplace />} />
             <Route path="/resources" element={<Resources />} />

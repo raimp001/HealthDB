@@ -177,24 +177,37 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Capabilities */}
+      {/* HealthDB Focus Areas */}
       <section className="py-24 px-6 border-t border-white/5">
         <div className="max-w-5xl mx-auto">
-          <h2 className="text-3xl font-bold mb-12">Platform</h2>
+          <h2 className="text-3xl font-bold mb-4">Platform Infrastructure</h2>
+          <p className="text-white/40 mb-12">Six core modules powering secure, multi-center clinical research data access.</p>
           <div className="grid md:grid-cols-3 gap-6">
             {[
-              { title: 'IRB Protocol Generator', desc: 'Auto-populate NIH templates' },
-              { title: 'DUA Templates', desc: 'Pre-negotiated with major centers' },
-              { title: 'EMR Integration', desc: 'Epic, Cerner via FHIR' },
-              { title: 'Cohort Builder', desc: 'Visual query interface' },
-              { title: 'Variable Selector', desc: '50+ OMOP CDM fields' },
-              { title: 'De-identification', desc: 'HIPAA Safe Harbor' },
+              { icon: '⚡', title: 'FHIR/HL7 Ingestion', desc: 'FHIR R4, Bulk FHIR, HL7v2 ingestion with OMOP CDM normalization', color: 'text-emerald-400' },
+              { icon: '🔐', title: 'Connector Auth Vault', desc: 'AWS KMS-backed credential storage with auto token refresh', color: 'text-blue-400' },
+              { icon: '🛡️', title: 'PHI Boundary & De-ID', desc: 'HIPAA Safe Harbor — 18 identifier removal with tokenized re-linkage', color: 'text-amber-400' },
+              { icon: '📋', title: 'Audit & Access Control', desc: 'Supabase RLS policies with immutable append-only audit logging', color: 'text-purple-400' },
+              { icon: '📊', title: 'Dataset Builder & Export', desc: 'Visual cohort builder across 50+ OMOP CDM fields with CSV/Parquet export', color: 'text-cyan-400' },
+              { icon: '🔬', title: 'Trial Matching Pipeline', desc: 'Match cohorts to ClinicalTrials.gov with NLP eligibility parsing', color: 'text-rose-400' },
             ].map((item) => (
-              <div key={item.title} className="p-6 border border-white/10">
-                <h3 className="font-medium mb-2">{item.title}</h3>
+              <div key={item.title} className="p-6 border border-white/10 card-hover">
+                <div className={`text-2xl mb-3`}>{item.icon}</div>
+                <h3 className={`font-medium mb-2 ${item.color}`}>{item.title}</h3>
                 <p className="text-sm text-white/40">{item.desc}</p>
               </div>
             ))}
+          </div>
+          <div className="mt-8 flex flex-wrap gap-4">
+            <Link to="/platform" className="text-emerald-400 text-sm hover:underline">
+              Explore all focus areas →
+            </Link>
+            <Link to="/security-posture" className="text-blue-400 text-sm hover:underline">
+              Security posture map →
+            </Link>
+            <Link to="/data-flow" className="text-amber-400 text-sm hover:underline">
+              Data flow diagram →
+            </Link>
           </div>
         </div>
       </section>
