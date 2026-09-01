@@ -184,7 +184,10 @@ const DataMarketplace = () => {
                         <p className="text-xs text-white/30">From</p>
                         <p className="font-mono">{formatPrice(product.priceFrom)}</p>
                       </div>
-                      <button className="px-3 py-1.5 border border-white/20 text-xs hover:bg-white/10 transition-colors">
+                      <button
+                        onClick={() => setSelectedProduct(product)}
+                        className="px-3 py-1.5 border border-white/20 text-xs hover:bg-white/10 transition-colors"
+                      >
                         Details
                       </button>
                     </div>
@@ -286,9 +289,12 @@ const DataMarketplace = () => {
                 <Link to="/register?type=researcher" className="flex-1 py-2 bg-white text-black text-center text-sm hover:bg-gray-100 transition-colors">
                   Apply for Access
                 </Link>
-                <button className="flex-1 py-2 border border-white/20 text-sm hover:bg-white/10 transition-colors">
-                  Data Dictionary
-                </button>
+                <Link
+                  to="/contact"
+                  className="flex-1 py-2 border border-white/20 text-center text-sm hover:bg-white/10 transition-colors"
+                >
+                  Request Data Dictionary
+                </Link>
               </div>
             </div>
           </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const API_URL = process.env.NODE_ENV === 'production' ? '' : (process.env.REACT_APP_API_URL || 'http://localhost:8000');
 
@@ -137,6 +137,7 @@ const InstitutionDashboard = () => {
             irbProtocols={irbProtocols} 
             collaborations={collaborations}
             emrConnections={emrConnections}
+            onNavigateTab={setActiveTab}
           />
         )}
         {activeTab === 'irb' && <IRBTab protocols={irbProtocols} />}
@@ -150,7 +151,7 @@ const InstitutionDashboard = () => {
 };
 
 // Overview Tab
-const OverviewTab = ({ agreements, irbProtocols, collaborations, emrConnections }) => {
+const OverviewTab = ({ agreements, irbProtocols, collaborations, emrConnections, onNavigateTab }) => {
   const recentActivity = [
     ...irbProtocols.slice(0, 3).map(p => ({ type: 'irb', item: p, date: p.submitted_at })),
     ...agreements.slice(0, 3).map(a => ({ type: 'agreement', item: a, date: a.created_at })),
@@ -176,7 +177,12 @@ const OverviewTab = ({ agreements, irbProtocols, collaborations, emrConnections 
                   <div className="text-sm">{item.protocol_number || item.document_type}</div>
                   <div className="text-xs text-white/40">{item.status}</div>
                 </div>
-                <button className="text-xs text-blue-400 hover:underline">Review</button>
+                <button
+                  onClick={() => onNavigateTab(item.protocol_number ? 'irb' : 'agreements')}
+                  className="text-xs text-blue-400 hover:underline"
+                >
+                  Review
+                </button>
               </div>
             ))}
           </div>
@@ -326,9 +332,12 @@ const IRBTab = ({ protocols }) => {
 
       {/* Add Protocol Button */}
       <div className="mt-6">
-        <button className="px-4 py-2 border border-white/20 text-sm hover:bg-white/5 transition-colors">
+        <Link
+          to="/contact"
+          className="px-4 py-2 border border-white/20 text-sm hover:bg-white/5 transition-colors"
+        >
           Submit New Protocol
-        </button>
+        </Link>
       </div>
     </div>
   );
@@ -374,7 +383,7 @@ const AgreementsTab = ({ agreements }) => {
       <div className="border border-white/10">
         <div className="p-4 bg-white/[0.02] flex justify-between items-center">
           <h3 className="font-medium">All Agreements</h3>
-          <button className="text-xs text-blue-400 hover:underline">New Agreement</button>
+          <Link to="/contact" className="text-xs text-blue-400 hover:underline">New Agreement</Link>
         </div>
         {institutionAgreements.length === 0 && (
           <div className="p-8 text-center text-white/40 text-sm border-t border-white/5">
@@ -434,9 +443,12 @@ const EMRTab = ({ connections }) => {
         {institutionConnections.length === 0 ? (
           <div className="p-8 border border-white/10 text-center">
             <p className="text-white/40 mb-4">No EMR connections configured</p>
-            <button className="px-4 py-2 bg-white text-black text-sm hover:bg-gray-100 transition-colors">
+            <Link
+              to="/contact"
+              className="px-4 py-2 bg-white text-black text-sm hover:bg-gray-100 transition-colors"
+            >
               Connect EMR
-            </button>
+            </Link>
           </div>
         ) : (
           <div className="space-y-4">

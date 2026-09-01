@@ -228,43 +228,6 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-white/5 py-12 px-6">
-        <div className="max-w-5xl mx-auto">
-          <div className="grid md:grid-cols-4 gap-8 mb-12">
-            <div>
-              <div className="font-medium mb-4">HealthDB</div>
-              <p className="text-white/30 text-sm">Cancer research data infrastructure</p>
-            </div>
-            <div>
-              <p className="text-xs text-white/30 uppercase tracking-wider mb-4">Platform</p>
-              <ul className="space-y-2 text-sm">
-                <li><Link to="/researchers" className="text-white/50 hover:text-white">Researchers</Link></li>
-                <li><Link to="/patients" className="text-white/50 hover:text-white">Patients</Link></li>
-                <li><Link to="/pricing" className="text-white/50 hover:text-white">Pricing</Link></li>
-              </ul>
-            </div>
-            <div>
-              <p className="text-xs text-white/30 uppercase tracking-wider mb-4">Company</p>
-              <ul className="space-y-2 text-sm">
-                <li><Link to="/about" className="text-white/50 hover:text-white">About</Link></li>
-                <li><Link to="/contact" className="text-white/50 hover:text-white">Contact</Link></li>
-              </ul>
-            </div>
-            <div>
-              <p className="text-xs text-white/30 uppercase tracking-wider mb-4">Legal</p>
-              <ul className="space-y-2 text-sm">
-                <li><Link to="/privacy" className="text-white/50 hover:text-white">Privacy</Link></li>
-                <li><Link to="/terms" className="text-white/50 hover:text-white">Terms</Link></li>
-              </ul>
-            </div>
-          </div>
-          <div className="pt-8 border-t border-white/5 flex justify-between text-xs text-white/30">
-            <p>© 2024 HealthDB</p>
-            <p>HIPAA Compliant · SOC 2</p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 };

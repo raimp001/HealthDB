@@ -40,6 +40,8 @@ const Login = () => {
 
       if (data.user.user_type === 'patient') {
         navigate('/patient');
+      } else if (data.user.user_type === 'institution') {
+        navigate('/institution');
       } else {
         navigate('/research');
       }
