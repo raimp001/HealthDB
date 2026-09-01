@@ -24,16 +24,19 @@ import PlatformFocusAreas from './pages/PlatformFocusAreas';
 import SecurityPostureMap from './pages/SecurityPostureMap';
 import DataFlowDiagram from './pages/DataFlowDiagram';
 import RepoAnalyzer from './pages/RepoAnalyzer';
+import NotFound from './pages/NotFound';
 
 // Components
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import PilotBanner from './components/PilotBanner';
 
 function App() {
   return (
     <Router>
       <div className="min-h-screen bg-slate-50 flex flex-col">
         <Navbar />
+        <PilotBanner />
         <main className="flex-grow">
           <Routes>
             <Route path="/" element={<LandingPage />} />
@@ -61,6 +64,8 @@ function App() {
             <Route path="/terms" element={<Terms />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            {/* Catch-all: unknown URLs must not render the homepage */}
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </main>
         <Footer />

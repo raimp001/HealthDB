@@ -141,11 +141,13 @@ SCHEMA_SYNC_STATEMENTS = [
     "ALTER TABLE extraction_jobs ADD COLUMN result_csv TEXT",
 ]
 
-DEFAULT_INSTITUTIONS = [
-    {"name": "OHSU Knight Cancer Institute", "type": "Academic Medical Center", "city": "Portland", "state": "OR", "country": "USA", "emr_system": "Epic"},
-    {"name": "Fred Hutchinson Cancer Center", "type": "Comprehensive Cancer Center", "city": "Seattle", "state": "WA", "country": "USA", "emr_system": "Epic"},
-    {"name": "Emory Winship Cancer Institute", "type": "Academic Medical Center", "city": "Atlanta", "state": "GA", "country": "USA", "emr_system": "Cerner"},
-    {"name": "UCSF Helen Diller Cancer Center", "type": "Comprehensive Cancer Center", "city": "San Francisco", "state": "CA", "country": "USA", "emr_system": "Epic"},
+# Local development fixtures ONLY. These are deliberately fictional: seeding
+# real organisation names created rows indistinguishable from verified
+# partners. A real institution must be onboarded through an audited process,
+# never by a startup seeder.
+SAMPLE_INSTITUTIONS = [
+    {"name": "Sample Academic Medical Center (demo)", "type": "Academic Medical Center", "city": "Springfield", "state": "OR", "country": "USA", "emr_system": "Epic"},
+    {"name": "Sample Comprehensive Cancer Center (demo)", "type": "Comprehensive Cancer Center", "city": "Rivertown", "state": "WA", "country": "USA", "emr_system": "Cerner"},
 ]
 
 
@@ -171,9 +173,11 @@ def initialize_database():
             print(f"Removed {deleted} placeholder data products")
             db.commit()
 
-        # Seed partner institutions so multi-site study setup works out of the box
-        if db.query(Institution).count() == 0:
-            for inst in DEFAULT_INSTITUTIONS:
+        # Sample institutions are development conveniences only. Production
+        # starts empty so nothing can be mistaken for a real partner site.
+        is_production = os.environ.get("ENVIRONMENT", "development") == "production"
+        if not is_production and db.query(Institution).count() == 0:
+            for inst in SAMPLE_INSTITUTIONS:
                 db.add(Institution(**inst))
             db.commit()
     except Exception as e:
@@ -3164,7 +3168,12 @@ async def get_platform_stats(db: Session = Depends(get_db)):
         "active_studies": stats["active_studies"],
         "partner_institutions": stats["partner_institutions"],
         "cancer_types_covered": stats["cancer_types_covered"],
-        "countries": 12,  # Would come from institution data
+        "countries": stats.get(
+            "countries",
+            db.query(Institution.country)
+              .filter(Institution.country.isnot(None))
+              .distinct().count(),
+        ),
     }
 
 

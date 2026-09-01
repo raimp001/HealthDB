@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import TargetArchitectureBanner from '../components/TargetArchitectureBanner';
 
 const focusAreas = [
   {
@@ -121,11 +122,15 @@ const PlatformFocusAreas = () => {
     <div className="bg-black text-white min-h-screen pt-24">
       <div className="max-w-6xl mx-auto px-6 py-16">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">Platform Focus Areas</h1>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">Platform Roadmap</h1>
           <p className="text-white/40 max-w-2xl mb-12">
             HealthDB's core infrastructure modules — from EHR ingestion through de-identified research export.
           </p>
         </motion.div>
+        <TargetArchitectureBanner
+          implemented={["FHIR R4 ingest", "Safe Harbor de-identification", "Consent management and access logs", "Cohort feasibility with small-cell suppression"]}
+          planned={["Connector token vault (AWS KMS)", "OMOP CDM normalization", "Clinical trial matching pipeline", "Bulk FHIR and HL7v2 connectors"]}
+        />
 
         {/* Tab Navigation */}
         <div className="flex flex-wrap gap-2 mb-12">

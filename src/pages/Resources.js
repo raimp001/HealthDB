@@ -157,9 +157,10 @@ For aggregate queries, we add calibrated noise to prevent inference attacks.
 Our de-identification pipeline is validated through:
 
 - Automated testing against known re-identification attacks
-- Third-party security audits
-- Regular penetration testing
 - Statistical analysis of re-identification risk
+
+Third-party security audits and penetration testing are planned controls,
+not ones HealthDB has completed.
 
 **The Result**
 
@@ -333,20 +334,20 @@ We've built pre-existing relationships with 50+ institutions:
 **How Multi-Center Studies Work**
 
 1. **Define cohort**: Specify your inclusion/exclusion criteria
-2. **Run feasibility**: See patient counts by site instantly
+2. **Run feasibility**: See aggregate patient counts by site
 3. **Submit to sIRB**: One application covers all sites
-4. **Activate sites**: Reliance agreements activate in 24 hours
+4. **Activate sites**: Once reliance agreements are executed
 5. **Extract data**: Normalized data from all sites in one dataset
 
-**Case Study: CAR-T Registry**
+**Worked Example (hypothetical)**
 
-A researcher studying CAR-T outcomes needed 500+ patients. No single center had enough. Through HealthDB:
+The following illustrates the intended workflow. It is not a completed
+HealthDB study; no multi-center study has run on the platform.
 
-- 8 sites identified with qualifying patients
-- sIRB approved in 18 days
-- All sites activated in 48 hours
-- 547 patients in the final cohort
-- Time from concept to data: 4 weeks
+A researcher studying CAR-T outcomes needs 500+ patients, more than any single
+center holds. The intended path is: run feasibility across participating sites,
+submit one IRB application under a reliance model, activate sites, and extract a
+single normalized dataset. Timelines will depend on the sites and IRB involved.
 
 Traditional approach would have taken 6-12 months.
 
@@ -403,7 +404,7 @@ This enables even broader collaboration while strengthening privacy.`
         { title: '4. De-identification Pipeline', content: 'Automated Safe Harbor compliance with date shifting, generalization, and k-anonymity verification. Statistical risk analysis before any data release.' },
         { title: '5. Audit & Logging', content: 'Comprehensive audit trail of all data access. Immutable logs stored separately. Real-time anomaly detection for unusual access patterns.' },
         { title: '6. Incident Response', content: 'Documented procedures for potential breaches. Automatic detection, containment, and notification workflows. Regular tabletop exercises.' },
-        { title: '7. Compliance Validation', content: 'Annual SOC 2 Type II audits. Quarterly penetration testing. Continuous compliance monitoring with automated controls.' }
+        { title: '7. Compliance Validation', content: 'Target state: annual SOC 2 Type II audit, periodic penetration testing, and continuous automated control monitoring. None of these have been performed to date; HealthDB currently holds no certifications.' }
       ]
     },
     {

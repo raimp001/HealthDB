@@ -584,7 +584,7 @@ const CollaborationsTab = ({ collaborations }) => {
       <div className="mt-8">
         <h3 className="font-medium mb-4">Partner Sites in Network</h3>
         <div className="grid md:grid-cols-4 gap-4">
-          {['OHSU', 'Fred Hutch', 'Emory', 'MD Anderson', 'Memorial Sloan Kettering', 'Dana-Farber', 'Mayo Clinic', 'Cleveland Clinic'].map((site, i) => (
+          {['Sample Site A', 'Sample Site B', 'Sample Site C', 'Sample Site D'].map((site, i) => (
             <div key={site} className="p-3 border border-white/10 text-sm text-center">
               {site}
             </div>
@@ -597,68 +597,61 @@ const CollaborationsTab = ({ collaborations }) => {
 
 // Compliance Tab
 const ComplianceTab = () => {
-  const complianceItems = [
-    { 
-      category: 'HIPAA',
+  // Nothing here is a certification. These are controls implemented in the
+  // platform, stated without dates or attestations, because HealthDB has not
+  // completed any third-party audit. Anything unverified is listed as such.
+  const implemented = [
+    {
+      category: 'Access control',
       items: [
-        { name: 'Business Associate Agreement', status: 'complete', date: '2024-01-01' },
-        { name: 'Privacy Policy', status: 'complete', date: '2024-01-01' },
-        { name: 'Security Risk Assessment', status: 'complete', date: '2024-01-15' },
-        { name: 'Workforce Training', status: 'complete', date: '2024-02-01' }
-      ]
+        'Roles resolved from the database on every privileged request',
+        'Study-scoped authorization for cohort and export access',
+        'Separation of duties on regulatory approval',
+        'PBKDF2-SHA256 password hashing (600,000 iterations)',
+      ],
     },
     {
-      category: 'Data Security',
+      category: 'Data protection',
       items: [
-        { name: 'SOC 2 Type II', status: 'complete', date: '2024-01-20' },
-        { name: 'Encryption at Rest', status: 'complete', date: '2024-01-01' },
-        { name: 'Encryption in Transit', status: 'complete', date: '2024-01-01' },
-        { name: 'Access Logging', status: 'complete', date: '2024-01-01' }
-      ]
+        'HIPAA Safe Harbor identifier removal before research access',
+        'Small-cell suppression on aggregate results',
+        'Consent checked at query time, revocable by the patient',
+        'Append-only access log, visible to the patient',
+      ],
     },
-    {
-      category: 'Regulatory',
-      items: [
-        { name: '21 CFR Part 11', status: 'complete', date: '2024-02-15' },
-        { name: 'GDPR Readiness', status: 'in_progress', date: null },
-        { name: 'State Privacy Laws', status: 'complete', date: '2024-01-30' }
-      ]
-    },
-    {
-      category: 'Audit',
-      items: [
-        { name: 'Annual Security Audit', status: 'complete', date: '2024-01-31' },
-        { name: 'Penetration Testing', status: 'complete', date: '2024-02-28' },
-        { name: 'Vendor Assessment', status: 'complete', date: '2024-01-15' }
-      ]
-    }
   ];
 
-  const statusColors = {
-    complete: 'text-green-400',
-    in_progress: 'text-yellow-400',
-    pending: 'text-white/40'
-  };
+  const notInPlace = [
+    { name: 'SOC 2 Type II', note: 'No audit commenced' },
+    { name: 'HIPAA Business Associate Agreements', note: 'None executed' },
+    { name: 'Independent penetration test', note: 'Not performed' },
+    { name: 'Security risk assessment', note: 'Not performed' },
+    { name: 'GDPR readiness review', note: 'Not assessed' },
+    { name: '21 CFR Part 11', note: 'Not assessed' },
+    { name: 'IRB reliance agreements', note: 'None executed' },
+    { name: 'Workforce compliance training', note: 'Not established' },
+  ];
 
   return (
     <div>
+      <div className="p-4 border border-amber-400/30 bg-amber-400/5 mb-8">
+        <p className="text-amber-400 text-sm font-medium mb-1">Closed pilot — no certifications held</p>
+        <p className="text-white/50 text-sm">
+          HealthDB holds no compliance certifications and has no executed BAAs, DUAs, or
+          IRB reliance agreements. Do not process real PHI on this platform until those
+          are independently verified.
+        </p>
+      </div>
+
       <div className="grid md:grid-cols-2 gap-8">
-        {complianceItems.map((category, i) => (
-          <div key={category.category} className="p-6 border border-white/10">
-            <h3 className="font-medium mb-4">{category.category}</h3>
+        {implemented.map((category) => (
+          <div key={category.category} className="p-6 border border-emerald-400/20">
+            <h3 className="font-medium mb-4 text-emerald-400">{category.category}</h3>
             <div className="space-y-3">
-              {category.items.map((item, j) => (
-                <div key={j} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-2 h-2 rounded-full ${
-                      item.status === 'complete' ? 'bg-green-400' :
-                      item.status === 'in_progress' ? 'bg-yellow-400' : 'bg-white/20'
-                    }`} />
-                    <span className="text-sm">{item.name}</span>
-                  </div>
-                  <span className={`text-xs ${statusColors[item.status]}`}>
-                    {item.status === 'complete' ? item.date : item.status.replace('_', ' ')}
-                  </span>
+              {category.items.map((item) => (
+                <div key={item} className="flex items-start gap-3 py-1">
+                  <span className="text-emerald-400 text-xs mt-1">✓</span>
+                  <span className="text-sm text-white/60">{item}</span>
                 </div>
               ))}
             </div>
@@ -666,28 +659,13 @@ const ComplianceTab = () => {
         ))}
       </div>
 
-      {/* Certifications */}
-      <div className="mt-8">
-        <h3 className="font-medium mb-4">Certifications & Attestations</h3>
-        <div className="grid md:grid-cols-4 gap-4">
-          {[
-            { name: 'HIPAA', icon: 'H', valid: true },
-            { name: 'SOC 2', icon: 'S', valid: true },
-            { name: 'GDPR', icon: 'G', valid: false },
-            { name: '21 CFR 11', icon: 'F', valid: true }
-          ].map((cert, i) => (
-            <div key={cert.name} className={`p-4 border text-center ${
-              cert.valid ? 'border-green-400/30 bg-green-400/5' : 'border-white/10'
-            }`}>
-              <div className={`w-12 h-12 mx-auto mb-2 flex items-center justify-center text-xl font-bold ${
-                cert.valid ? 'bg-green-400/20 text-green-400' : 'bg-white/10 text-white/40'
-              }`}>
-                {cert.icon}
-              </div>
-              <div className="font-medium text-sm">{cert.name}</div>
-              <div className={`text-xs mt-1 ${cert.valid ? 'text-green-400' : 'text-white/40'}`}>
-                {cert.valid ? 'Verified' : 'In Progress'}
-              </div>
+      <div className="mt-8 p-6 border border-white/10">
+        <h3 className="font-medium mb-4">Not in place</h3>
+        <div className="grid md:grid-cols-2 gap-x-8">
+          {notInPlace.map((item) => (
+            <div key={item.name} className="flex items-center justify-between py-2 border-b border-white/5">
+              <span className="text-sm text-white/60">{item.name}</span>
+              <span className="text-xs text-amber-400/60">{item.note}</span>
             </div>
           ))}
         </div>

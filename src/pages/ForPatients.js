@@ -90,7 +90,7 @@ const ForPatients = () => {
           <h2 className="text-2xl font-bold mb-8">Your privacy</h2>
           <div className="grid md:grid-cols-4 gap-6 mb-12">
             {[
-              { title: 'HIPAA Compliant', desc: 'Strict privacy regulations' },
+              { title: 'Safe Harbor de-ID', desc: 'Identifiers removed before research use' },
               { title: 'De-identified', desc: 'Identity protected' },
               { title: 'Your Control', desc: 'Revoke anytime' },
               { title: 'Transparent', desc: 'See who accessed' },

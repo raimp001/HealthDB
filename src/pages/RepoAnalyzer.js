@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import TargetArchitectureBanner from '../components/TargetArchitectureBanner';
 
 const repoModules = [
   {
@@ -208,11 +209,15 @@ const RepoAnalyzer = () => {
     <div className="bg-black text-white min-h-screen pt-24">
       <div className="max-w-6xl mx-auto px-6 py-16">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">Repo Analyzer</h1>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">Target Module Map</h1>
           <p className="text-white/40 max-w-2xl mb-12">
             Inferred labels across all HealthDB modules: data sources, PHI entry points, de-identification steps, and authorization boundaries.
           </p>
         </motion.div>
+        <TargetArchitectureBanner
+          implemented={["FastAPI + SQLAlchemy service", "Safe Harbor de-identification module", "Consent and audit-log tables"]}
+          planned={["Supabase RLS policies", "AWS KMS credential vault", "NLP de-identification of free text", "OMOP CDM tables"]}
+        />
 
         {/* View Tabs */}
         <div className="flex flex-wrap gap-2 mb-12">

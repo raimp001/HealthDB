@@ -12,12 +12,12 @@ const footerSections = [
     ],
   },
   {
-    title: 'Platform',
+    title: 'Roadmap',
     links: [
-      { to: '/platform', label: 'Focus Areas' },
-      { to: '/security-posture', label: 'Security Posture' },
-      { to: '/data-flow', label: 'Data Flow' },
-      { to: '/repo-analyzer', label: 'Repo Analyzer' },
+      { to: '/platform', label: 'Roadmap' },
+      { to: '/security-posture', label: 'Target Security' },
+      { to: '/data-flow', label: 'Target Data Flow' },
+      { to: '/repo-analyzer', label: 'Module Map' },
     ],
   },
   {
@@ -74,7 +74,7 @@ const Footer = () => {
 
         <div className="pt-8 border-t border-white/5 flex flex-col sm:flex-row justify-between gap-2 text-xs text-white/30">
           <p>© {new Date().getFullYear()} HealthDB</p>
-          <p>HIPAA Compliant · SOC 2</p>
+          <p>Closed pilot · Not for clinical use</p>
         </div>
       </div>
     </footer>

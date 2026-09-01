@@ -85,7 +85,7 @@ const ForResearchers = () => {
             {[
               { title: 'Protocol Templates', features: ['Chart review', 'RWE', 'Registry'] },
               { title: 'Fast-Track', features: ['Minimal risk', 'HIPAA Safe Harbor', 'Pre-negotiated DUAs'] },
-              { title: 'Central sIRB', features: ['Single submission', 'All sites covered', 'Faster turnaround'] },
+              { title: 'IRB protocol drafting', features: ['Protocol draft from your cohort', 'Reliance model planned', 'No sIRB in place yet'] },
             ].map((item) => (
               <div key={item.title} className="p-6 border border-white/10">
                 <h3 className="font-medium mb-4">{item.title}</h3>

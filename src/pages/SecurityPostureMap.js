@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import TargetArchitectureBanner from '../components/TargetArchitectureBanner';
 
 const securityZones = [
   {
@@ -146,11 +147,15 @@ const SecurityPostureMap = () => {
     <div className="bg-black text-white min-h-screen pt-24">
       <div className="max-w-6xl mx-auto px-6 py-16">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">Security Posture Map</h1>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">Target Security Architecture</h1>
           <p className="text-white/40 max-w-2xl mb-12">
             PHI boundaries, access paths, and authorization controls across every layer of HealthDB.
           </p>
         </motion.div>
+        <TargetArchitectureBanner
+          implemented={["Role checks resolved from the database", "PBKDF2-SHA256 password hashing (600k iterations)", "Consent checked at query time", "Append-only access logging", "Safe Harbor de-identification (api/deidentification.py)"]}
+          planned={["Supabase / Row-Level Security", "AWS KMS token vault", "API gateway (Kong) and WAF", "MFA (TOTP / WebAuthn)", "Signed expiring download URLs"]}
+        />
 
         {/* View Tabs */}
         <div className="flex flex-wrap gap-2 mb-12">

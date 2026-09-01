@@ -40,7 +40,7 @@ const Navbar = () => {
             <NavLink to="/researchers">Researchers</NavLink>
             <NavLink to="/patients">Patients</NavLink>
             <NavLink to="/institutions">Institutions</NavLink>
-            <NavLink to="/platform">Platform</NavLink>
+            <NavLink to="/platform">Roadmap</NavLink>
             <NavLink to="/about">About</NavLink>
           </div>
 
@@ -97,7 +97,7 @@ const Navbar = () => {
           <MobileNavLink to="/researchers">Researchers</MobileNavLink>
           <MobileNavLink to="/patients">Patients</MobileNavLink>
           <MobileNavLink to="/institutions">Institutions</MobileNavLink>
-          <MobileNavLink to="/platform">Platform</MobileNavLink>
+          <MobileNavLink to="/platform">Roadmap</MobileNavLink>
           <MobileNavLink to="/about">About</MobileNavLink>
           <div className="pt-6 border-t border-white/10 space-y-4">
             <Link

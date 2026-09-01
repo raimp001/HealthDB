@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import TargetArchitectureBanner from '../components/TargetArchitectureBanner';
 
 const pipelineStages = [
   {
@@ -104,11 +105,15 @@ const DataFlowDiagram = () => {
     <div className="bg-black text-white min-h-screen pt-24">
       <div className="max-w-6xl mx-auto px-6 py-16">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">Data Flow Diagram</h1>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">Target Data Flow</h1>
           <p className="text-white/40 max-w-2xl mb-12">
             Connector → Ingestion → Normalize → Store → Query → Export — with PHI boundaries and authorization at every stage.
           </p>
         </motion.div>
+        <TargetArchitectureBanner
+          implemented={["FHIR R4 bundle ingest (api/fhir_ingest.py)", "Safe Harbor de-identification", "Small-cell suppression on aggregates", "Consent-gated cohort queries"]}
+          planned={["OMOP CDM normalization", "Bulk FHIR $export and HL7v2 MLLP", "k-anonymity verification", "Tokenized re-linkage vault"]}
+        />
 
         {/* View Tabs */}
         <div className="flex flex-wrap gap-2 mb-12">

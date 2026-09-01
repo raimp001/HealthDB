@@ -139,7 +139,7 @@ const Pricing = () => {
               { q: 'How long for IRB?', a: '2-3 weeks with central sIRB. Sites with reliance can be added in days.' },
               { q: 'Academic pricing?', a: 'Yes, significant discounts for academic and non-profit.' },
               { q: 'EMR support?', a: 'Epic (Cosmos, FHIR), Cerner, and secure file transfer.' },
-              { q: 'Security?', a: 'SOC 2 Type II certified, regular audits, HIPAA compliant.' },
+              { q: 'Security?', a: 'HealthDB holds no third-party certifications yet. Implemented today: Safe Harbor de-identification, server-side role checks, consent gating, small-cell suppression and access audit logging. SOC 2, BAAs and penetration testing are planned, not complete.' },
             ].map((item, i) => (
               <div key={i} className="p-4 border border-white/10">
                 <h3 className="font-medium mb-2">{item.q}</h3>
