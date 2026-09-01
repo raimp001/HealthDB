@@ -1,8 +1,35 @@
 import React, { useState } from 'react';
+
+const API_URL = process.env.NODE_ENV === 'production' ? '' : (process.env.REACT_APP_API_URL || 'http://localhost:8000');
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 
 const Resources = () => {
+  const [subscribeEmail, setSubscribeEmail] = useState('');
+  const [subscribeState, setSubscribeState] = useState({ status: 'idle', message: '' });
+
+  const handleSubscribe = async (e) => {
+    e.preventDefault();
+    setSubscribeState({ status: 'sending', message: '' });
+    try {
+      const response = await fetch(`${API_URL}/api/contact`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Newsletter subscriber',
+          email: subscribeEmail,
+          organization: 'n/a',
+          message: 'Requested updates via the Resources page.',
+          interest_type: 'newsletter',
+        }),
+      });
+      if (!response.ok) throw new Error('Subscription failed. Please try again.');
+      setSubscribeState({ status: 'done', message: '' });
+    } catch (err) {
+      setSubscribeState({ status: 'error', message: err.message });
+    }
+  };
+
   const [activeCategory, setActiveCategory] = useState('all');
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [selectedWhitepaper, setSelectedWhitepaper] = useState(null);
@@ -615,21 +642,36 @@ This enables even broader collaboration while strengthening privacy.`
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="text-2xl font-bold mb-4">Stay Updated</h2>
           <p className="text-white/40 mb-8">
-            Monthly insights on ethical data sharing and oncology research.
+            Leave your address and we will contact you as the pilot opens.
+            We are not currently sending a scheduled newsletter.
           </p>
-          <form className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-            <input
-              type="email"
-              placeholder="Enter your email"
-              className="flex-1 px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-white/30 transition-colors"
-            />
-            <button
-              type="submit"
-              className="px-6 py-3 bg-white text-black font-medium hover:bg-gray-100 transition-colors"
-            >
-              Subscribe
-            </button>
-          </form>
+          {subscribeState.status === 'done' ? (
+            <p className="text-emerald-400 text-sm">
+              Thanks — we have your address on file and will be in touch.
+            </p>
+          ) : (
+            <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+              <input
+                type="email"
+                required
+                value={subscribeEmail}
+                onChange={(e) => setSubscribeEmail(e.target.value)}
+                placeholder="Enter your email"
+                aria-label="Email address"
+                className="flex-1 px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-white/30 transition-colors"
+              />
+              <button
+                type="submit"
+                disabled={subscribeState.status === 'sending'}
+                className="px-6 py-3 bg-white text-black font-medium hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {subscribeState.status === 'sending' ? 'Sending…' : 'Subscribe'}
+              </button>
+            </form>
+          )}
+          {subscribeState.status === 'error' && (
+            <p className="text-red-400 text-sm mt-3">{subscribeState.message}</p>
+          )}
         </div>
       </section>
 

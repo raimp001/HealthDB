@@ -37,29 +37,25 @@ const InstitutionDashboard = () => {
         const instData = await instRes.json();
         setInstitution(instData);
       }
-      if (agreementsRes.ok) {
-        const agreementData = await agreementsRes.json();
-        setAgreements(agreementData);
-      }
-      if (irbRes.ok) {
-        const irbData = await irbRes.json();
-        setIrbProtocols(irbData);
-      }
-      if (emrRes.ok) {
-        const emrData = await emrRes.json();
-        setEmrConnections(emrData);
-      }
-      if (collabRes.ok) {
-        const collabData = await collabRes.json();
-        setCollaborations(collabData);
-      }
+      // Hold the fetched values locally. Deriving the stats from the state
+      // variables instead read the *previous* render's data, because the
+      // setters above have not applied yet, so the counts were always one
+      // fetch behind (all zeros on first load).
+      const agreementData = agreementsRes.ok ? await agreementsRes.json() : [];
+      const irbData = irbRes.ok ? await irbRes.json() : [];
+      const emrData = emrRes.ok ? await emrRes.json() : [];
+      const collabData = collabRes.ok ? await collabRes.json() : [];
 
-      // Calculate stats
+      setAgreements(agreementData);
+      setIrbProtocols(irbData);
+      setEmrConnections(emrData);
+      setCollaborations(collabData);
+
       setStats({
-        activeAgreements: agreements.filter(a => a.status === 'signed' || a.status === 'approved').length,
-        pendingAgreements: agreements.filter(a => a.status === 'pending' || a.status === 'under_review').length,
-        approvedIRBs: irbProtocols.filter(p => p.status === 'approved').length,
-        activeStudies: collaborations.filter(c => c.status === 'active').length
+        activeAgreements: agreementData.filter(a => a.status === 'signed' || a.status === 'approved').length,
+        pendingAgreements: agreementData.filter(a => a.status === 'pending' || a.status === 'under_review').length,
+        approvedIRBs: irbData.filter(p => p.status === 'approved').length,
+        activeStudies: collabData.filter(c => c.status === 'active').length,
       });
     } catch (err) {
       console.error('Error fetching institution data:', err);
@@ -101,10 +97,10 @@ const InstitutionDashboard = () => {
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {[
-            { label: 'Approved IRBs', value: stats.approvedIRBs || irbProtocols.length, color: 'text-green-400' },
-            { label: 'Active Agreements', value: stats.activeAgreements || agreements.filter(a => a.status === 'signed').length, color: 'text-blue-400' },
-            { label: 'Pending Reviews', value: stats.pendingAgreements || agreements.filter(a => a.status === 'pending').length, color: 'text-yellow-400' },
-            { label: 'Active Studies', value: stats.activeStudies || collaborations.length, color: 'text-purple-400' }
+            { label: 'Approved IRBs', value: stats.approvedIRBs ?? 0, color: 'text-green-400' },
+            { label: 'Active Agreements', value: stats.activeAgreements ?? 0, color: 'text-blue-400' },
+            { label: 'Pending Reviews', value: stats.pendingAgreements ?? 0, color: 'text-yellow-400' },
+            { label: 'Active Studies', value: stats.activeStudies ?? 0, color: 'text-purple-400' }
           ].map((stat, i) => (
             <div key={i} className="p-4 border border-white/10 bg-white/[0.02]">
               <div className={`text-2xl font-bold ${stat.color}`}>{stat.value}</div>
