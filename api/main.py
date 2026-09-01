@@ -1753,7 +1753,7 @@ async def build_cohort(
 
 @app.get("/api/cohort/variables")
 async def get_cohort_variables(
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_role("researcher")),
     db: Session = Depends(get_db)
 ):
     """Inventory of variables that consented patients actually have data for.
@@ -1814,7 +1814,7 @@ async def get_cohort_variables(
 @app.post("/api/cohort/save")
 async def save_cohort(
     request: SaveCohortRequest,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_role("researcher")),
     db: Session = Depends(get_db)
 ):
     """Save a cohort for later use"""
@@ -1842,7 +1842,7 @@ async def save_cohort(
 
 @app.get("/api/cohort/saved")
 async def get_saved_cohorts(
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_role("researcher")),
     db: Session = Depends(get_db)
 ):
     """Get user's saved cohorts"""
@@ -1864,7 +1864,7 @@ async def get_saved_cohorts(
 @app.get("/api/cohort/{cohort_id}/summary")
 async def get_cohort_summary(
     cohort_id: str,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_role("researcher")),
     db: Session = Depends(get_db)
 ):
     """Get summary statistics for a cohort"""
@@ -1927,7 +1927,7 @@ async def create_study(
 
 @app.get("/api/researcher/analytics")
 async def get_research_analytics(
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_role("researcher")),
     db: Session = Depends(get_db),
 ):
     """Aggregate de-identified data from patients with current sharing consent."""
@@ -2046,7 +2046,7 @@ def _compute_analytics(db: Session, patient_ids: List[str]) -> Dict[str, Any]:
 @app.get("/api/researcher/studies/{study_id}/analytics")
 async def get_study_analytics(
     study_id: str,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_role("researcher")),
     db: Session = Depends(get_db),
 ):
     """Aggregate outcomes for a study's enrolled, consented participants.
@@ -2072,7 +2072,7 @@ async def get_study_analytics(
 
 @app.get("/api/researcher/studies")
 async def get_researcher_studies(
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_role("researcher")),
     db: Session = Depends(get_db)
 ):
     """Get all studies for the current researcher"""
@@ -2115,7 +2115,7 @@ async def get_researcher_studies(
 @app.get("/api/researcher/studies/{study_id}")
 async def get_study_detail(
     study_id: str,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_role("researcher")),
     db: Session = Depends(get_db)
 ):
     """Get detailed study information including regulatory status (PI or collaborator only)"""
@@ -2433,7 +2433,7 @@ async def add_study_site(
 @app.get("/api/researcher/studies/{study_id}/sites")
 async def get_study_sites(
     study_id: str,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_role("researcher")),
     db: Session = Depends(get_db)
 ):
     """Get a study's central IRB status and all participating sites with
@@ -2499,7 +2499,7 @@ async def get_researcher_collaborations(
 @app.post("/api/extraction/create")
 async def create_extraction_job(
     request: ExtractionJobRequest,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_role("researcher")),
     db: Session = Depends(get_db)
 ):
     """Create a data extraction job"""
@@ -2564,7 +2564,7 @@ async def create_extraction_job(
 @app.get("/api/extraction/jobs")
 async def get_extraction_jobs(
     study_id: Optional[str] = Query(None),
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_role("researcher")),
     db: Session = Depends(get_db)
 ):
     """Get extraction jobs for studies the current user can access"""
@@ -2608,7 +2608,7 @@ async def get_extraction_jobs(
 @app.get("/api/extraction/jobs/{job_id}/download")
 async def download_extraction_job(
     job_id: str,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_role("researcher")),
     db: Session = Depends(get_db)
 ):
     """Download a completed extraction job CSV"""
