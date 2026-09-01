@@ -18,13 +18,14 @@ const LandingPage = () => {
             transition={{ duration: 0.8 }}
           >
             <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6">
-              Revolutionize
+              Build consented
               <br />
-              <span className="text-white/50">Health Care Research</span>
+              <span className="text-white/50">oncology research cohorts</span>
             </h1>
             
             <p className="text-lg text-white/40 max-w-xl mx-auto mb-10">
-              Multi-center data access in weeks. Pre-negotiated IRBs. Direct EMR integration.
+              Patients contribute their own records. HealthDB de-identifies them. Approved
+              researchers run aggregate cohort feasibility.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
@@ -39,30 +40,27 @@ const LandingPage = () => {
               </Link>
             </div>
 
-            <div className="flex justify-center gap-16">
-              {[
-                { value: '12K+', label: 'Patients' },
-                { value: '50+', label: 'Variables' },
-                { value: '8', label: 'Sites' },
-              ].map((stat) => (
-                <div key={stat.label} className="text-center">
-                  <div className="text-2xl font-bold">{stat.value}</div>
-                  <div className="text-xs text-white/30 uppercase tracking-wider">{stat.label}</div>
-                </div>
-              ))}
+            <div className="inline-flex items-center gap-3 px-4 py-2 border border-amber-400/30 bg-amber-400/5">
+              <span className="text-amber-400 text-xs uppercase tracking-wider">Closed pilot</span>
+              <span className="text-white/40 text-sm">
+                Onboarding research partners — not yet open for self-service use
+              </span>
             </div>
           </motion.div>
         </div>
       </section>
 
-      {/* Partners */}
+      {/* Standards the platform builds on. Not partners, not endorsements. */}
       <section className="py-12 border-y border-white/5">
         <div className="max-w-4xl mx-auto px-6">
+          <p className="text-center text-xs text-white/30 uppercase tracking-wider mb-6">
+            Built on open healthcare standards
+          </p>
           <div className="flex flex-wrap justify-center items-center gap-12 opacity-40">
-            <span className="text-lg font-medium">OHSU</span>
-            <span className="text-lg font-medium">Fred Hutch</span>
-            <span className="text-lg font-medium">Emory</span>
-            <span className="text-lg font-medium">ASH</span>
+            <span className="text-lg font-medium">FHIR R4</span>
+            <span className="text-lg font-medium">HL7v2</span>
+            <span className="text-lg font-medium">OMOP CDM</span>
+            <span className="text-lg font-medium">LOINC</span>
           </div>
         </div>
       </section>
@@ -93,15 +91,15 @@ const LandingPage = () => {
                 <div className="flex gap-4">
                   <span className="text-emerald-400">3</span>
                   <div>
-                    <div className="text-white">Submit to sIRB</div>
-                    <div className="text-white/40">Auto-generated protocol</div>
+                    <div className="text-white">Prepare IRB protocol</div>
+                    <div className="text-white/40">Draft generated from your cohort</div>
                   </div>
                 </div>
                 <div className="flex gap-4">
                   <span className="text-emerald-400">4</span>
                   <div>
-                    <div className="text-white">Get data</div>
-                    <div className="text-white/40">3 weeks avg</div>
+                    <div className="text-white">Receive dataset</div>
+                    <div className="text-white/40">After approval</div>
                   </div>
                 </div>
               </div>
@@ -137,8 +135,8 @@ const LandingPage = () => {
                 <div className="flex gap-4">
                   <span className="text-blue-400">4</span>
                   <div>
-                    <div className="text-white">Earn rewards</div>
-                    <div className="text-white/40">Compensation for contributions</div>
+                    <div className="text-white">Track how it is used</div>
+                    <div className="text-white/40">Full access log, revoke anytime</div>
                   </div>
                 </div>
               </div>
@@ -168,33 +166,49 @@ const LandingPage = () => {
             <h3 className="text-sm text-emerald-400/70 uppercase tracking-wider mb-4">Our Solution</h3>
             <h2 className="text-2xl font-bold mb-6">HealthDB removes friction</h2>
             <ul className="space-y-3 text-white/50 text-sm">
-              <li>Central sIRB with pre-negotiated agreements</li>
-              <li>Auto-generated DUAs with DocuSign</li>
-              <li>Direct EMR integration via FHIR</li>
-              <li>Patient-owned data with rewards</li>
+              <li>Patient-consented contribution, revocable at any time</li>
+              <li>Safe Harbor de-identification before data reaches researchers</li>
+              <li>FHIR-based record import</li>
+              <li>Aggregate cohort feasibility with small-cell suppression</li>
             </ul>
+            <p className="text-xs text-white/30 mt-4">
+              IRB reliance, executed DUAs and direct EMR integration are planned, not yet in place.
+            </p>
           </div>
         </div>
       </section>
 
-      {/* Capabilities */}
+      {/* HealthDB Focus Areas */}
       <section className="py-24 px-6 border-t border-white/5">
         <div className="max-w-5xl mx-auto">
-          <h2 className="text-3xl font-bold mb-12">Platform</h2>
+          <h2 className="text-3xl font-bold mb-4">Where HealthDB is heading</h2>
+          <p className="text-white/40 mb-12">Six planned infrastructure modules. Most are not built yet — each page marks what exists today.</p>
           <div className="grid md:grid-cols-3 gap-6">
             {[
-              { title: 'IRB Protocol Generator', desc: 'Auto-populate NIH templates' },
-              { title: 'DUA Templates', desc: 'Pre-negotiated with major centers' },
-              { title: 'EMR Integration', desc: 'Epic, Cerner via FHIR' },
-              { title: 'Cohort Builder', desc: 'Visual query interface' },
-              { title: 'Variable Selector', desc: '50+ OMOP CDM fields' },
-              { title: 'De-identification', desc: 'HIPAA Safe Harbor' },
+              { icon: '⚡', title: 'FHIR/HL7 Ingestion', desc: 'FHIR R4, Bulk FHIR, HL7v2 ingestion with OMOP CDM normalization', color: 'text-emerald-400' },
+              { icon: '🔐', title: 'Connector Auth Vault', desc: 'AWS KMS-backed credential storage with auto token refresh', color: 'text-blue-400' },
+              { icon: '🛡️', title: 'PHI Boundary & De-ID', desc: 'HIPAA Safe Harbor — 18 identifier removal with tokenized re-linkage', color: 'text-amber-400' },
+              { icon: '📋', title: 'Audit & Access Control', desc: 'Supabase RLS policies with immutable append-only audit logging', color: 'text-purple-400' },
+              { icon: '📊', title: 'Dataset Builder & Export', desc: 'Visual cohort builder across 50+ OMOP CDM fields with CSV/Parquet export', color: 'text-cyan-400' },
+              { icon: '🔬', title: 'Trial Matching Pipeline', desc: 'Match cohorts to ClinicalTrials.gov with NLP eligibility parsing', color: 'text-rose-400' },
             ].map((item) => (
-              <div key={item.title} className="p-6 border border-white/10">
-                <h3 className="font-medium mb-2">{item.title}</h3>
+              <div key={item.title} className="p-6 border border-white/10 card-hover">
+                <div className={`text-2xl mb-3`}>{item.icon}</div>
+                <h3 className={`font-medium mb-2 ${item.color}`}>{item.title}</h3>
                 <p className="text-sm text-white/40">{item.desc}</p>
               </div>
             ))}
+          </div>
+          <div className="mt-8 flex flex-wrap gap-4">
+            <Link to="/platform" className="text-emerald-400 text-sm hover:underline">
+              See the roadmap →
+            </Link>
+            <Link to="/security-posture" className="text-blue-400 text-sm hover:underline">
+              Target security architecture →
+            </Link>
+            <Link to="/data-flow" className="text-amber-400 text-sm hover:underline">
+              Target data flow →
+            </Link>
           </div>
         </div>
       </section>
@@ -215,43 +229,6 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-white/5 py-12 px-6">
-        <div className="max-w-5xl mx-auto">
-          <div className="grid md:grid-cols-4 gap-8 mb-12">
-            <div>
-              <div className="font-medium mb-4">HealthDB</div>
-              <p className="text-white/30 text-sm">Cancer research data infrastructure</p>
-            </div>
-            <div>
-              <p className="text-xs text-white/30 uppercase tracking-wider mb-4">Platform</p>
-              <ul className="space-y-2 text-sm">
-                <li><Link to="/researchers" className="text-white/50 hover:text-white">Researchers</Link></li>
-                <li><Link to="/patients" className="text-white/50 hover:text-white">Patients</Link></li>
-                <li><Link to="/pricing" className="text-white/50 hover:text-white">Pricing</Link></li>
-              </ul>
-            </div>
-            <div>
-              <p className="text-xs text-white/30 uppercase tracking-wider mb-4">Company</p>
-              <ul className="space-y-2 text-sm">
-                <li><Link to="/about" className="text-white/50 hover:text-white">About</Link></li>
-                <li><Link to="/contact" className="text-white/50 hover:text-white">Contact</Link></li>
-              </ul>
-            </div>
-            <div>
-              <p className="text-xs text-white/30 uppercase tracking-wider mb-4">Legal</p>
-              <ul className="space-y-2 text-sm">
-                <li><Link to="/privacy" className="text-white/50 hover:text-white">Privacy</Link></li>
-                <li><Link to="/terms" className="text-white/50 hover:text-white">Terms</Link></li>
-              </ul>
-            </div>
-          </div>
-          <div className="pt-8 border-t border-white/5 flex justify-between text-xs text-white/30">
-            <p>© 2024 HealthDB</p>
-            <p>HIPAA Compliant · SOC 2</p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 };

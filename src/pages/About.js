@@ -36,7 +36,7 @@ const About = () => {
             </p>
             <p className="text-white/40">
               We're building a different model: patients contribute voluntarily, 
-              institutions share through pre-negotiated agreements, researchers 
+              institutions share under agreements they control, researchers 
               move from idea to insight in weeks.
             </p>
           </div>
@@ -52,9 +52,9 @@ const About = () => {
             <div>
               <h3 className="text-sm text-emerald-400/70 uppercase tracking-wider mb-4">Solution</h3>
               <ul className="space-y-2 text-sm text-white/40">
-                <li>Central sIRB + pre-negotiated DUAs</li>
-                <li>Direct EMR integration</li>
-                <li>Patient-owned data with rewards</li>
+                <li>Patient-consented contribution</li>
+                <li>Safe Harbor de-identification</li>
+                <li>Patient-visible access logs</li>
               </ul>
             </div>
           </div>
@@ -87,14 +87,17 @@ const About = () => {
           <h2 className="text-2xl font-bold mb-8">Timeline</h2>
           <div className="space-y-4">
             {[
-              { year: '2024', event: 'Founded' },
-              { year: '2024', event: 'First partner (OHSU)' },
-              { year: '2025', event: 'Patient portal launched' },
-              { year: '2025', event: 'Central sIRB approval' },
-              { year: '2025', event: 'First publication' },
+              { status: 'Built', event: 'Patient portal, consent management and access logging' },
+              { status: 'Built', event: 'FHIR record import and Safe Harbor de-identification' },
+              { status: 'Built', event: 'Cohort feasibility with small-cell suppression' },
+              { status: 'Planned', event: 'Independent security assessment' },
+              { status: 'Planned', event: 'IRB reliance and institutional agreements' },
+              { status: 'Planned', event: 'First research partner site' },
             ].map((item, i) => (
               <div key={i} className="flex gap-6">
-                <span className="text-sm font-mono text-white/30 w-12">{item.year}</span>
+                <span className={`text-xs font-mono w-16 shrink-0 ${
+                  item.status === 'Built' ? 'text-emerald-400/70' : 'text-amber-400/70'
+                }`}>{item.status}</span>
                 <span className="text-white/60">{item.event}</span>
               </div>
             ))}
@@ -102,16 +105,17 @@ const About = () => {
         </div>
       </section>
 
-      {/* Partners */}
+      {/* Partners section removed: HealthDB has no institutional partners to name. */}
       <section className="py-20 px-6 border-t border-white/5">
-        <div className="max-w-5xl mx-auto text-center">
-          <h2 className="text-2xl font-bold mb-8">Partners</h2>
-          <div className="flex flex-wrap justify-center gap-12 opacity-50">
-            <span className="text-xl font-medium">OHSU</span>
-            <span className="text-xl font-medium">Fred Hutch</span>
-            <span className="text-xl font-medium">Emory</span>
-            <span className="text-xl font-medium">ASH</span>
-          </div>
+        <div className="max-w-3xl mx-auto text-center">
+          <h2 className="text-2xl font-bold mb-4">Partners</h2>
+          <p className="text-white/40 mb-6">
+            HealthDB is pre-partnership. We have no institutional agreements in place
+            and name no partner sites.
+          </p>
+          <Link to="/contact" className="text-emerald-400 text-sm hover:underline">
+            Talk to us about a pilot →
+          </Link>
         </div>
       </section>
 

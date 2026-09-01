@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Run tests
+        env:
+          JWT_SECRET: ci-only-secret
+          ENVIRONMENT: test
+        # -x stops on first failure; --strict-markers catches typo'd marks.
+        # A run that collects no tests must fail, not silently pass.
+        run: pytest tests/ -v --strict-markers
+
+  frontend:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci
+      - name: Build (warnings are errors)
+        env:
+          CI: true
+        run: npm run build

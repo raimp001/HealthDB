@@ -37,3 +37,6 @@ data/*.db
 
 # Build caches (regenerated on every build)
 node_modules/.cache/
+
+# Build output (Vercel regenerates via `npm run build`)
+build/

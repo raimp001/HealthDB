@@ -310,8 +310,8 @@ const ResearcherDashboard = () => {
     );
   };
 
-  const handleCreateStudy = async () => {
-    const name = prompt('Study name:');
+  const handleCreateStudy = async (cohort = null) => {
+    const name = prompt('Study name:', cohort?.name || '');
     if (!name) return;
     const description = prompt('Short description (optional):') || '';
     const principalInvestigator = prompt('Principal investigator (optional):') || '';
@@ -1020,7 +1020,7 @@ const ResearcherDashboard = () => {
                     <p className="text-white/40 text-sm">Track your research studies and saved cohorts</p>
                   </div>
                   <button
-                    onClick={handleCreateStudy}
+                    onClick={() => handleCreateStudy()}
                     disabled={isCreatingStudy}
                     className="px-6 py-3 bg-white text-black text-xs uppercase tracking-wider font-medium hover:bg-gray-100 transition-colors disabled:opacity-50 shrink-0 self-start sm:self-auto"
                   >
@@ -1114,8 +1114,12 @@ const ResearcherDashboard = () => {
                             </div>
                             <div className="flex items-center gap-4 shrink-0">
                               <span className="text-white font-mono">{cohort.patient_count} pts</span>
-                              <button className="px-3 py-1 border border-white/20 text-white/60 text-xs hover:bg-white hover:text-black transition-all">
-                                Convert to Study
+                              <button
+                                onClick={() => handleCreateStudy(cohort)}
+                                disabled={isCreatingStudy}
+                                className="px-3 py-1 border border-white/20 text-white/60 text-xs hover:bg-white hover:text-black transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                              >
+                                {isCreatingStudy ? 'Creating…' : 'Convert to Study'}
                               </button>
                             </div>
                           </div>

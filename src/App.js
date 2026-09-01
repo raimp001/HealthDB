@@ -20,16 +20,23 @@ import About from './pages/About';
 import Contact from './pages/Contact';
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
+import PlatformFocusAreas from './pages/PlatformFocusAreas';
+import SecurityPostureMap from './pages/SecurityPostureMap';
+import DataFlowDiagram from './pages/DataFlowDiagram';
+import RepoAnalyzer from './pages/RepoAnalyzer';
+import NotFound from './pages/NotFound';
 
 // Components
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import PilotBanner from './components/PilotBanner';
 
 function App() {
   return (
     <Router>
       <div className="min-h-screen bg-slate-50 flex flex-col">
         <Navbar />
+        <PilotBanner />
         <main className="flex-grow">
           <Routes>
             <Route path="/" element={<LandingPage />} />
@@ -42,6 +49,11 @@ function App() {
             <Route path="/research" element={<ResearcherDashboard />} />
             <Route path="/institution" element={<InstitutionDashboard />} />
             <Route path="/cohort-builder" element={<CohortBuilder />} />
+            {/* Platform pages */}
+            <Route path="/platform" element={<PlatformFocusAreas />} />
+            <Route path="/security-posture" element={<SecurityPostureMap />} />
+            <Route path="/data-flow" element={<DataFlowDiagram />} />
+            <Route path="/repo-analyzer" element={<RepoAnalyzer />} />
             {/* Other pages */}
             <Route path="/marketplace" element={<DataMarketplace />} />
             <Route path="/resources" element={<Resources />} />
@@ -52,6 +64,8 @@ function App() {
             <Route path="/terms" element={<Terms />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            {/* Catch-all: unknown URLs must not render the homepage */}
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </main>
         <Footer />

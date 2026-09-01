@@ -162,17 +162,40 @@ const ForInstitutions = () => {
       {/* Compliance */}
       <section className="py-20 px-6 border-t border-white/5">
         <div className="max-w-5xl mx-auto">
-          <h2 className="text-2xl font-bold mb-12">Compliance & Security</h2>
+          <h2 className="text-2xl font-bold mb-4">Security & Compliance</h2>
+          <p className="text-white/40 text-sm mb-12 max-w-2xl">
+            HealthDB has no completed third-party certifications. Below is what is
+            implemented in the platform today, and what is not yet in place.
+          </p>
+
+          <h3 className="text-xs text-emerald-400/70 uppercase tracking-wider mb-4">Implemented</h3>
+          <div className="grid md:grid-cols-3 gap-6 mb-12">
+            {[
+              { title: 'Safe Harbor de-identification', desc: 'Identifier removal before research access' },
+              { title: 'Role-based access control', desc: 'Roles resolved server-side on every request' },
+              { title: 'Small-cell suppression', desc: 'Aggregate counts below threshold are withheld' },
+              { title: 'Consent gating', desc: 'Access checked against the patient\'s current consent' },
+              { title: 'Access audit log', desc: 'Every data access recorded and patient-visible' },
+              { title: 'PBKDF2-SHA256 credentials', desc: '600,000 iterations, per-user salt' },
+            ].map((item, i) => (
+              <div key={i} className="p-6 border border-emerald-400/20">
+                <div className="text-sm font-bold mb-2">{item.title}</div>
+                <div className="text-xs text-white/40">{item.desc}</div>
+              </div>
+            ))}
+          </div>
+
+          <h3 className="text-xs text-amber-400/70 uppercase tracking-wider mb-4">Not yet in place</h3>
           <div className="grid md:grid-cols-4 gap-6">
             {[
-              { title: 'HIPAA', desc: 'Full compliance with BAA' },
-              { title: 'SOC 2', desc: 'Type II certified' },
-              { title: 'GDPR', desc: 'Data protection ready' },
-              { title: '21 CFR 11', desc: 'FDA electronic records' }
+              { title: 'SOC 2 Type II', desc: 'No audit commenced' },
+              { title: 'HIPAA BAA', desc: 'No executed agreements' },
+              { title: 'GDPR', desc: 'Not assessed' },
+              { title: '21 CFR Part 11', desc: 'Not assessed' },
             ].map((item, i) => (
-              <div key={i} className="text-center p-6 border border-white/10">
+              <div key={i} className="text-center p-6 border border-white/10 opacity-60">
                 <div className="text-lg font-bold mb-2">{item.title}</div>
-                <div className="text-xs text-white/40">{item.desc}</div>
+                <div className="text-xs text-amber-400/60">{item.desc}</div>
               </div>
             ))}
           </div>

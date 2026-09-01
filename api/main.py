@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr, Field
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 from datetime import datetime, date, timedelta
 from decimal import Decimal
 from uuid import UUID
@@ -141,11 +141,13 @@ SCHEMA_SYNC_STATEMENTS = [
     "ALTER TABLE extraction_jobs ADD COLUMN result_csv TEXT",
 ]
 
-DEFAULT_INSTITUTIONS = [
-    {"name": "OHSU Knight Cancer Institute", "type": "Academic Medical Center", "city": "Portland", "state": "OR", "country": "USA", "emr_system": "Epic"},
-    {"name": "Fred Hutchinson Cancer Center", "type": "Comprehensive Cancer Center", "city": "Seattle", "state": "WA", "country": "USA", "emr_system": "Epic"},
-    {"name": "Emory Winship Cancer Institute", "type": "Academic Medical Center", "city": "Atlanta", "state": "GA", "country": "USA", "emr_system": "Cerner"},
-    {"name": "UCSF Helen Diller Cancer Center", "type": "Comprehensive Cancer Center", "city": "San Francisco", "state": "CA", "country": "USA", "emr_system": "Epic"},
+# Local development fixtures ONLY. These are deliberately fictional: seeding
+# real organisation names created rows indistinguishable from verified
+# partners. A real institution must be onboarded through an audited process,
+# never by a startup seeder.
+SAMPLE_INSTITUTIONS = [
+    {"name": "Sample Academic Medical Center (demo)", "type": "Academic Medical Center", "city": "Springfield", "state": "OR", "country": "USA", "emr_system": "Epic"},
+    {"name": "Sample Comprehensive Cancer Center (demo)", "type": "Comprehensive Cancer Center", "city": "Rivertown", "state": "WA", "country": "USA", "emr_system": "Cerner"},
 ]
 
 
@@ -171,9 +173,11 @@ def initialize_database():
             print(f"Removed {deleted} placeholder data products")
             db.commit()
 
-        # Seed partner institutions so multi-site study setup works out of the box
-        if db.query(Institution).count() == 0:
-            for inst in DEFAULT_INSTITUTIONS:
+        # Sample institutions are development conveniences only. Production
+        # starts empty so nothing can be mistaken for a real partner site.
+        is_production = os.environ.get("ENVIRONMENT", "development") == "production"
+        if not is_production and db.query(Institution).count() == 0:
+            for inst in SAMPLE_INSTITUTIONS:
                 db.add(Institution(**inst))
             db.commit()
     except Exception as e:
@@ -205,7 +209,9 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
-    user_type: str = "researcher"
+    # Strict enum: self-service signup can only ever create these two roles.
+    # Anything else (admin, institution) is rejected by validation with a 422.
+    user_type: Literal["patient", "researcher"] = "researcher"
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -505,15 +511,29 @@ def require_auth(credentials: HTTPAuthorizationCredentials = Depends(security)) 
 
 
 def require_role(*allowed_roles: str):
-    """Role-based access control dependency factory"""
-    def _check_role(token_data: Dict = Depends(require_auth)):
-        user_type = token_data.get("type", "")
-        if user_type not in allowed_roles:
+    """Role-based access control dependency factory.
+
+    The authoritative role is the one stored on the user row, NOT the "type"
+    claim in the JWT. A token is proof of identity only; it is never trusted
+    to assert privilege. This also means any token minted before this check
+    existed cannot escalate: the database is consulted on every request.
+    """
+    def _check_role(
+        token_data: Dict = Depends(require_auth),
+        db: Session = Depends(get_db),
+    ) -> Dict:
+        user = db.query(User).filter(User.id == token_data.get("sub")).first()
+        if not user or not user.is_active:
+            raise HTTPException(status_code=401, detail="User not found or inactive")
+
+        if user.user_type not in allowed_roles:
             raise HTTPException(
                 status_code=403,
                 detail=f"Access denied. Required role: {', '.join(allowed_roles)}"
             )
-        return token_data
+
+        # Hand downstream handlers the verified role, not the claimed one.
+        return {**token_data, "type": user.user_type, "sub": str(user.id)}
     return _check_role
 
 
@@ -792,7 +812,9 @@ async def register(user: UserCreate, db: Session = Depends(get_db)):
         patient_repo = PatientRepository(db)
         patient_repo.create_profile(new_user.id)
 
-    token = create_token(str(new_user.id), user.user_type)
+    # Use the persisted role, never the request body, so the JWT can never
+    # carry a role the database does not agree with.
+    token = create_token(str(new_user.id), new_user.user_type)
 
     return TokenResponse(
         access_token=token,
@@ -801,7 +823,7 @@ async def register(user: UserCreate, db: Session = Depends(get_db)):
             email=new_user.email,
             name=new_user.name,
             organization=new_user.organization,
-            user_type=user.user_type,
+            user_type=new_user.user_type,
             created_at=new_user.created_at,
             is_verified=new_user.is_verified,
         )
@@ -1731,7 +1753,7 @@ async def build_cohort(
 
 @app.get("/api/cohort/variables")
 async def get_cohort_variables(
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_role("researcher")),
     db: Session = Depends(get_db)
 ):
     """Inventory of variables that consented patients actually have data for.
@@ -1792,7 +1814,7 @@ async def get_cohort_variables(
 @app.post("/api/cohort/save")
 async def save_cohort(
     request: SaveCohortRequest,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_role("researcher")),
     db: Session = Depends(get_db)
 ):
     """Save a cohort for later use"""
@@ -1820,7 +1842,7 @@ async def save_cohort(
 
 @app.get("/api/cohort/saved")
 async def get_saved_cohorts(
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_role("researcher")),
     db: Session = Depends(get_db)
 ):
     """Get user's saved cohorts"""
@@ -1842,7 +1864,7 @@ async def get_saved_cohorts(
 @app.get("/api/cohort/{cohort_id}/summary")
 async def get_cohort_summary(
     cohort_id: str,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_role("researcher")),
     db: Session = Depends(get_db)
 ):
     """Get summary statistics for a cohort"""
@@ -1905,7 +1927,7 @@ async def create_study(
 
 @app.get("/api/researcher/analytics")
 async def get_research_analytics(
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_role("researcher")),
     db: Session = Depends(get_db),
 ):
     """Aggregate de-identified data from patients with current sharing consent."""
@@ -2024,7 +2046,7 @@ def _compute_analytics(db: Session, patient_ids: List[str]) -> Dict[str, Any]:
 @app.get("/api/researcher/studies/{study_id}/analytics")
 async def get_study_analytics(
     study_id: str,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_role("researcher")),
     db: Session = Depends(get_db),
 ):
     """Aggregate outcomes for a study's enrolled, consented participants.
@@ -2050,7 +2072,7 @@ async def get_study_analytics(
 
 @app.get("/api/researcher/studies")
 async def get_researcher_studies(
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_role("researcher")),
     db: Session = Depends(get_db)
 ):
     """Get all studies for the current researcher"""
@@ -2093,7 +2115,7 @@ async def get_researcher_studies(
 @app.get("/api/researcher/studies/{study_id}")
 async def get_study_detail(
     study_id: str,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_role("researcher")),
     db: Session = Depends(get_db)
 ):
     """Get detailed study information including regulatory status (PI or collaborator only)"""
@@ -2212,7 +2234,37 @@ async def approve_regulatory(
     
     if not submission:
         raise HTTPException(status_code=404, detail="Submission not found")
-    
+
+    reviewer = db.query(User).filter(User.id == token_data["sub"]).first()
+
+    # An institution reviewer may only act on their own institution's
+    # submissions. Platform admins are not institution-scoped.
+    if reviewer.user_type == "institution":
+        if not reviewer.institution_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Reviewer is not linked to an institution",
+            )
+        if submission.institution_id != reviewer.institution_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Submission belongs to another institution",
+            )
+
+    # Separation of duties: nobody approves the study they run.
+    if submission.study_id:
+        submitting_study = db.query(Study).filter(
+            Study.id == submission.study_id
+        ).first()
+        if submitting_study and submitting_study.user_id == str(reviewer.id):
+            raise HTTPException(
+                status_code=403,
+                detail="You cannot approve a submission for your own study",
+            )
+
+    if submission.status == "approved":
+        raise HTTPException(status_code=409, detail="Submission is already approved")
+
     submission.status = "approved"
     submission.approved_at = datetime.utcnow()
     
@@ -2381,7 +2433,7 @@ async def add_study_site(
 @app.get("/api/researcher/studies/{study_id}/sites")
 async def get_study_sites(
     study_id: str,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_role("researcher")),
     db: Session = Depends(get_db)
 ):
     """Get a study's central IRB status and all participating sites with
@@ -2447,7 +2499,7 @@ async def get_researcher_collaborations(
 @app.post("/api/extraction/create")
 async def create_extraction_job(
     request: ExtractionJobRequest,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_role("researcher")),
     db: Session = Depends(get_db)
 ):
     """Create a data extraction job"""
@@ -2512,7 +2564,7 @@ async def create_extraction_job(
 @app.get("/api/extraction/jobs")
 async def get_extraction_jobs(
     study_id: Optional[str] = Query(None),
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_role("researcher")),
     db: Session = Depends(get_db)
 ):
     """Get extraction jobs for studies the current user can access"""
@@ -2556,7 +2608,7 @@ async def get_extraction_jobs(
 @app.get("/api/extraction/jobs/{job_id}/download")
 async def download_extraction_job(
     job_id: str,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_role("researcher")),
     db: Session = Depends(get_db)
 ):
     """Download a completed extraction job CSV"""
@@ -3116,7 +3168,12 @@ async def get_platform_stats(db: Session = Depends(get_db)):
         "active_studies": stats["active_studies"],
         "partner_institutions": stats["partner_institutions"],
         "cancer_types_covered": stats["cancer_types_covered"],
-        "countries": 12,  # Would come from institution data
+        "countries": stats.get(
+            "countries",
+            db.query(Institution.country)
+              .filter(Institution.country.isnot(None))
+              .distinct().count(),
+        ),
     }
 
 

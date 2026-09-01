@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const API_URL = process.env.NODE_ENV === 'production' ? '' : (process.env.REACT_APP_API_URL || 'http://localhost:8000');
 
@@ -37,29 +37,25 @@ const InstitutionDashboard = () => {
         const instData = await instRes.json();
         setInstitution(instData);
       }
-      if (agreementsRes.ok) {
-        const agreementData = await agreementsRes.json();
-        setAgreements(agreementData);
-      }
-      if (irbRes.ok) {
-        const irbData = await irbRes.json();
-        setIrbProtocols(irbData);
-      }
-      if (emrRes.ok) {
-        const emrData = await emrRes.json();
-        setEmrConnections(emrData);
-      }
-      if (collabRes.ok) {
-        const collabData = await collabRes.json();
-        setCollaborations(collabData);
-      }
+      // Hold the fetched values locally. Deriving the stats from the state
+      // variables instead read the *previous* render's data, because the
+      // setters above have not applied yet, so the counts were always one
+      // fetch behind (all zeros on first load).
+      const agreementData = agreementsRes.ok ? await agreementsRes.json() : [];
+      const irbData = irbRes.ok ? await irbRes.json() : [];
+      const emrData = emrRes.ok ? await emrRes.json() : [];
+      const collabData = collabRes.ok ? await collabRes.json() : [];
 
-      // Calculate stats
+      setAgreements(agreementData);
+      setIrbProtocols(irbData);
+      setEmrConnections(emrData);
+      setCollaborations(collabData);
+
       setStats({
-        activeAgreements: agreements.filter(a => a.status === 'signed' || a.status === 'approved').length,
-        pendingAgreements: agreements.filter(a => a.status === 'pending' || a.status === 'under_review').length,
-        approvedIRBs: irbProtocols.filter(p => p.status === 'approved').length,
-        activeStudies: collaborations.filter(c => c.status === 'active').length
+        activeAgreements: agreementData.filter(a => a.status === 'signed' || a.status === 'approved').length,
+        pendingAgreements: agreementData.filter(a => a.status === 'pending' || a.status === 'under_review').length,
+        approvedIRBs: irbData.filter(p => p.status === 'approved').length,
+        activeStudies: collabData.filter(c => c.status === 'active').length,
       });
     } catch (err) {
       console.error('Error fetching institution data:', err);
@@ -101,10 +97,10 @@ const InstitutionDashboard = () => {
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {[
-            { label: 'Approved IRBs', value: stats.approvedIRBs || irbProtocols.length, color: 'text-green-400' },
-            { label: 'Active Agreements', value: stats.activeAgreements || agreements.filter(a => a.status === 'signed').length, color: 'text-blue-400' },
-            { label: 'Pending Reviews', value: stats.pendingAgreements || agreements.filter(a => a.status === 'pending').length, color: 'text-yellow-400' },
-            { label: 'Active Studies', value: stats.activeStudies || collaborations.length, color: 'text-purple-400' }
+            { label: 'Approved IRBs', value: stats.approvedIRBs ?? 0, color: 'text-green-400' },
+            { label: 'Active Agreements', value: stats.activeAgreements ?? 0, color: 'text-blue-400' },
+            { label: 'Pending Reviews', value: stats.pendingAgreements ?? 0, color: 'text-yellow-400' },
+            { label: 'Active Studies', value: stats.activeStudies ?? 0, color: 'text-purple-400' }
           ].map((stat, i) => (
             <div key={i} className="p-4 border border-white/10 bg-white/[0.02]">
               <div className={`text-2xl font-bold ${stat.color}`}>{stat.value}</div>
@@ -137,6 +133,7 @@ const InstitutionDashboard = () => {
             irbProtocols={irbProtocols} 
             collaborations={collaborations}
             emrConnections={emrConnections}
+            onNavigateTab={setActiveTab}
           />
         )}
         {activeTab === 'irb' && <IRBTab protocols={irbProtocols} />}
@@ -150,7 +147,7 @@ const InstitutionDashboard = () => {
 };
 
 // Overview Tab
-const OverviewTab = ({ agreements, irbProtocols, collaborations, emrConnections }) => {
+const OverviewTab = ({ agreements, irbProtocols, collaborations, emrConnections, onNavigateTab }) => {
   const recentActivity = [
     ...irbProtocols.slice(0, 3).map(p => ({ type: 'irb', item: p, date: p.submitted_at })),
     ...agreements.slice(0, 3).map(a => ({ type: 'agreement', item: a, date: a.created_at })),
@@ -176,7 +173,12 @@ const OverviewTab = ({ agreements, irbProtocols, collaborations, emrConnections 
                   <div className="text-sm">{item.protocol_number || item.document_type}</div>
                   <div className="text-xs text-white/40">{item.status}</div>
                 </div>
-                <button className="text-xs text-blue-400 hover:underline">Review</button>
+                <button
+                  onClick={() => onNavigateTab(item.protocol_number ? 'irb' : 'agreements')}
+                  className="text-xs text-blue-400 hover:underline"
+                >
+                  Review
+                </button>
               </div>
             ))}
           </div>
@@ -326,9 +328,12 @@ const IRBTab = ({ protocols }) => {
 
       {/* Add Protocol Button */}
       <div className="mt-6">
-        <button className="px-4 py-2 border border-white/20 text-sm hover:bg-white/5 transition-colors">
+        <Link
+          to="/contact"
+          className="px-4 py-2 border border-white/20 text-sm hover:bg-white/5 transition-colors"
+        >
           Submit New Protocol
-        </button>
+        </Link>
       </div>
     </div>
   );
@@ -374,7 +379,7 @@ const AgreementsTab = ({ agreements }) => {
       <div className="border border-white/10">
         <div className="p-4 bg-white/[0.02] flex justify-between items-center">
           <h3 className="font-medium">All Agreements</h3>
-          <button className="text-xs text-blue-400 hover:underline">New Agreement</button>
+          <Link to="/contact" className="text-xs text-blue-400 hover:underline">New Agreement</Link>
         </div>
         {institutionAgreements.length === 0 && (
           <div className="p-8 text-center text-white/40 text-sm border-t border-white/5">
@@ -434,9 +439,12 @@ const EMRTab = ({ connections }) => {
         {institutionConnections.length === 0 ? (
           <div className="p-8 border border-white/10 text-center">
             <p className="text-white/40 mb-4">No EMR connections configured</p>
-            <button className="px-4 py-2 bg-white text-black text-sm hover:bg-gray-100 transition-colors">
+            <Link
+              to="/contact"
+              className="px-4 py-2 bg-white text-black text-sm hover:bg-gray-100 transition-colors"
+            >
               Connect EMR
-            </button>
+            </Link>
           </div>
         ) : (
           <div className="space-y-4">
@@ -572,7 +580,7 @@ const CollaborationsTab = ({ collaborations }) => {
       <div className="mt-8">
         <h3 className="font-medium mb-4">Partner Sites in Network</h3>
         <div className="grid md:grid-cols-4 gap-4">
-          {['OHSU', 'Fred Hutch', 'Emory', 'MD Anderson', 'Memorial Sloan Kettering', 'Dana-Farber', 'Mayo Clinic', 'Cleveland Clinic'].map((site, i) => (
+          {['Sample Site A', 'Sample Site B', 'Sample Site C', 'Sample Site D'].map((site, i) => (
             <div key={site} className="p-3 border border-white/10 text-sm text-center">
               {site}
             </div>
@@ -585,68 +593,61 @@ const CollaborationsTab = ({ collaborations }) => {
 
 // Compliance Tab
 const ComplianceTab = () => {
-  const complianceItems = [
-    { 
-      category: 'HIPAA',
+  // Nothing here is a certification. These are controls implemented in the
+  // platform, stated without dates or attestations, because HealthDB has not
+  // completed any third-party audit. Anything unverified is listed as such.
+  const implemented = [
+    {
+      category: 'Access control',
       items: [
-        { name: 'Business Associate Agreement', status: 'complete', date: '2024-01-01' },
-        { name: 'Privacy Policy', status: 'complete', date: '2024-01-01' },
-        { name: 'Security Risk Assessment', status: 'complete', date: '2024-01-15' },
-        { name: 'Workforce Training', status: 'complete', date: '2024-02-01' }
-      ]
+        'Roles resolved from the database on every privileged request',
+        'Study-scoped authorization for cohort and export access',
+        'Separation of duties on regulatory approval',
+        'PBKDF2-SHA256 password hashing (600,000 iterations)',
+      ],
     },
     {
-      category: 'Data Security',
+      category: 'Data protection',
       items: [
-        { name: 'SOC 2 Type II', status: 'complete', date: '2024-01-20' },
-        { name: 'Encryption at Rest', status: 'complete', date: '2024-01-01' },
-        { name: 'Encryption in Transit', status: 'complete', date: '2024-01-01' },
-        { name: 'Access Logging', status: 'complete', date: '2024-01-01' }
-      ]
+        'HIPAA Safe Harbor identifier removal before research access',
+        'Small-cell suppression on aggregate results',
+        'Consent checked at query time, revocable by the patient',
+        'Append-only access log, visible to the patient',
+      ],
     },
-    {
-      category: 'Regulatory',
-      items: [
-        { name: '21 CFR Part 11', status: 'complete', date: '2024-02-15' },
-        { name: 'GDPR Readiness', status: 'in_progress', date: null },
-        { name: 'State Privacy Laws', status: 'complete', date: '2024-01-30' }
-      ]
-    },
-    {
-      category: 'Audit',
-      items: [
-        { name: 'Annual Security Audit', status: 'complete', date: '2024-01-31' },
-        { name: 'Penetration Testing', status: 'complete', date: '2024-02-28' },
-        { name: 'Vendor Assessment', status: 'complete', date: '2024-01-15' }
-      ]
-    }
   ];
 
-  const statusColors = {
-    complete: 'text-green-400',
-    in_progress: 'text-yellow-400',
-    pending: 'text-white/40'
-  };
+  const notInPlace = [
+    { name: 'SOC 2 Type II', note: 'No audit commenced' },
+    { name: 'HIPAA Business Associate Agreements', note: 'None executed' },
+    { name: 'Independent penetration test', note: 'Not performed' },
+    { name: 'Security risk assessment', note: 'Not performed' },
+    { name: 'GDPR readiness review', note: 'Not assessed' },
+    { name: '21 CFR Part 11', note: 'Not assessed' },
+    { name: 'IRB reliance agreements', note: 'None executed' },
+    { name: 'Workforce compliance training', note: 'Not established' },
+  ];
 
   return (
     <div>
+      <div className="p-4 border border-amber-400/30 bg-amber-400/5 mb-8">
+        <p className="text-amber-400 text-sm font-medium mb-1">Closed pilot — no certifications held</p>
+        <p className="text-white/50 text-sm">
+          HealthDB holds no compliance certifications and has no executed BAAs, DUAs, or
+          IRB reliance agreements. Do not process real PHI on this platform until those
+          are independently verified.
+        </p>
+      </div>
+
       <div className="grid md:grid-cols-2 gap-8">
-        {complianceItems.map((category, i) => (
-          <div key={category.category} className="p-6 border border-white/10">
-            <h3 className="font-medium mb-4">{category.category}</h3>
+        {implemented.map((category) => (
+          <div key={category.category} className="p-6 border border-emerald-400/20">
+            <h3 className="font-medium mb-4 text-emerald-400">{category.category}</h3>
             <div className="space-y-3">
-              {category.items.map((item, j) => (
-                <div key={j} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-2 h-2 rounded-full ${
-                      item.status === 'complete' ? 'bg-green-400' :
-                      item.status === 'in_progress' ? 'bg-yellow-400' : 'bg-white/20'
-                    }`} />
-                    <span className="text-sm">{item.name}</span>
-                  </div>
-                  <span className={`text-xs ${statusColors[item.status]}`}>
-                    {item.status === 'complete' ? item.date : item.status.replace('_', ' ')}
-                  </span>
+              {category.items.map((item) => (
+                <div key={item} className="flex items-start gap-3 py-1">
+                  <span className="text-emerald-400 text-xs mt-1">✓</span>
+                  <span className="text-sm text-white/60">{item}</span>
                 </div>
               ))}
             </div>
@@ -654,28 +655,13 @@ const ComplianceTab = () => {
         ))}
       </div>
 
-      {/* Certifications */}
-      <div className="mt-8">
-        <h3 className="font-medium mb-4">Certifications & Attestations</h3>
-        <div className="grid md:grid-cols-4 gap-4">
-          {[
-            { name: 'HIPAA', icon: 'H', valid: true },
-            { name: 'SOC 2', icon: 'S', valid: true },
-            { name: 'GDPR', icon: 'G', valid: false },
-            { name: '21 CFR 11', icon: 'F', valid: true }
-          ].map((cert, i) => (
-            <div key={cert.name} className={`p-4 border text-center ${
-              cert.valid ? 'border-green-400/30 bg-green-400/5' : 'border-white/10'
-            }`}>
-              <div className={`w-12 h-12 mx-auto mb-2 flex items-center justify-center text-xl font-bold ${
-                cert.valid ? 'bg-green-400/20 text-green-400' : 'bg-white/10 text-white/40'
-              }`}>
-                {cert.icon}
-              </div>
-              <div className="font-medium text-sm">{cert.name}</div>
-              <div className={`text-xs mt-1 ${cert.valid ? 'text-green-400' : 'text-white/40'}`}>
-                {cert.valid ? 'Verified' : 'In Progress'}
-              </div>
+      <div className="mt-8 p-6 border border-white/10">
+        <h3 className="font-medium mb-4">Not in place</h3>
+        <div className="grid md:grid-cols-2 gap-x-8">
+          {notInPlace.map((item) => (
+            <div key={item.name} className="flex items-center justify-between py-2 border-b border-white/5">
+              <span className="text-sm text-white/60">{item.name}</span>
+              <span className="text-xs text-amber-400/60">{item.note}</span>
             </div>
           ))}
         </div>

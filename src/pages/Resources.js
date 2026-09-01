@@ -1,8 +1,35 @@
 import React, { useState } from 'react';
+
+const API_URL = process.env.NODE_ENV === 'production' ? '' : (process.env.REACT_APP_API_URL || 'http://localhost:8000');
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 
 const Resources = () => {
+  const [subscribeEmail, setSubscribeEmail] = useState('');
+  const [subscribeState, setSubscribeState] = useState({ status: 'idle', message: '' });
+
+  const handleSubscribe = async (e) => {
+    e.preventDefault();
+    setSubscribeState({ status: 'sending', message: '' });
+    try {
+      const response = await fetch(`${API_URL}/api/contact`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Newsletter subscriber',
+          email: subscribeEmail,
+          organization: 'n/a',
+          message: 'Requested updates via the Resources page.',
+          interest_type: 'newsletter',
+        }),
+      });
+      if (!response.ok) throw new Error('Subscription failed. Please try again.');
+      setSubscribeState({ status: 'done', message: '' });
+    } catch (err) {
+      setSubscribeState({ status: 'error', message: err.message });
+    }
+  };
+
   const [activeCategory, setActiveCategory] = useState('all');
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [selectedWhitepaper, setSelectedWhitepaper] = useState(null);
@@ -157,9 +184,10 @@ For aggregate queries, we add calibrated noise to prevent inference attacks.
 Our de-identification pipeline is validated through:
 
 - Automated testing against known re-identification attacks
-- Third-party security audits
-- Regular penetration testing
 - Statistical analysis of re-identification risk
+
+Third-party security audits and penetration testing are planned controls,
+not ones HealthDB has completed.
 
 **The Result**
 
@@ -333,20 +361,20 @@ We've built pre-existing relationships with 50+ institutions:
 **How Multi-Center Studies Work**
 
 1. **Define cohort**: Specify your inclusion/exclusion criteria
-2. **Run feasibility**: See patient counts by site instantly
+2. **Run feasibility**: See aggregate patient counts by site
 3. **Submit to sIRB**: One application covers all sites
-4. **Activate sites**: Reliance agreements activate in 24 hours
+4. **Activate sites**: Once reliance agreements are executed
 5. **Extract data**: Normalized data from all sites in one dataset
 
-**Case Study: CAR-T Registry**
+**Worked Example (hypothetical)**
 
-A researcher studying CAR-T outcomes needed 500+ patients. No single center had enough. Through HealthDB:
+The following illustrates the intended workflow. It is not a completed
+HealthDB study; no multi-center study has run on the platform.
 
-- 8 sites identified with qualifying patients
-- sIRB approved in 18 days
-- All sites activated in 48 hours
-- 547 patients in the final cohort
-- Time from concept to data: 4 weeks
+A researcher studying CAR-T outcomes needs 500+ patients, more than any single
+center holds. The intended path is: run feasibility across participating sites,
+submit one IRB application under a reliance model, activate sites, and extract a
+single normalized dataset. Timelines will depend on the sites and IRB involved.
 
 Traditional approach would have taken 6-12 months.
 
@@ -403,7 +431,7 @@ This enables even broader collaboration while strengthening privacy.`
         { title: '4. De-identification Pipeline', content: 'Automated Safe Harbor compliance with date shifting, generalization, and k-anonymity verification. Statistical risk analysis before any data release.' },
         { title: '5. Audit & Logging', content: 'Comprehensive audit trail of all data access. Immutable logs stored separately. Real-time anomaly detection for unusual access patterns.' },
         { title: '6. Incident Response', content: 'Documented procedures for potential breaches. Automatic detection, containment, and notification workflows. Regular tabletop exercises.' },
-        { title: '7. Compliance Validation', content: 'Annual SOC 2 Type II audits. Quarterly penetration testing. Continuous compliance monitoring with automated controls.' }
+        { title: '7. Compliance Validation', content: 'Target state: annual SOC 2 Type II audit, periodic penetration testing, and continuous automated control monitoring. None of these have been performed to date; HealthDB currently holds no certifications.' }
       ]
     },
     {
@@ -614,21 +642,36 @@ This enables even broader collaboration while strengthening privacy.`
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="text-2xl font-bold mb-4">Stay Updated</h2>
           <p className="text-white/40 mb-8">
-            Monthly insights on ethical data sharing and oncology research.
+            Leave your address and we will contact you as the pilot opens.
+            We are not currently sending a scheduled newsletter.
           </p>
-          <form className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-            <input
-              type="email"
-              placeholder="Enter your email"
-              className="flex-1 px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-white/30 transition-colors"
-            />
-            <button
-              type="submit"
-              className="px-6 py-3 bg-white text-black font-medium hover:bg-gray-100 transition-colors"
-            >
-              Subscribe
-            </button>
-          </form>
+          {subscribeState.status === 'done' ? (
+            <p className="text-emerald-400 text-sm">
+              Thanks — we have your address on file and will be in touch.
+            </p>
+          ) : (
+            <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+              <input
+                type="email"
+                required
+                value={subscribeEmail}
+                onChange={(e) => setSubscribeEmail(e.target.value)}
+                placeholder="Enter your email"
+                aria-label="Email address"
+                className="flex-1 px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-white/30 transition-colors"
+              />
+              <button
+                type="submit"
+                disabled={subscribeState.status === 'sending'}
+                className="px-6 py-3 bg-white text-black font-medium hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {subscribeState.status === 'sending' ? 'Sending…' : 'Subscribe'}
+              </button>
+            </form>
+          )}
+          {subscribeState.status === 'error' && (
+            <p className="text-red-400 text-sm mt-3">{subscribeState.message}</p>
+          )}
         </div>
       </section>
 

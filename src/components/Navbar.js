@@ -1,10 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+
+// Where each role lands after signing in.
+const DASHBOARD_BY_ROLE = {
+  patient: '/patient',
+  institution: '/institution',
+  researcher: '/research',
+};
+
+const readStoredUser = () => {
+  try {
+    const raw = sessionStorage.getItem('user');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
 
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [user, setUser] = useState(readStoredUser);
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -16,7 +34,18 @@ const Navbar = () => {
 
   useEffect(() => {
     setMenuOpen(false);
+    // Re-read on navigation so signing in or out updates the bar immediately.
+    setUser(readStoredUser());
   }, [location]);
+
+  const handleSignOut = () => {
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
+    setUser(null);
+    navigate('/');
+  };
+
+  const dashboardPath = user ? (DASHBOARD_BY_ROLE[user.user_type] || '/research') : null;
 
   return (
     <nav
@@ -40,23 +69,43 @@ const Navbar = () => {
             <NavLink to="/researchers">Researchers</NavLink>
             <NavLink to="/patients">Patients</NavLink>
             <NavLink to="/institutions">Institutions</NavLink>
+            <NavLink to="/platform">Roadmap</NavLink>
             <NavLink to="/about">About</NavLink>
           </div>
 
           {/* Right Side */}
           <div className="hidden md:flex items-center space-x-4">
-            <Link
-              to="/login"
-              className="text-white/60 hover:text-white text-sm transition-colors px-4 py-2"
-            >
-              Sign In
-            </Link>
-            <Link
-              to="/register"
-              className="px-5 py-2.5 bg-white text-black text-xs font-medium uppercase tracking-wider hover:bg-gray-100 transition-colors"
-            >
-              Get Started
-            </Link>
+            {user ? (
+              <>
+                <Link
+                  to={dashboardPath}
+                  className="text-white/60 hover:text-white text-sm transition-colors px-4 py-2"
+                >
+                  {user.name || 'Dashboard'}
+                </Link>
+                <button
+                  onClick={handleSignOut}
+                  className="px-5 py-2.5 border border-white/20 text-white text-xs font-medium uppercase tracking-wider hover:bg-white/5 transition-colors"
+                >
+                  Sign Out
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  className="text-white/60 hover:text-white text-sm transition-colors px-4 py-2"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  to="/register"
+                  className="px-5 py-2.5 bg-white text-black text-xs font-medium uppercase tracking-wider hover:bg-gray-100 transition-colors"
+                >
+                  Get Started
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -96,20 +145,35 @@ const Navbar = () => {
           <MobileNavLink to="/researchers">Researchers</MobileNavLink>
           <MobileNavLink to="/patients">Patients</MobileNavLink>
           <MobileNavLink to="/institutions">Institutions</MobileNavLink>
+          <MobileNavLink to="/platform">Roadmap</MobileNavLink>
           <MobileNavLink to="/about">About</MobileNavLink>
           <div className="pt-6 border-t border-white/10 space-y-4">
-            <Link
-              to="/login"
-              className="block text-white/60 hover:text-white transition-colors"
-            >
-              Sign In
-            </Link>
-            <Link
-              to="/register"
-              className="block px-5 py-3 bg-white text-black text-sm font-medium uppercase tracking-wider text-center"
-            >
-              Get Started
-            </Link>
+            {user ? (
+              <>
+                <MobileNavLink to={dashboardPath}>Dashboard</MobileNavLink>
+                <button
+                  onClick={handleSignOut}
+                  className="block w-full px-5 py-3 border border-white/20 text-white text-sm font-medium uppercase tracking-wider text-center"
+                >
+                  Sign Out
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  className="block text-white/60 hover:text-white transition-colors"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  to="/register"
+                  className="block px-5 py-3 bg-white text-black text-sm font-medium uppercase tracking-wider text-center"
+                >
+                  Get Started
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </div>
