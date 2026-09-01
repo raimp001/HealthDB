@@ -391,6 +391,11 @@ class EmailVerificationConfirm(BaseModel):
     token: str
 
 
+class DataDeletionRequest(BaseModel):
+    reason: Optional[str] = None
+    confirm_email: EmailStr
+
+
 class ContactRequest(BaseModel):
     name: str
     email: EmailStr
@@ -1164,6 +1169,80 @@ async def get_patient_consents(
         )
         for c in consents
     ]
+
+
+@app.post("/api/patient/request-deletion")
+async def request_data_deletion(
+    payload: DataDeletionRequest,
+    background_tasks: BackgroundTasks,
+    token_data: Dict = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    """Record a patient's request to have their contributed data removed.
+
+    Deletion is not immediate and is deliberately not automatic. Data already
+    released to an approved study under a signed consent cannot be recalled
+    from that researcher's copy, and audit records are retained because the
+    access log is the patient's own evidence of who touched their data. This
+    records the request, revokes consent so no further release can happen,
+    and hands the rest to a human process.
+    """
+    user = db.query(User).filter(User.id == token_data["sub"]).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Confirming the address is a deliberate speed bump on a hard-to-reverse
+    # action, and catches a request made on someone else's signed-in device.
+    if payload.confirm_email.lower() != user.email.lower():
+        raise HTTPException(
+            status_code=400,
+            detail="The address entered does not match the signed-in account.",
+        )
+
+    # Consent.patient_id references patient_profiles.id, not users.id.
+    profile = db.query(PatientProfile).filter(PatientProfile.user_id == user.id).first()
+
+    # Stop future release straight away, whatever the human process decides.
+    revoked = 0
+    if profile:
+        revoked = db.query(Consent).filter(
+            Consent.patient_id == profile.id,
+            Consent.status.in_(["active", "signed", "pending"]),
+        ).update({"status": "revoked", "revoked_at": datetime.utcnow()},
+                 synchronize_session=False)
+
+    db.add(ContactSubmission(
+        name=user.name,
+        email=user.email,
+        organization="",
+        message=(
+            f"Data deletion requested by user {user.id}.\n"
+            f"Consents revoked: {revoked}.\n"
+            f"Reason: {payload.reason or 'not given'}"
+        ),
+        interest_type="data_deletion",
+        submission_type="data_deletion",
+    ))
+    db.commit()
+
+    audit_logger.info("DATA_DELETION_REQUESTED user=%s consents_revoked=%s", user.id, revoked)
+    background_tasks.add_task(
+        deliver_notification,
+        "HealthDB data deletion request",
+        f"User {user.id} ({user.email}) requested deletion. "
+        f"{revoked} consent(s) revoked automatically.",
+    )
+
+    return {
+        "success": True,
+        "consents_revoked": revoked,
+        "message": (
+            "Your request is recorded and your active consents are revoked, so "
+            "no further data will be released. Extracts already provided to "
+            "approved studies cannot be recalled. Your access log is retained "
+            "as your own record of who used your data."
+        ),
+    }
 
 
 @app.post("/api/patient/consents", response_model=ConsentResponse)
