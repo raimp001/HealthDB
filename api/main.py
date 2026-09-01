@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr, Field
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 from datetime import datetime, date, timedelta
 from decimal import Decimal
 from uuid import UUID
@@ -205,7 +205,9 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
-    user_type: str = "researcher"
+    # Strict enum: self-service signup can only ever create these two roles.
+    # Anything else (admin, institution) is rejected by validation with a 422.
+    user_type: Literal["patient", "researcher"] = "researcher"
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -505,15 +507,29 @@ def require_auth(credentials: HTTPAuthorizationCredentials = Depends(security)) 
 
 
 def require_role(*allowed_roles: str):
-    """Role-based access control dependency factory"""
-    def _check_role(token_data: Dict = Depends(require_auth)):
-        user_type = token_data.get("type", "")
-        if user_type not in allowed_roles:
+    """Role-based access control dependency factory.
+
+    The authoritative role is the one stored on the user row, NOT the "type"
+    claim in the JWT. A token is proof of identity only; it is never trusted
+    to assert privilege. This also means any token minted before this check
+    existed cannot escalate: the database is consulted on every request.
+    """
+    def _check_role(
+        token_data: Dict = Depends(require_auth),
+        db: Session = Depends(get_db),
+    ) -> Dict:
+        user = db.query(User).filter(User.id == token_data.get("sub")).first()
+        if not user or not user.is_active:
+            raise HTTPException(status_code=401, detail="User not found or inactive")
+
+        if user.user_type not in allowed_roles:
             raise HTTPException(
                 status_code=403,
                 detail=f"Access denied. Required role: {', '.join(allowed_roles)}"
             )
-        return token_data
+
+        # Hand downstream handlers the verified role, not the claimed one.
+        return {**token_data, "type": user.user_type, "sub": str(user.id)}
     return _check_role
 
 
@@ -792,7 +808,9 @@ async def register(user: UserCreate, db: Session = Depends(get_db)):
         patient_repo = PatientRepository(db)
         patient_repo.create_profile(new_user.id)
 
-    token = create_token(str(new_user.id), user.user_type)
+    # Use the persisted role, never the request body, so the JWT can never
+    # carry a role the database does not agree with.
+    token = create_token(str(new_user.id), new_user.user_type)
 
     return TokenResponse(
         access_token=token,
@@ -801,7 +819,7 @@ async def register(user: UserCreate, db: Session = Depends(get_db)):
             email=new_user.email,
             name=new_user.name,
             organization=new_user.organization,
-            user_type=user.user_type,
+            user_type=new_user.user_type,
             created_at=new_user.created_at,
             is_verified=new_user.is_verified,
         )
@@ -2212,7 +2230,37 @@ async def approve_regulatory(
     
     if not submission:
         raise HTTPException(status_code=404, detail="Submission not found")
-    
+
+    reviewer = db.query(User).filter(User.id == token_data["sub"]).first()
+
+    # An institution reviewer may only act on their own institution's
+    # submissions. Platform admins are not institution-scoped.
+    if reviewer.user_type == "institution":
+        if not reviewer.institution_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Reviewer is not linked to an institution",
+            )
+        if submission.institution_id != reviewer.institution_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Submission belongs to another institution",
+            )
+
+    # Separation of duties: nobody approves the study they run.
+    if submission.study_id:
+        submitting_study = db.query(Study).filter(
+            Study.id == submission.study_id
+        ).first()
+        if submitting_study and submitting_study.user_id == str(reviewer.id):
+            raise HTTPException(
+                status_code=403,
+                detail="You cannot approve a submission for your own study",
+            )
+
+    if submission.status == "approved":
+        raise HTTPException(status_code=409, detail="Submission is already approved")
+
     submission.status = "approved"
     submission.approved_at = datetime.utcnow()
     
