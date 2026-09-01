@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import PilotBanner from './PilotBanner';
 
 // Where each role lands after signing in.
 const DASHBOARD_BY_ROLE = {
@@ -52,9 +53,10 @@ const Navbar = () => {
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         scrolled
           ? 'bg-black/80 backdrop-blur-xl border-b border-white/5'
-          : 'bg-transparent'
+          : 'bg-black/40 backdrop-blur-sm'
       }`}
     >
+      <PilotBanner />
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex items-center justify-between h-20">
           {/* Logo */}

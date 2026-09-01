@@ -6,7 +6,7 @@ const LandingPage = () => {
   return (
     <div className="bg-black text-white">
       {/* Hero */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-40 pb-16 sm:pt-32">
         <div className="absolute inset-0 gradient-bg" />
         <div className="absolute inset-0 grid-pattern" />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#00d4aa]/5 rounded-full blur-[120px]" />
@@ -40,8 +40,10 @@ const LandingPage = () => {
               </Link>
             </div>
 
-            <div className="inline-flex items-center gap-3 px-4 py-2 border border-amber-400/30 bg-amber-400/5">
-              <span className="text-amber-400 text-xs uppercase tracking-wider">Closed pilot</span>
+            <div className="inline-flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 px-4 py-3 border border-amber-400/30 bg-amber-400/5 text-center sm:text-left">
+              <span className="text-amber-400 text-xs uppercase tracking-wider whitespace-nowrap">
+                Closed pilot
+              </span>
               <span className="text-white/40 text-sm">
                 Onboarding research partners — not yet open for self-service use
               </span>

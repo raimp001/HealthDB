@@ -100,9 +100,8 @@ const Login = () => {
                 <label className="block text-xs uppercase tracking-wider text-white/40">
                   Password
                 </label>
-                {/* No self-service reset exists yet; this is a manual request. */}
-                <Link to="/contact" className="text-xs text-white/40 hover:text-white transition-colors">
-                  Forgot? Contact us
+                <Link to="/reset-password" className="text-xs text-white/40 hover:text-white transition-colors">
+                  Forgot?
                 </Link>
               </div>
               <input

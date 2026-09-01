@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import toast from 'react-hot-toast';
+import PromptDialog from '../components/PromptDialog';
 import { useNavigate } from 'react-router-dom';
 
 const API_URL = process.env.NODE_ENV === 'production' ? '' : (process.env.REACT_APP_API_URL || 'http://localhost:8000');
@@ -33,6 +35,8 @@ const AnalyticsBars = ({ items, emptyMessage }) => {
 
 const ResearcherDashboard = () => {
   const [activeTab, setActiveTab] = useState('cohort');
+  // Replaces window.prompt: { type, context } drives PromptDialog.
+  const [dialog, setDialog] = useState(null);
   const [cohortCriteria, setCohortCriteria] = useState({
     cancerTypes: [],
     icdCodes: [],
@@ -237,20 +241,18 @@ const ResearcherDashboard = () => {
         });
       } else {
         const errorData = await response.json();
-        alert(`Failed to build cohort: ${errorData.detail || 'Unknown error'}`);
+        toast.error(`Failed to build cohort: ${errorData.detail || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Failed to build cohort:', error);
-      alert('Failed to build cohort. Please try again.');
+      toast.error('Failed to build cohort. Please try again.');
     } finally {
       setIsBuilding(false);
     }
   };
 
-  const handleSaveCohort = async () => {
+  const handleSaveCohort = async ({ name }) => {
     if (!cohortResult) return;
-    const name = prompt('Enter a name for this cohort:');
-    if (!name) return;
 
     const token = sessionStorage.getItem('token');
 
@@ -271,7 +273,7 @@ const ResearcherDashboard = () => {
       if (response.ok) {
         const data = await response.json();
         setSavedCohorts(prev => [data, ...prev]);
-        alert('Cohort saved successfully!');
+        toast.success('Cohort saved successfully!');
       }
     } catch (error) {
       console.error('Failed to save cohort:', error);
@@ -310,11 +312,7 @@ const ResearcherDashboard = () => {
     );
   };
 
-  const handleCreateStudy = async (cohort = null) => {
-    const name = prompt('Study name:', cohort?.name || '');
-    if (!name) return;
-    const description = prompt('Short description (optional):') || '';
-    const principalInvestigator = prompt('Principal investigator (optional):') || '';
+  const handleCreateStudy = async ({ name, description = '', principalInvestigator = '' }) => {
 
     setIsCreatingStudy(true);
     const token = sessionStorage.getItem('token');
@@ -336,22 +334,19 @@ const ResearcherDashboard = () => {
         await fetchData();
       } else {
         const data = await response.json();
-        alert(data.detail || 'Failed to create study');
+        toast.error(data.detail || 'Failed to create study');
       }
     } catch (err) {
       console.error('Failed to create study:', err);
-      alert('Failed to create study. Please try again.');
+      toast.error('Failed to create study. Please try again.');
     } finally {
       setIsCreatingStudy(false);
     }
   };
 
-  const handleToggleRecruiting = async (study) => {
+  const handleToggleRecruiting = async (study, providedSummary = null) => {
     const nextIsRecruiting = !study.is_recruiting;
-    let eligibilitySummary = study.eligibility_summary;
-    if (nextIsRecruiting && !eligibilitySummary) {
-      eligibilitySummary = prompt('Eligibility summary shown to patients (e.g. "Adults 18+ with Stage III/IV disease"):') || '';
-    }
+    const eligibilitySummary = providedSummary ?? study.eligibility_summary;
 
     setRecruitingActionId(study.id);
     const token = sessionStorage.getItem('token');
@@ -372,7 +367,7 @@ const ResearcherDashboard = () => {
         await fetchData();
       } else {
         const data = await response.json();
-        alert(data.detail || 'Failed to update recruiting status');
+        toast.error(data.detail || 'Failed to update recruiting status');
       }
     } catch (err) {
       console.error('Failed to update recruiting status:', err);
@@ -424,7 +419,7 @@ const ResearcherDashboard = () => {
         setShowAddSite(false);
         await fetchRegulatory(selectedStudyId);
       } else {
-        alert(data.detail || 'Failed to add site');
+        toast.error(data.detail || 'Failed to add site');
       }
     } catch (err) {
       console.error('Failed to add site:', err);
@@ -445,7 +440,7 @@ const ResearcherDashboard = () => {
       if (response.ok) {
         await fetchRegulatory(selectedStudyId);
       } else {
-        alert(data.detail || 'Failed to submit document');
+        toast.error(data.detail || 'Failed to submit document');
       }
     } catch (err) {
       console.error('Failed to submit document:', err);
@@ -454,11 +449,7 @@ const ResearcherDashboard = () => {
     }
   };
 
-  const handleInviteCollaborator = async () => {
-    const email = prompt('Collaborator email:');
-    if (!email) return;
-    const role = prompt('Role (co_investigator, analyst, statistician):', 'co_investigator');
-    if (!role) return;
+  const handleInviteCollaborator = async ({ email, role }) => {
 
     const token = sessionStorage.getItem('token');
     try {
@@ -469,9 +460,9 @@ const ResearcherDashboard = () => {
       const data = await response.json();
       if (response.ok) {
         await fetchRegulatory(selectedStudyId);
-        alert(data.message);
+        toast.success(data.message);
       } else {
-        alert(data.detail || 'Failed to invite collaborator');
+        toast.error(data.detail || 'Failed to invite collaborator');
       }
     } catch (err) {
       console.error('Failed to invite collaborator:', err);
@@ -500,11 +491,11 @@ const ResearcherDashboard = () => {
       if (response.ok) {
         await fetchRegulatory(selectedStudyId);
       } else {
-        alert(data.detail || 'Failed to request extract');
+        toast.error(data.detail || 'Failed to request extract');
       }
     } catch (err) {
       console.error('Failed to request extract:', err);
-      alert('Failed to request extract');
+      toast.error('Failed to request extract');
     } finally {
       setExtractActionId(null);
     }
@@ -519,7 +510,7 @@ const ResearcherDashboard = () => {
       });
       if (!response.ok) {
         const data = await response.json();
-        alert(data.detail || 'Failed to download extract');
+        toast.error(data.detail || 'Failed to download extract');
         return;
       }
       const blob = await response.blob();
@@ -533,7 +524,7 @@ const ResearcherDashboard = () => {
       window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Failed to download extract:', err);
-      alert('Failed to download extract');
+      toast.error('Failed to download extract');
     } finally {
       setExtractActionId(null);
     }
@@ -851,7 +842,7 @@ const ResearcherDashboard = () => {
                           {cohortResult.patient_count > 0 && (
                             <div className="pt-4 space-y-3">
                               <button 
-                                onClick={handleSaveCohort}
+                                onClick={() => setDialog({ type: 'saveCohort' })}
                                 className="w-full py-3 bg-[#00d4aa] text-black text-xs uppercase tracking-wider font-medium hover:bg-[#00d4aa]/90 transition-colors"
                               >
                                 Save Cohort
@@ -1020,7 +1011,7 @@ const ResearcherDashboard = () => {
                     <p className="text-white/40 text-sm">Track your research studies and saved cohorts</p>
                   </div>
                   <button
-                    onClick={() => handleCreateStudy()}
+                    onClick={() => setDialog({ type: 'createStudy' })}
                     disabled={isCreatingStudy}
                     className="px-6 py-3 bg-white text-black text-xs uppercase tracking-wider font-medium hover:bg-gray-100 transition-colors disabled:opacity-50 shrink-0 self-start sm:self-auto"
                   >
@@ -1055,7 +1046,11 @@ const ResearcherDashboard = () => {
                           </div>
                           <div className="flex flex-wrap gap-2 shrink-0">
                             <button
-                              onClick={() => handleToggleRecruiting(study)}
+                              onClick={() =>
+                                !study.is_recruiting && !study.eligibility_summary
+                                  ? setDialog({ type: 'recruiting', study })
+                                  : handleToggleRecruiting(study)
+                              }
                               disabled={recruitingActionId === study.id}
                               className="px-4 py-2 border border-white/20 text-white text-xs uppercase tracking-wider hover:bg-white hover:text-black transition-all disabled:opacity-50"
                             >
@@ -1115,7 +1110,7 @@ const ResearcherDashboard = () => {
                             <div className="flex items-center gap-4 shrink-0">
                               <span className="text-white font-mono">{cohort.patient_count} pts</span>
                               <button
-                                onClick={() => handleCreateStudy(cohort)}
+                                onClick={() => setDialog({ type: 'createStudy', cohort })}
                                 disabled={isCreatingStudy}
                                 className="px-3 py-1 border border-white/20 text-white/60 text-xs hover:bg-white hover:text-black transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                               >
@@ -1269,7 +1264,7 @@ const ResearcherDashboard = () => {
                         <h3 className="text-sm uppercase tracking-wider text-white/40">Study Team</h3>
                         {regulatoryStudies.find(s => s.id === selectedStudyId)?.mine && (
                           <button
-                            onClick={handleInviteCollaborator}
+                            onClick={() => setDialog({ type: 'invite' })}
                             className="px-4 py-2 border border-white/20 text-white text-xs uppercase tracking-wider hover:bg-white hover:text-black transition-all"
                           >
                             + Invite Collaborator
@@ -1460,6 +1455,69 @@ const ResearcherDashboard = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Replaces window.prompt across this dashboard. */}
+      <PromptDialog
+        open={dialog?.type === 'saveCohort'}
+        title="Save cohort"
+        description="Give this cohort a name you will recognise later."
+        fields={[{ name: 'name', label: 'Cohort name', required: true, placeholder: 'e.g. Stage III NSCLC, 2020-2024' }]}
+        submitLabel="Save cohort"
+        onClose={() => setDialog(null)}
+        onSubmit={(values) => { setDialog(null); handleSaveCohort(values); }}
+      />
+
+      <PromptDialog
+        open={dialog?.type === 'createStudy'}
+        title="Create study"
+        description="A study groups cohorts, regulatory documents and collaborators."
+        busy={isCreatingStudy}
+        fields={[
+          { name: 'name', label: 'Study name', required: true, defaultValue: dialog?.cohort?.name || '' },
+          { name: 'description', label: 'Description', type: 'textarea', placeholder: 'Optional' },
+          { name: 'principalInvestigator', label: 'Principal investigator', placeholder: 'Optional' },
+        ]}
+        submitLabel="Create study"
+        onClose={() => setDialog(null)}
+        onSubmit={(values) => { setDialog(null); handleCreateStudy(values); }}
+      />
+
+      <PromptDialog
+        open={dialog?.type === 'recruiting'}
+        title="Open study to patients"
+        description="Patients browsing studies will see this summary."
+        fields={[{
+          name: 'eligibilitySummary',
+          label: 'Eligibility summary',
+          type: 'textarea',
+          required: true,
+          placeholder: 'e.g. Adults 18+ with Stage III/IV disease',
+          help: 'Plain language, no clinical jargon. Shown exactly as written.',
+        }]}
+        submitLabel="Open for recruitment"
+        onClose={() => setDialog(null)}
+        onSubmit={({ eligibilitySummary }) => {
+          const study = dialog.study;
+          setDialog(null);
+          handleToggleRecruiting(study, eligibilitySummary);
+        }}
+      />
+
+      <PromptDialog
+        open={dialog?.type === 'invite'}
+        title="Invite collaborator"
+        description="They receive access to this study only."
+        fields={[
+          { name: 'email', label: 'Email', type: 'email', required: true },
+          {
+            name: 'role', label: 'Role', required: true, defaultValue: 'co_investigator',
+            help: 'One of: co_investigator, analyst, statistician',
+          },
+        ]}
+        submitLabel="Send invitation"
+        onClose={() => setDialog(null)}
+        onSubmit={(values) => { setDialog(null); handleInviteCollaborator(values); }}
+      />
     </div>
   );
 };

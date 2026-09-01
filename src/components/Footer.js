@@ -43,7 +43,7 @@ const Footer = () => {
   const location = useLocation();
 
   // Auth screens are full-bleed centered layouts; a footer breaks their composition.
-  if (location.pathname === '/login' || location.pathname === '/register') {
+  if (['/login', '/register', '/reset-password', '/verify-email'].includes(location.pathname)) {
     return null;
   }
 

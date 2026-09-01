@@ -25,18 +25,18 @@ import SecurityPostureMap from './pages/SecurityPostureMap';
 import DataFlowDiagram from './pages/DataFlowDiagram';
 import RepoAnalyzer from './pages/RepoAnalyzer';
 import NotFound from './pages/NotFound';
+import ResetPassword from './pages/ResetPassword';
+import VerifyEmail from './pages/VerifyEmail';
 
 // Components
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
-import PilotBanner from './components/PilotBanner';
 
 function App() {
   return (
     <Router>
       <div className="min-h-screen bg-slate-50 flex flex-col">
         <Navbar />
-        <PilotBanner />
         <main className="flex-grow">
           <Routes>
             <Route path="/" element={<LandingPage />} />
@@ -64,6 +64,8 @@ function App() {
             <Route path="/terms" element={<Terms />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
             {/* Catch-all: unknown URLs must not render the homepage */}
             <Route path="*" element={<NotFound />} />
           </Routes>

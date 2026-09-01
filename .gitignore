@@ -40,3 +40,8 @@ node_modules/.cache/
 
 # Build output (Vercel regenerates via `npm run build`)
 build/
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/

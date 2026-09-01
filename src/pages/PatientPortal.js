@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 
 const API_URL = process.env.NODE_ENV === 'production' ? '' : (process.env.REACT_APP_API_URL || 'http://localhost:8000');
@@ -111,12 +112,12 @@ const PatientPortal = () => {
         setShowConsentModal(false);
         setSelectedTemplate(null);
         await fetchData(); // Refresh all data
-        alert(data.message);
+        toast.success(data.message);
       } else {
-        alert(data.detail || 'Failed to sign consent');
+        toast.error(data.detail || 'Failed to sign consent');
       }
     } catch (err) {
-      alert('Error signing consent. Please try again.');
+      toast.error('Error signing consent. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -135,10 +136,10 @@ const PatientPortal = () => {
 
       if (response.ok) {
         await fetchData();
-        alert('Consent revoked successfully.');
+        toast.success('Consent revoked successfully.');
       }
     } catch (err) {
-      alert('Error revoking consent.');
+      toast.error('Error revoking consent.');
     }
   };
 
@@ -151,7 +152,7 @@ const PatientPortal = () => {
     try {
       bundle = JSON.parse(await file.text());
     } catch (err) {
-      alert('That file is not valid JSON.');
+      toast.success('That file is not valid JSON.');
       return;
     }
 
@@ -168,13 +169,13 @@ const PatientPortal = () => {
       const data = await response.json();
       if (response.ok) {
         setShowConnectionModal(false);
-        alert(data.message);
+        toast.success(data.message);
         await fetchData();
       } else {
-        alert(data.detail || 'Failed to upload FHIR records');
+        toast.error(data.detail || 'Failed to upload FHIR records');
       }
     } catch (err) {
-      alert('Error uploading FHIR records. Please try again.');
+      toast.error('Error uploading FHIR records. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -191,10 +192,10 @@ const PatientPortal = () => {
       if (response.ok) {
         await fetchData();
       } else {
-        alert(data.detail || 'Failed to join study');
+        toast.error(data.detail || 'Failed to join study');
       }
     } catch (err) {
-      alert('Error joining study. Please try again.');
+      toast.error('Error joining study. Please try again.');
     } finally {
       setStudyActionId(null);
     }
@@ -212,10 +213,10 @@ const PatientPortal = () => {
         await fetchData();
       } else {
         const data = await response.json();
-        alert(data.detail || 'Failed to leave study');
+        toast.error(data.detail || 'Failed to leave study');
       }
     } catch (err) {
-      alert('Error leaving study. Please try again.');
+      toast.error('Error leaving study. Please try again.');
     } finally {
       setStudyActionId(null);
     }
