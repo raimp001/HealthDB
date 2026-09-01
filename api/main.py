@@ -26,6 +26,54 @@ import logging
 
 # Configure audit logger
 audit_logger = logging.getLogger("healthdb.audit")
+
+# During the closed pilot, public signup is off by default. Set
+# ALLOW_SELF_SERVICE_REGISTRATION=true to reopen it.
+ALLOW_SELF_SERVICE_REGISTRATION = (
+    os.environ.get("ALLOW_SELF_SERVICE_REGISTRATION", "false").lower() == "true"
+)
+
+# Token lifetimes for the reset / verification flows.
+PASSWORD_RESET_TTL_MINUTES = 30
+EMAIL_VERIFICATION_TTL_HOURS = 48
+
+# Where outbound notifications go. Without a configured transport we log them
+# rather than pretend they were delivered; NOTIFY_WEBHOOK_URL (e.g. a Slack or
+# email-relay hook) turns them into real deliveries with no code change.
+NOTIFY_WEBHOOK_URL = os.environ.get("NOTIFY_WEBHOOK_URL", "")
+APP_BASE_URL = os.environ.get("APP_BASE_URL", "https://www.healthdb.ai")
+
+
+def deliver_notification(subject: str, body: str) -> None:
+    """Best-effort outbound notification.
+
+    Never raises: a failed notification must not fail the request that
+    triggered it. Always writes an audit line so there is a record even when
+    no transport is configured.
+    """
+    audit_logger.info("NOTIFY subject=%s", subject)
+    if not NOTIFY_WEBHOOK_URL:
+        audit_logger.warning(
+            "NOTIFY undelivered (NOTIFY_WEBHOOK_URL unset) subject=%s", subject
+        )
+        return
+    try:
+        import urllib.request
+        payload = json.dumps({"subject": subject, "text": body}).encode()
+        req = urllib.request.Request(
+            NOTIFY_WEBHOOK_URL, data=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        urllib.request.urlopen(req, timeout=5).close()
+    except Exception as exc:
+        audit_logger.error("NOTIFY failed subject=%s error=%s", subject, exc)
+
+
+def _hash_token(raw: str) -> str:
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+
 audit_logger.setLevel(logging.INFO)
 
 # Password hashing: PBKDF2-HMAC-SHA256 via stdlib (no native dependencies).
@@ -41,7 +89,7 @@ from .models import (
     Base, User, PatientProfile, Consent, ConsentTemplate,
     CancerDiagnosis, Treatment, DataProduct, DataAccessLog, ResearchCohort,
     MedicalRecordConnection, ExtractedMedicalData, RewardsTransaction,
-    Study, RegulatorySubmission, ExtractionJob, EMRConnection, Institution,
+    Study, RegulatorySubmission, ExtractionJob, EMRConnection, Institution, UserToken,
     StudyCollaborator, StudyDocument, StudyComment, DiseaseVariableSet,
     StudyEnrollment, ContactSubmission
 )
@@ -172,6 +220,31 @@ def initialize_database():
         if deleted > 0:
             print(f"Removed {deleted} placeholder data products")
             db.commit()
+
+        # One-time cleanup of institution rows planted by an earlier seeder.
+        # These name real hospitals that have no relationship with HealthDB,
+        # and GET /api/institutions is public, so they were being served as
+        # though they were partner sites. Only rows nothing references are
+        # removed; anything with a linked user or regulatory submission is
+        # left alone and reported instead of being silently deleted.
+        placeholder_names = {
+            "Stanford Cancer Center", "Mayo Clinic", "MD Anderson Cancer Center",
+            "Memorial Sloan Kettering", "Dana-Farber Cancer Institute",
+            "Fred Hutchinson Cancer Center", "Cleveland Clinic",
+            "Johns Hopkins Hospital", "OHSU Knight Cancer Institute",
+            "Emory Winship Cancer Institute", "UCSF Helen Diller Cancer Center",
+        }
+        for inst in db.query(Institution).filter(Institution.name.in_(placeholder_names)).all():
+            referenced = (
+                db.query(User).filter(User.institution_id == inst.id).count()
+                + db.query(RegulatorySubmission)
+                    .filter(RegulatorySubmission.institution_id == inst.id).count()
+            )
+            if referenced:
+                print(f"Kept placeholder institution {inst.name!r}: {referenced} reference(s)")
+                continue
+            db.delete(inst)
+        db.commit()
 
         # Sample institutions are development conveniences only. Production
         # starts empty so nothing can be mistaken for a real partner site.
@@ -304,6 +377,19 @@ class SaveCohortRequest(BaseModel):
     name: str
     description: Optional[str] = None
     criteria: CohortCriteria
+
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+
+
+class PasswordResetConfirm(BaseModel):
+    token: str
+    new_password: str
+
+
+class EmailVerificationConfirm(BaseModel):
+    token: str
+
 
 class ContactRequest(BaseModel):
     name: str
@@ -548,6 +634,23 @@ def get_current_user_record(
     return user
 
 
+def require_role_record(*allowed_roles: str):
+    """Like require_role, but yields the User row the handlers already expect.
+
+    Same rule: the role comes from the database, never from the token.
+    """
+    def _check(
+        user: User = Depends(get_current_user_record),
+    ) -> User:
+        if user.user_type not in allowed_roles:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Access denied. Required role: {', '.join(allowed_roles)}",
+            )
+        return user
+    return _check
+
+
 def require_study_access(db: Session, study_id: str, user_id: str) -> "Study":
     """Return the study if the user is its PI or an accepted collaborator, else 403"""
     study = db.query(Study).filter(Study.id == study_id).first()
@@ -780,10 +883,46 @@ def get_enrolled_count(db: Session, study_id: str) -> int:
     ).scalar() or 0
 
 
+def issue_user_token(db: Session, user_id: str, purpose: str, ttl: timedelta) -> str:
+    """Mint a single-use token, storing only its hash. Returns the raw token."""
+    raw = secrets.token_urlsafe(32)
+    db.query(UserToken).filter(
+        UserToken.user_id == user_id,
+        UserToken.purpose == purpose,
+        UserToken.used_at.is_(None),
+    ).delete()
+    db.add(UserToken(
+        user_id=user_id, purpose=purpose,
+        token_hash=_hash_token(raw),
+        expires_at=datetime.utcnow() + ttl,
+    ))
+    db.commit()
+    return raw
+
+
+def consume_user_token(db: Session, raw: str, purpose: str) -> Optional["User"]:
+    """Validate and burn a token. Returns the user, or None if unusable."""
+    row = db.query(UserToken).filter(
+        UserToken.token_hash == _hash_token(raw),
+        UserToken.purpose == purpose,
+    ).first()
+    if not row or row.used_at is not None or row.expires_at < datetime.utcnow():
+        return None
+    row.used_at = datetime.utcnow()
+    user = db.query(User).filter(User.id == row.user_id).first()
+    db.commit()
+    return user
+
+
 # ============== Auth Endpoints ==============
 
 @app.post("/api/auth/register", response_model=TokenResponse)
 async def register(user: UserCreate, db: Session = Depends(get_db)):
+    if not ALLOW_SELF_SERVICE_REGISTRATION:
+        raise HTTPException(
+            status_code=403,
+            detail="HealthDB is in a closed pilot. Contact us to request access.",
+        )
     """Register a new user (patient or researcher)"""
     user_repo = UserRepository(db)
 
@@ -828,6 +967,86 @@ async def register(user: UserCreate, db: Session = Depends(get_db)):
             is_verified=new_user.is_verified,
         )
     )
+
+
+@app.post("/api/auth/request-password-reset")
+async def request_password_reset(
+    payload: PasswordResetRequest, db: Session = Depends(get_db)
+):
+    """Start a password reset.
+
+    Always returns the same response whether or not the address exists, so
+    this cannot be used to enumerate registered users.
+    """
+    user = db.query(User).filter(User.email == payload.email).first()
+    if user and user.is_active:
+        raw = issue_user_token(
+            db, str(user.id), "password_reset",
+            timedelta(minutes=PASSWORD_RESET_TTL_MINUTES),
+        )
+        deliver_notification(
+            "HealthDB password reset",
+            f"Reset link (valid {PASSWORD_RESET_TTL_MINUTES} minutes): "
+            f"{APP_BASE_URL}/reset-password?token={raw}",
+        )
+        audit_logger.info("PASSWORD_RESET_REQUESTED user=%s", user.id)
+
+    return {
+        "success": True,
+        "message": "If that address has an account, a reset link is on its way.",
+    }
+
+
+@app.post("/api/auth/reset-password")
+async def reset_password(payload: PasswordResetConfirm, db: Session = Depends(get_db)):
+    """Complete a password reset with a single-use token."""
+    error = validate_password_strength(payload.new_password)
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+
+    user = consume_user_token(db, payload.token, "password_reset")
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+
+    user.password_hash = hash_password(payload.new_password)
+    db.commit()
+    audit_logger.info("PASSWORD_RESET_COMPLETED user=%s", user.id)
+    return {"success": True, "message": "Password updated. You can sign in now."}
+
+
+@app.post("/api/auth/request-verification")
+async def request_email_verification(
+    token_data: Dict = Depends(require_auth), db: Session = Depends(get_db)
+):
+    """Send (or resend) an email-verification link to the signed-in user."""
+    user = db.query(User).filter(User.id == token_data["sub"]).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.is_verified:
+        return {"success": True, "message": "Address already verified."}
+
+    raw = issue_user_token(
+        db, str(user.id), "email_verification",
+        timedelta(hours=EMAIL_VERIFICATION_TTL_HOURS),
+    )
+    deliver_notification(
+        "HealthDB email verification",
+        f"Verify your address: {APP_BASE_URL}/verify-email?token={raw}",
+    )
+    return {"success": True, "message": "Verification link sent."}
+
+
+@app.post("/api/auth/verify-email")
+async def verify_email(payload: EmailVerificationConfirm, db: Session = Depends(get_db)):
+    """Mark an address verified. is_verified previously had nothing to set it."""
+    user = consume_user_token(db, payload.token, "email_verification")
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification token")
+
+    user.is_verified = True
+    db.commit()
+    audit_logger.info("EMAIL_VERIFIED user=%s", user.id)
+    return {"success": True, "message": "Email verified."}
 
 
 @app.post("/api/auth/login", response_model=TokenResponse)
@@ -3206,6 +3425,15 @@ async def submit_contact(
     db.add(submission)
     db.commit()
 
+    # The form previously only wrote a row, so nobody was told a message had
+    # arrived while the page promised a reply. Notify out of band.
+    background_tasks.add_task(
+        deliver_notification,
+        f"HealthDB contact: {contact.interest_type}",
+        f"From: {contact.name} <{contact.email}>\n"
+        f"Organization: {contact.organization}\n\n{contact.message}",
+    )
+
     return {
         "status": "success",
         "message": "Thank you for reaching out. We'll respond within 24 hours.",
@@ -3253,7 +3481,7 @@ class InstitutionCollaborationResponse(BaseModel):
 
 @app.get("/api/institution/profile", response_model=InstitutionProfileResponse)
 async def get_institution_profile(
-    user: User = Depends(get_current_user_record),
+    user: User = Depends(require_role_record("institution", "admin")),
     db: Session = Depends(get_db)
 ):
     """Get institution profile for current user"""
@@ -3281,7 +3509,7 @@ async def get_institution_profile(
 
 @app.get("/api/institution/agreements", response_model=List[InstitutionAgreementResponse])
 async def get_institution_agreements(
-    user: User = Depends(get_current_user_record),
+    user: User = Depends(require_role_record("institution", "admin")),
     db: Session = Depends(get_db)
 ):
     """Get all agreements for institution (DUAs, BAAs, reliance agreements)"""
@@ -3310,7 +3538,7 @@ async def get_institution_agreements(
 
 @app.get("/api/institution/irb-protocols", response_model=List[InstitutionIRBResponse])
 async def get_institution_irb_protocols(
-    user: User = Depends(get_current_user_record),
+    user: User = Depends(require_role_record("institution", "admin")),
     db: Session = Depends(get_db)
 ):
     """Get all IRB protocols for institution"""
@@ -3338,7 +3566,7 @@ async def get_institution_irb_protocols(
 
 @app.get("/api/institution/emr-connections")
 async def get_institution_emr_connections(
-    user: User = Depends(get_current_user_record),
+    user: User = Depends(require_role_record("institution", "admin")),
     db: Session = Depends(get_db)
 ):
     """Get EMR connections for institution"""
@@ -3362,7 +3590,7 @@ async def get_institution_emr_connections(
 
 @app.get("/api/institution/collaborations", response_model=List[InstitutionCollaborationResponse])
 async def get_institution_collaborations(
-    user: User = Depends(get_current_user_record),
+    user: User = Depends(require_role_record("institution", "admin")),
     db: Session = Depends(get_db)
 ):
     """Get all study collaborations for institution"""
@@ -3388,7 +3616,7 @@ async def get_institution_collaborations(
 async def create_institution_agreement(
     document_type: str,
     counterparty: Optional[str] = None,
-    user: User = Depends(get_current_user_record),
+    user: User = Depends(require_role_record("institution", "admin")),
     db: Session = Depends(get_db)
 ):
     """Create a new institution-level agreement (master DUA, BAA, etc.)"""
@@ -3412,7 +3640,7 @@ async def create_institution_agreement(
 async def create_irb_protocol(
     name: str,
     protocol_number: Optional[str] = None,
-    user: User = Depends(get_current_user_record),
+    user: User = Depends(require_role_record("institution", "admin")),
     db: Session = Depends(get_db)
 ):
     """Create a new IRB protocol submission"""

@@ -10,6 +10,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 os.environ["JWT_SECRET"] = "test-only-secret-not-used-anywhere-else"
 os.environ["ENVIRONMENT"] = "test"
+# The pilot gate is off by default; most tests need to create accounts.
+# tests/test_pilot_gate.py covers the gate itself.
+os.environ["ALLOW_SELF_SERVICE_REGISTRATION"] = "true"
 
 
 @pytest.fixture()

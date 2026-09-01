@@ -82,6 +82,23 @@ class User(Base):
     data_access_logs = relationship("DataAccessLog", back_populates="user")
 
 
+class UserToken(Base):
+    """Single-use, expiring tokens for password reset and email verification.
+
+    Only a SHA-256 hash of the token is stored, so a database read cannot be
+    replayed against the endpoints. Rows are consumed on use.
+    """
+    __tablename__ = "user_tokens"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    purpose = Column(String(32), nullable=False)  # password_reset | email_verification
+    token_hash = Column(String(64), nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False)
+    used_at = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class Institution(Base):
     __tablename__ = "institutions"
 

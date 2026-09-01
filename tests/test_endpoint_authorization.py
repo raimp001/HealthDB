@@ -89,3 +89,37 @@ class TestStudyObjectLevelAccess:
         assert r.status_code in (403, 404), (
             f"another researcher read study {study_id} (status {r.status_code})"
         )
+
+
+class TestInstitutionBoundary:
+    """Institution endpoints are now role-gated.
+
+    They previously accepted any authenticated user, so a researcher could
+    create institution agreements and IRB protocols. Gating them was only
+    safe once api/manage.py existed to provision institution accounts, since
+    no HTTP path grants that role.
+    """
+
+    @pytest.mark.parametrize("url", INSTITUTION_ENDPOINTS)
+    def test_researcher_cannot_read_institution_data(self, client, researcher_token, url):
+        r = client.get(url, headers=auth(researcher_token))
+        assert r.status_code == 403, f"a researcher token read {url}"
+
+    @pytest.mark.parametrize("url", INSTITUTION_ENDPOINTS)
+    def test_patient_cannot_read_institution_data(self, client, patient_token, url):
+        r = client.get(url, headers=auth(patient_token))
+        assert r.status_code == 403, f"a patient token read {url}"
+
+    def test_researcher_cannot_create_institution_agreement(self, client, researcher_token):
+        r = client.post(
+            "/api/institution/agreements?document_type=dua",
+            headers=auth(researcher_token),
+        )
+        assert r.status_code == 403
+
+    def test_researcher_cannot_create_irb_protocol(self, client, researcher_token):
+        r = client.post(
+            "/api/institution/irb-protocols?protocol_number=X-1",
+            headers=auth(researcher_token),
+        )
+        assert r.status_code == 403
