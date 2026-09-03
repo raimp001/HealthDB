@@ -191,6 +191,8 @@ SCHEMA_SYNC_STATEMENTS = [
     # migrate_truncate_original_dates() below backfills and then destroys the
     # month/day values; this statement only creates the destination column.
     "ALTER TABLE extracted_medical_data ADD COLUMN original_year INTEGER",
+    "ALTER TABLE users ADD COLUMN researcher_approved_at TIMESTAMP",
+    "ALTER TABLE users ADD COLUMN researcher_approved_by VARCHAR(36)",
 ]
 
 # Local development fixtures ONLY. These are deliberately fictional: seeding
@@ -663,52 +665,61 @@ def require_auth(credentials: HTTPAuthorizationCredentials = Depends(security)) 
     return verify_token(credentials)
 
 
-def require_role(*allowed_roles: str):
-    """Role-based access control dependency factory.
+# ---------------------------------------------------------------------------
+# Authorization
+#
+# One rule underpins all of this: a JWT proves identity, never privilege. The
+# "type" claim is read only to build the token; it is never consulted when
+# deciding what a request may do. Every dependency below resolves the user row
+# and reads the role, active flag and approval state from the database, so a
+# deactivated account, a downgraded role or a revoked approval takes effect on
+# the very next request rather than when the token happens to expire.
+# ---------------------------------------------------------------------------
 
-    The authoritative role is the one stored on the user row, NOT the "type"
-    claim in the JWT. A token is proof of identity only; it is never trusted
-    to assert privilege. This also means any token minted before this check
-    existed cannot escalate: the database is consulted on every request.
-    """
-    def _check_role(
-        token_data: Dict = Depends(require_auth),
-        db: Session = Depends(get_db),
-    ) -> Dict:
-        user = db.query(User).filter(User.id == token_data.get("sub")).first()
-        if not user or not user.is_active:
-            raise HTTPException(status_code=401, detail="User not found or inactive")
-
-        if user.user_type not in allowed_roles:
-            raise HTTPException(
-                status_code=403,
-                detail=f"Access denied. Required role: {', '.join(allowed_roles)}"
-            )
-
-        # Hand downstream handlers the verified role, not the claimed one.
-        return {**token_data, "type": user.user_type, "sub": str(user.id)}
-    return _check_role
-
-
-def get_current_user_record(
+def current_user(
     token_data: Dict = Depends(require_auth),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ) -> User:
-    """Dependency that resolves the JWT to the full User DB row"""
-    user = db.query(User).filter(User.id == token_data["sub"]).first()
+    """The single DB-backed dependency for every protected endpoint.
+
+    Requires a token that resolves to a user row that still exists and is
+    still active. Bare require_auth only validated the signature, so a token
+    belonging to a deleted or deactivated account stayed usable until expiry.
+    """
+    user = db.query(User).filter(User.id == token_data.get("sub")).first()
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="User not found or inactive")
     return user
 
 
-def require_role_record(*allowed_roles: str):
-    """Like require_role, but yields the User row the handlers already expect.
+# Kept as an alias so existing handlers that ask for the row keep working.
+def get_current_user_record(user: User = Depends(current_user)) -> User:
+    return user
 
-    Same rule: the role comes from the database, never from the token.
+
+def current_user_token(user: User = Depends(current_user)) -> Dict:
+    """Identity-only gate, DB-backed, for handlers written against the dict."""
+    return {"sub": str(user.id), "type": user.user_type}
+
+
+def require_role(*allowed_roles: str):
+    """Role gate for handlers that want the raw token payload.
+
+    The role is taken from the database row, not the token claim.
     """
-    def _check(
-        user: User = Depends(get_current_user_record),
-    ) -> User:
+    def _check_role(user: User = Depends(current_user)) -> Dict:
+        if user.user_type not in allowed_roles:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Access denied. Required role: {', '.join(allowed_roles)}",
+            )
+        return {"sub": str(user.id), "type": user.user_type}
+    return _check_role
+
+
+def require_role_record(*allowed_roles: str):
+    """Role gate for handlers that want the User row."""
+    def _check(user: User = Depends(current_user)) -> User:
         if user.user_type not in allowed_roles:
             raise HTTPException(
                 status_code=403,
@@ -716,6 +727,74 @@ def require_role_record(*allowed_roles: str):
             )
         return user
     return _check
+
+
+def require_approved_researcher(user: User = Depends(current_user)) -> User:
+    """Active, verified, explicitly approved researcher.
+
+    Gates every cohort, researcher, study, regulatory, analytics,
+    collaboration and extraction route. All three conditions are separate:
+    a verified email proves only control of a mailbox, so approval is a
+    distinct human decision recorded on the row by api/manage.py.
+    """
+    if user.user_type != "researcher":
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied. Required role: researcher",
+        )
+    if not user.is_verified:
+        raise HTTPException(
+            status_code=403,
+            detail="Verify your email address before accessing research features.",
+        )
+    if user.researcher_approved_at is None:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Your researcher account is pending approval. "
+                "Research features unlock once an administrator approves it."
+            ),
+        )
+    return user
+
+
+def require_researcher_token(user: User = Depends(require_approved_researcher)) -> Dict:
+    """Approved-researcher gate for handlers written against the token dict."""
+    return {"sub": str(user.id), "type": user.user_type}
+
+
+def require_institution_user(user: User = Depends(current_user)) -> User:
+    """Institution or admin, and institution users must be scoped to one.
+
+    An institution account with no institution_id could otherwise read and
+    write records across every institution.
+    """
+    if user.user_type not in ("institution", "admin"):
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied. Required role: institution, admin",
+        )
+    if user.user_type == "institution" and not user.institution_id:
+        raise HTTPException(
+            status_code=403,
+            detail="This institution account is not linked to an institution.",
+        )
+    return user
+
+
+def require_patient(user: User = Depends(current_user)) -> User:
+    """Patient-only routes."""
+    if user.user_type != "patient":
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied. Required role: patient",
+        )
+    return user
+
+
+def require_patient_token(user: User = Depends(require_patient)) -> Dict:
+    """Patient-only gate for handlers written against the token dict."""
+    return {"sub": str(user.id), "type": user.user_type}
 
 
 def require_study_access(db: Session, study_id: str, user_id: str) -> "Study":
@@ -1083,12 +1162,9 @@ async def reset_password(payload: PasswordResetConfirm, db: Session = Depends(ge
 
 @app.post("/api/auth/request-verification")
 async def request_email_verification(
-    token_data: Dict = Depends(require_auth), db: Session = Depends(get_db)
+    user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
     """Send (or resend) an email-verification link to the signed-in user."""
-    user = db.query(User).filter(User.id == token_data["sub"]).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
     if user.is_verified:
         return {"success": True, "message": "Address already verified."}
 
@@ -1152,7 +1228,7 @@ async def login(credentials: UserLogin, db: Session = Depends(get_db)):
 
 @app.get("/api/auth/me", response_model=UserResponse)
 async def get_current_user(
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(current_user_token),
     db: Session = Depends(get_db)
 ):
     """Get current user profile"""
@@ -1177,13 +1253,10 @@ async def get_current_user(
 
 @app.get("/api/patient/profile", response_model=PatientProfileResponse)
 async def get_patient_profile(
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_patient_token),
     db: Session = Depends(get_db)
 ):
     """Get patient portal profile"""
-    if token_data.get("type") != "patient":
-        raise HTTPException(status_code=403, detail="Patient access required")
-
     patient_repo = PatientRepository(db)
     profile = patient_repo.get_profile(UUID(token_data["sub"]))
 
@@ -1209,7 +1282,7 @@ async def get_patient_profile(
 
 @app.get("/api/patient/consents", response_model=List[ConsentResponse])
 async def get_patient_consents(
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_patient_token),
     db: Session = Depends(get_db)
 ):
     """Get patient's consents"""
@@ -1237,7 +1310,7 @@ async def get_patient_consents(
 async def request_data_deletion(
     payload: DataDeletionRequest,
     background_tasks: BackgroundTasks,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_patient_token),
     db: Session = Depends(get_db),
 ):
     """Record a patient's request to have their contributed data removed.
@@ -1311,7 +1384,7 @@ async def request_data_deletion(
 async def sign_consent(
     consent: ConsentRequest,
     request: Request,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_patient_token),
     db: Session = Depends(get_db)
 ):
     """Sign a new consent"""
@@ -1340,7 +1413,7 @@ async def sign_consent(
 
 @app.get("/api/patient/rewards")
 async def get_patient_rewards(
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_patient_token),
     db: Session = Depends(get_db)
 ):
     """Get patient rewards history"""
@@ -1370,7 +1443,7 @@ async def get_patient_rewards(
 
 @app.get("/api/patient/data-access-log")
 async def get_data_access_log(
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_patient_token),
     db: Session = Depends(get_db)
 ):
     """Get log of who accessed patient's data"""
@@ -1519,7 +1592,7 @@ This consent is valid for 36 months from signing date.
 async def sign_consent_template(
     request: Request,
     consent_req: SignConsentRequest,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_patient_token),
     db: Session = Depends(get_db)
 ):
     """Sign a consent from a template"""
@@ -1595,7 +1668,7 @@ async def sign_consent_template(
 @app.post("/api/consent/{consent_id}/revoke")
 async def revoke_consent(
     consent_id: str,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_patient_token),
     db: Session = Depends(get_db)
 ):
     """Revoke an active consent"""
@@ -1630,7 +1703,7 @@ async def revoke_consent(
 
 @app.get("/api/patient/connections", response_model=List[MedicalConnectionResponse])
 async def get_medical_connections(
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_patient_token),
     db: Session = Depends(get_db)
 ):
     """Get patient's medical record connections"""
@@ -1678,7 +1751,7 @@ def _parse_fhir_year(value: Any) -> Optional[int]:
 @app.post("/api/patient/connections/fhir")
 async def connect_fhir_records(
     req: FHIRUploadRequest,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_patient_token),
     db: Session = Depends(get_db),
 ):
     """Import supported records from a patient-supplied FHIR R4 Bundle."""
@@ -1773,7 +1846,7 @@ async def connect_fhir_records(
 
 @app.get("/api/patient/extracted-data", response_model=List[ExtractedDataResponse])
 async def get_extracted_data(
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_patient_token),
     db: Session = Depends(get_db)
 ):
     """Get patient's extracted de-identified data"""
@@ -1803,7 +1876,7 @@ async def get_extracted_data(
 
 @app.get("/api/patient/data-summary", response_model=PatientDataSummary)
 async def get_patient_data_summary(
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_patient_token),
     db: Session = Depends(get_db)
 ):
     """Get summary of patient's contributed data"""
@@ -1860,7 +1933,7 @@ async def get_patient_data_summary(
 @app.delete("/api/patient/connections/{connection_id}")
 async def disconnect_medical_records(
     connection_id: str,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_patient_token),
     db: Session = Depends(get_db)
 ):
     """Disconnect a medical records source"""
@@ -1992,7 +2065,7 @@ async def submit_inquiry(
 @app.post("/api/cohort/build", response_model=CohortResult)
 async def build_cohort(
     criteria: CohortCriteria,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_researcher_token),
     db: Session = Depends(get_db)
 ):
     """Count patients matching the criteria, over consented, de-identified records.
@@ -2112,7 +2185,7 @@ async def build_cohort(
 
 @app.get("/api/cohort/variables")
 async def get_cohort_variables(
-    token_data: Dict = Depends(require_role("researcher")),
+    token_data: Dict = Depends(require_researcher_token),
     db: Session = Depends(get_db)
 ):
     """Inventory of variables that consented patients actually have data for.
@@ -2173,7 +2246,7 @@ async def get_cohort_variables(
 @app.post("/api/cohort/save")
 async def save_cohort(
     request: SaveCohortRequest,
-    token_data: Dict = Depends(require_role("researcher")),
+    token_data: Dict = Depends(require_researcher_token),
     db: Session = Depends(get_db)
 ):
     """Save a cohort for later use"""
@@ -2201,7 +2274,7 @@ async def save_cohort(
 
 @app.get("/api/cohort/saved")
 async def get_saved_cohorts(
-    token_data: Dict = Depends(require_role("researcher")),
+    token_data: Dict = Depends(require_researcher_token),
     db: Session = Depends(get_db)
 ):
     """Get user's saved cohorts"""
@@ -2223,7 +2296,7 @@ async def get_saved_cohorts(
 @app.get("/api/cohort/{cohort_id}/summary")
 async def get_cohort_summary(
     cohort_id: str,
-    token_data: Dict = Depends(require_role("researcher")),
+    token_data: Dict = Depends(require_researcher_token),
     db: Session = Depends(get_db)
 ):
     """Get summary statistics for a cohort"""
@@ -2241,7 +2314,7 @@ async def get_cohort_summary(
 @app.post("/api/researcher/studies", response_model=StudyResponse)
 async def create_study(
     request: CreateStudyRequest,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_researcher_token),
     db: Session = Depends(get_db)
 ):
     """Create a new research study"""
@@ -2286,7 +2359,7 @@ async def create_study(
 
 @app.get("/api/researcher/analytics")
 async def get_research_analytics(
-    token_data: Dict = Depends(require_role("researcher")),
+    token_data: Dict = Depends(require_researcher_token),
     db: Session = Depends(get_db),
 ):
     """Aggregate de-identified data from patients with current sharing consent."""
@@ -2405,7 +2478,7 @@ def _compute_analytics(db: Session, patient_ids: List[str]) -> Dict[str, Any]:
 @app.get("/api/researcher/studies/{study_id}/analytics")
 async def get_study_analytics(
     study_id: str,
-    token_data: Dict = Depends(require_role("researcher")),
+    token_data: Dict = Depends(require_researcher_token),
     db: Session = Depends(get_db),
 ):
     """Aggregate outcomes for a study's enrolled, consented participants.
@@ -2431,7 +2504,7 @@ async def get_study_analytics(
 
 @app.get("/api/researcher/studies")
 async def get_researcher_studies(
-    token_data: Dict = Depends(require_role("researcher")),
+    token_data: Dict = Depends(require_researcher_token),
     db: Session = Depends(get_db)
 ):
     """Get all studies for the current researcher"""
@@ -2474,7 +2547,7 @@ async def get_researcher_studies(
 @app.get("/api/researcher/studies/{study_id}")
 async def get_study_detail(
     study_id: str,
-    token_data: Dict = Depends(require_role("researcher")),
+    token_data: Dict = Depends(require_researcher_token),
     db: Session = Depends(get_db)
 ):
     """Get detailed study information including regulatory status (PI or collaborator only)"""
@@ -2542,7 +2615,7 @@ async def get_study_detail(
 @app.post("/api/regulatory/submit")
 async def submit_regulatory(
     request: CreateRegulatoryRequest,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_researcher_token),
     db: Session = Depends(get_db)
 ):
     """Submit a regulatory document (IRB protocol, DUA, or reliance agreement)"""
@@ -2656,7 +2729,7 @@ async def approve_regulatory(
 @app.post("/api/regulatory/{submission_id}/submit")
 async def submit_draft_regulatory(
     submission_id: str,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_researcher_token),
     db: Session = Depends(get_db)
 ):
     """Advance a draft regulatory document to submitted (study PI only)"""
@@ -2725,7 +2798,7 @@ def submission_to_response(db: Session, sub: RegulatorySubmission) -> Regulatory
 async def add_study_site(
     study_id: str,
     request: AddStudySiteRequest,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_researcher_token),
     db: Session = Depends(get_db)
 ):
     """Add a participating institution (site) to a study.
@@ -2792,7 +2865,7 @@ async def add_study_site(
 @app.get("/api/researcher/studies/{study_id}/sites")
 async def get_study_sites(
     study_id: str,
-    token_data: Dict = Depends(require_role("researcher")),
+    token_data: Dict = Depends(require_researcher_token),
     db: Session = Depends(get_db)
 ):
     """Get a study's central IRB status and all participating sites with
@@ -2819,7 +2892,7 @@ async def get_study_sites(
 
 @app.get("/api/researcher/collaborations", response_model=List[CollaborationResponse])
 async def get_researcher_collaborations(
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_researcher_token),
     db: Session = Depends(get_db)
 ):
     """Studies shared with the current researcher as a collaborator
@@ -2858,7 +2931,7 @@ async def get_researcher_collaborations(
 @app.post("/api/extraction/create")
 async def create_extraction_job(
     request: ExtractionJobRequest,
-    token_data: Dict = Depends(require_role("researcher")),
+    token_data: Dict = Depends(require_researcher_token),
     db: Session = Depends(get_db)
 ):
     """Create a data extraction job"""
@@ -2923,7 +2996,7 @@ async def create_extraction_job(
 @app.get("/api/extraction/jobs")
 async def get_extraction_jobs(
     study_id: Optional[str] = Query(None),
-    token_data: Dict = Depends(require_role("researcher")),
+    token_data: Dict = Depends(require_researcher_token),
     db: Session = Depends(get_db)
 ):
     """Get extraction jobs for studies the current user can access"""
@@ -2967,7 +3040,7 @@ async def get_extraction_jobs(
 @app.get("/api/extraction/jobs/{job_id}/download")
 async def download_extraction_job(
     job_id: str,
-    token_data: Dict = Depends(require_role("researcher")),
+    token_data: Dict = Depends(require_researcher_token),
     db: Session = Depends(get_db)
 ):
     """Download a completed extraction job CSV"""
@@ -2992,7 +3065,7 @@ async def download_extraction_job(
 
 @app.get("/api/emr/connections")
 async def get_emr_connections(
-    token_data: Dict = Depends(require_auth),
+    user: User = Depends(require_institution_user),
     db: Session = Depends(get_db)
 ):
     """Get all EMR connections and their status"""
@@ -3040,7 +3113,7 @@ async def get_institutions(
 @app.get("/api/study/{study_id}/team")
 async def get_study_team(
     study_id: str,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_researcher_token),
     db: Session = Depends(get_db)
 ):
     """Get all collaborators on a study (PI or collaborator only)"""
@@ -3077,7 +3150,7 @@ async def invite_collaborator(
     study_id: str,
     email: str,
     role: str,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_researcher_token),
     db: Session = Depends(get_db)
 ):
     """Invite a collaborator to a study"""
@@ -3135,7 +3208,7 @@ async def add_study_comment(
     study_id: str,
     content: str,
     parent_id: Optional[str] = None,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_researcher_token),
     db: Session = Depends(get_db)
 ):
     """Add a comment to a study discussion (PI or collaborator only)"""
@@ -3161,7 +3234,7 @@ async def add_study_comment(
 @app.get("/api/study/{study_id}/comments")
 async def get_study_comments(
     study_id: str,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_researcher_token),
     db: Session = Depends(get_db)
 ):
     """Get all comments on a study (PI or collaborator only)"""
@@ -3190,7 +3263,7 @@ async def get_study_comments(
 async def update_study_recruiting(
     study_id: str,
     request: UpdateRecruitingRequest,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_researcher_token),
     db: Session = Depends(get_db)
 ):
     """Open or close a study for patient enrollment"""
@@ -3224,7 +3297,7 @@ async def update_study_recruiting(
 @app.get("/api/researcher/studies/{study_id}/participants", response_model=List[StudyParticipantResponse])
 async def get_study_participants(
     study_id: str,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_researcher_token),
     db: Session = Depends(get_db)
 ):
     """List patients enrolled in a study. Patients are referenced only by a
@@ -3255,13 +3328,10 @@ async def get_study_participants(
 
 @app.get("/api/studies/available", response_model=List[AvailableStudyResponse])
 async def get_available_studies(
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_researcher_token),
     db: Session = Depends(get_db)
 ):
     """List studies open for patient enrollment"""
-    if token_data.get("type") != "patient":
-        raise HTTPException(status_code=403, detail="Patient access required")
-
     patient_repo = PatientRepository(db)
     profile = patient_repo.get_profile(UUID(token_data["sub"]))
     if not profile:
@@ -3300,13 +3370,10 @@ async def get_available_studies(
 
 @app.get("/api/patient/studies", response_model=List[StudyEnrollmentResponse])
 async def get_patient_studies(
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_patient_token),
     db: Session = Depends(get_db)
 ):
     """Get the current patient's study enrollments"""
-    if token_data.get("type") != "patient":
-        raise HTTPException(status_code=403, detail="Patient access required")
-
     patient_repo = PatientRepository(db)
     profile = patient_repo.get_profile(UUID(token_data["sub"]))
     if not profile:
@@ -3333,13 +3400,10 @@ async def get_patient_studies(
 @app.post("/api/studies/{study_id}/join", response_model=StudyEnrollmentResponse)
 async def join_study(
     study_id: str,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_researcher_token),
     db: Session = Depends(get_db)
 ):
     """Patient opts in to a recruiting study"""
-    if token_data.get("type") != "patient":
-        raise HTTPException(status_code=403, detail="Patient access required")
-
     patient_repo = PatientRepository(db)
     profile = patient_repo.get_profile(UUID(token_data["sub"]))
     if not profile:
@@ -3393,13 +3457,10 @@ async def join_study(
 @app.post("/api/studies/{study_id}/leave")
 async def leave_study(
     study_id: str,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_researcher_token),
     db: Session = Depends(get_db)
 ):
     """Patient withdraws from a study they previously joined"""
-    if token_data.get("type") != "patient":
-        raise HTTPException(status_code=403, detail="Patient access required")
-
     patient_repo = PatientRepository(db)
     profile = patient_repo.get_profile(UUID(token_data["sub"]))
     if not profile:
@@ -3621,7 +3682,7 @@ class InstitutionCollaborationResponse(BaseModel):
 
 @app.get("/api/institution/profile", response_model=InstitutionProfileResponse)
 async def get_institution_profile(
-    user: User = Depends(require_role_record("institution", "admin")),
+    user: User = Depends(require_institution_user),
     db: Session = Depends(get_db)
 ):
     """Get institution profile for current user"""
@@ -3649,7 +3710,7 @@ async def get_institution_profile(
 
 @app.get("/api/institution/agreements", response_model=List[InstitutionAgreementResponse])
 async def get_institution_agreements(
-    user: User = Depends(require_role_record("institution", "admin")),
+    user: User = Depends(require_institution_user),
     db: Session = Depends(get_db)
 ):
     """Get all agreements for institution (DUAs, BAAs, reliance agreements)"""
@@ -3678,7 +3739,7 @@ async def get_institution_agreements(
 
 @app.get("/api/institution/irb-protocols", response_model=List[InstitutionIRBResponse])
 async def get_institution_irb_protocols(
-    user: User = Depends(require_role_record("institution", "admin")),
+    user: User = Depends(require_institution_user),
     db: Session = Depends(get_db)
 ):
     """Get all IRB protocols for institution"""
@@ -3706,7 +3767,7 @@ async def get_institution_irb_protocols(
 
 @app.get("/api/institution/emr-connections")
 async def get_institution_emr_connections(
-    user: User = Depends(require_role_record("institution", "admin")),
+    user: User = Depends(require_institution_user),
     db: Session = Depends(get_db)
 ):
     """Get EMR connections for institution"""
@@ -3730,7 +3791,7 @@ async def get_institution_emr_connections(
 
 @app.get("/api/institution/collaborations", response_model=List[InstitutionCollaborationResponse])
 async def get_institution_collaborations(
-    user: User = Depends(require_role_record("institution", "admin")),
+    user: User = Depends(require_institution_user),
     db: Session = Depends(get_db)
 ):
     """Get all study collaborations for institution"""
@@ -3756,7 +3817,7 @@ async def get_institution_collaborations(
 async def create_institution_agreement(
     document_type: str,
     counterparty: Optional[str] = None,
-    user: User = Depends(require_role_record("institution", "admin")),
+    user: User = Depends(require_institution_user),
     db: Session = Depends(get_db)
 ):
     """Create a new institution-level agreement (master DUA, BAA, etc.)"""
@@ -3780,7 +3841,7 @@ async def create_institution_agreement(
 async def create_irb_protocol(
     name: str,
     protocol_number: Optional[str] = None,
-    user: User = Depends(require_role_record("institution", "admin")),
+    user: User = Depends(require_institution_user),
     db: Session = Depends(get_db)
 ):
     """Create a new IRB protocol submission"""

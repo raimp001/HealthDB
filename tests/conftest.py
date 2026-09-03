@@ -61,3 +61,81 @@ def register(client):
             "email": email, "password": password, "name": name, "user_type": user_type,
         })
     return _register
+
+
+# ---------------------------------------------------------------------------
+# Role fixtures.
+#
+# Privileged roles and researcher approval have no HTTP path by design, so
+# tests set them the way api/manage.py does: directly on the user row.
+# ---------------------------------------------------------------------------
+
+def _set_user_fields(client, user_id, **fields):
+    from api.models import User
+    session = client._session_factory()
+    session.query(User).filter(User.id == user_id).update(fields)
+    session.commit()
+    session.close()
+
+
+@pytest.fixture()
+def make_user(client, register):
+    """Create a user in any state and return (headers, user_id)."""
+    from datetime import datetime
+
+    def _make(email, role="researcher", verified=False, approved=False,
+              active=True, institution_id=None):
+        signup_role = role if role in ("patient", "researcher") else "researcher"
+        body = register(email, user_type=signup_role).json()
+        user_id = body["user"]["id"]
+
+        fields = {}
+        if role not in ("patient", "researcher"):
+            fields["user_type"] = role
+        if verified:
+            fields["is_verified"] = True
+        if approved:
+            fields["researcher_approved_at"] = datetime.utcnow()
+        if not active:
+            fields["is_active"] = False
+        if institution_id is not None:
+            fields["institution_id"] = institution_id
+        if fields:
+            _set_user_fields(client, user_id, **fields)
+
+        return {"Authorization": f"Bearer {body['access_token']}"}, user_id
+    return _make
+
+
+@pytest.fixture()
+def approved_researcher(make_user):
+    headers, _ = make_user("approved@example.com", role="researcher",
+                           verified=True, approved=True)
+    return headers
+
+
+@pytest.fixture()
+def unapproved_researcher(make_user):
+    headers, _ = make_user("unapproved@example.com", role="researcher",
+                           verified=True, approved=False)
+    return headers
+
+
+@pytest.fixture()
+def patient_user(make_user):
+    headers, _ = make_user("patient@example.com", role="patient")
+    return headers
+
+
+@pytest.fixture()
+def institution_user(client, make_user):
+    from api.models import Institution
+    session = client._session_factory()
+    inst = Institution(name="Test Institution (fixture)", type="Academic Medical Center")
+    session.add(inst)
+    session.commit()
+    inst_id = inst.id
+    session.close()
+    headers, _ = make_user("institution@example.com", role="institution",
+                           verified=True, institution_id=inst_id)
+    return headers, inst_id

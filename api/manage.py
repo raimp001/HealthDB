@@ -13,6 +13,7 @@ Usage:
 import argparse
 import logging
 import sys
+from datetime import datetime
 
 from .database import SessionLocal
 from .models import User, Institution
@@ -66,6 +67,47 @@ def revoke_role(session, email: str) -> int:
     return 0
 
 
+def approve_researcher(session, email: str) -> int:
+    """Explicitly approve a researcher for research features.
+
+    Deliberately separate from email verification: a verified address proves
+    control of a mailbox, not institutional affiliation or standing. Vet the
+    person out of band before running this.
+    """
+    user = session.query(User).filter(User.email == email).first()
+    if not user:
+        print(f"No user with email {email!r}")
+        return 1
+    if user.user_type != "researcher":
+        print(f"Refusing: {email} is a {user.user_type}, not a researcher")
+        return 1
+    if not user.is_verified:
+        print(f"Refusing: {email} has not verified their email address yet")
+        return 1
+    if user.researcher_approved_at:
+        print(f"{email} was already approved at {user.researcher_approved_at}")
+        return 0
+
+    user.researcher_approved_at = datetime.utcnow()
+    session.commit()
+    audit.info("RESEARCHER_APPROVED user=%s", user.id)
+    print(f"{email}: approved for research features")
+    return 0
+
+
+def revoke_researcher(session, email: str) -> int:
+    """Withdraw research access. Takes effect on the researcher's next request."""
+    user = session.query(User).filter(User.email == email).first()
+    if not user:
+        print(f"No user with email {email!r}")
+        return 1
+    user.researcher_approved_at = None
+    session.commit()
+    audit.info("RESEARCHER_APPROVAL_REVOKED user=%s", user.id)
+    print(f"{email}: research approval revoked")
+    return 0
+
+
 def list_privileged(session) -> int:
     rows = session.query(User).filter(User.user_type.in_(PRIVILEGED)).all()
     if not rows:
@@ -90,6 +132,12 @@ def main(argv=None) -> int:
 
     sub.add_parser("list-privileged", help="Show all privileged accounts")
 
+    ar = sub.add_parser("approve-researcher", help="Grant research access")
+    ar.add_argument("email")
+
+    rr = sub.add_parser("revoke-researcher", help="Withdraw research access")
+    rr.add_argument("email")
+
     args = parser.parse_args(argv)
     session = SessionLocal()
     try:
@@ -97,6 +145,10 @@ def main(argv=None) -> int:
             return grant_role(session, args.email, args.role, args.institution_id)
         if args.command == "revoke-role":
             return revoke_role(session, args.email)
+        if args.command == "approve-researcher":
+            return approve_researcher(session, args.email)
+        if args.command == "revoke-researcher":
+            return revoke_researcher(session, args.email)
         return list_privileged(session)
     finally:
         session.close()
