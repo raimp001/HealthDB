@@ -169,7 +169,7 @@ const LandingPage = () => {
             <h2 className="text-2xl font-bold mb-6">HealthDB removes friction</h2>
             <ul className="space-y-3 text-white/50 text-sm">
               <li>Patient-consented contribution, revocable at any time</li>
-              <li>Safe Harbor de-identification before data reaches researchers</li>
+              <li>Identifier removal and year-only dates before data reaches researchers</li>
               <li>FHIR-based record import</li>
               <li>Aggregate cohort feasibility with small-cell suppression</li>
             </ul>
@@ -189,7 +189,7 @@ const LandingPage = () => {
             {[
               { icon: '⚡', title: 'FHIR/HL7 Ingestion', desc: 'FHIR R4, Bulk FHIR, HL7v2 ingestion with OMOP CDM normalization', color: 'text-emerald-400' },
               { icon: '🔐', title: 'Connector Auth Vault', desc: 'AWS KMS-backed credential storage with auto token refresh', color: 'text-blue-400' },
-              { icon: '🛡️', title: 'PHI Boundary & De-ID', desc: 'HIPAA Safe Harbor — 18 identifier removal with tokenized re-linkage', color: 'text-amber-400' },
+              { icon: '🛡️', title: 'PHI Boundary & De-ID', desc: 'Identifier removal, year-only dates, age capping. Tokenized re-linkage is planned.', color: 'text-amber-400' },
               { icon: '📋', title: 'Audit & Access Control', desc: 'Supabase RLS policies with immutable append-only audit logging', color: 'text-purple-400' },
               { icon: '📊', title: 'Dataset Builder & Export', desc: 'Visual cohort builder across 50+ OMOP CDM fields with CSV/Parquet export', color: 'text-cyan-400' },
               { icon: '🔬', title: 'Trial Matching Pipeline', desc: 'Match cohorts to ClinicalTrials.gov with NLP eligibility parsing', color: 'text-rose-400' },

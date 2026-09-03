@@ -172,7 +172,7 @@ const ForInstitutions = () => {
           <h3 className="text-xs text-emerald-400 uppercase tracking-wider mb-4">Implemented</h3>
           <div className="grid md:grid-cols-3 gap-6 mb-12">
             {[
-              { title: 'Safe Harbor de-identification', desc: 'Identifier removal before research access' },
+              { title: 'De-identification', desc: 'Identifier removal, dates reduced to year, ages over 89 capped. Not reviewed against any de-identification standard.' },
               { title: 'Role-based access control', desc: 'Roles resolved server-side on every request' },
               { title: 'Small-cell suppression', desc: 'Aggregate counts below threshold are withheld' },
               { title: 'Consent gating', desc: 'Access checked against the patient\'s current consent' },

@@ -46,15 +46,15 @@ const focusAreas = [
     icon: '🛡️',
     color: 'text-amber-400',
     borderColor: 'border-amber-400/20',
-    description: 'Enforce strict PHI boundaries between ingestion and research data stores. HIPAA Safe Harbor removal of all 18 identifiers.',
+    description: 'Enforce PHI boundaries between ingestion and research stores. Built today: identifier removal, year-only dates, age capping. Full Safe Harbor coverage is not established.',
     dataSources: ['Raw EHR extracts (PHI present)', 'Patient demographics', 'Clinical notes (NLP)', 'Genomic identifiers'],
     capabilities: [
-      'HIPAA Safe Harbor — 18 identifier removal',
-      'Tokenized re-linkage for longitudinal studies',
-      'PHI detection in unstructured text (NLP)',
-      'Date shifting (±180 day random offset)',
+      'Identifier removal from structured fields and free text (built)',
+      'Planned: tokenized re-linkage for longitudinal studies',
+      'Planned: NLP detection in prose (regex only today, so names can survive)',
+      'Planned: date shifting to preserve intervals (dates are truncated today)',
       'Geographic generalization (3-digit ZIP)',
-      'Expert determination mode (k-anonymity)',
+      'Planned: expert determination review (no k-anonymity is computed)',
     ],
     metrics: { identifiers: '18/18 covered', falseNeg: '<0.1%', reLink: 'Token-based' },
   },
@@ -128,7 +128,7 @@ const PlatformFocusAreas = () => {
           </p>
         </motion.div>
         <TargetArchitectureBanner
-          implemented={["FHIR R4 ingest", "Safe Harbor de-identification", "Consent management and access logs", "Cohort feasibility with small-cell suppression"]}
+          implemented={["FHIR R4 ingest", "Identifier removal, dates reduced to year, ages over 89 capped", "Consent management and access logs", "Cohort feasibility with small-cell suppression"]}
           planned={["Connector token vault (AWS KMS)", "OMOP CDM normalization", "Clinical trial matching pipeline", "Bulk FHIR and HL7v2 connectors"]}
         />
 

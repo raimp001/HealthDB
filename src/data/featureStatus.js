@@ -58,14 +58,15 @@ export const FEATURES = {
 
   // ---- Privacy ------------------------------------------------------------
   'privacy.identifier-removal': {
-    name: 'Direct identifier removal',
+    name: 'Direct identifier removal (Safe Harbor-oriented, not certified)',
     status: 'live',
     evidence: 'api/deidentification.py',
     note: 'Removes identifier-bearing keys and redacts email, phone, SSN, URL, '
-        + 'long digit strings and ZIP patterns from free text.',
+        + 'long digit strings and ZIP patterns from free text. No named-entity '
+        + 'recognition, so a name written into prose can survive.',
   },
   'privacy.date-truncation': {
-    name: 'Dates reduced to year',
+    name: 'Dates reduced to year (truncated, not shifted)',
     status: 'live',
     evidence: 'api/fhir_ingest._year_only, tests/test_date_truncation.py',
     note: 'Month and day are discarded at parse time and never persisted.',
@@ -98,7 +99,13 @@ export const FEATURES = {
     status: 'planned',
     note: 'No named-entity recognition. Names embedded in prose may survive.',
   },
-  'privacy.k-anonymity': { name: 'k-anonymity verification', status: 'planned' },
+  'privacy.k-anonymity': { name: 'k-anonymity verification', status: 'planned',
+    note: 'No k is computed or enforced on any output.' },
+  'privacy.date-shifting': { name: 'Date shifting to preserve intervals', status: 'planned',
+    note: 'Dates are truncated today, which loses the intervals a shift would keep. '
+        + 'Recovering them needs Expert Determination, not Safe Harbor.' },
+  'privacy.differential-privacy': { name: 'Differential privacy on aggregates', status: 'planned',
+    note: 'No noise is added to aggregate queries.' },
   'privacy.tokenized-relink': { name: 'Tokenized re-linkage', status: 'planned' },
 
   // ---- Security -----------------------------------------------------------

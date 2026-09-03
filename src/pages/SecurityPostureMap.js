@@ -118,7 +118,7 @@ const rlsPolicies = [
 
 const phiBoundary = {
   entry: ['FHIR R4 Patient/Encounter/Observation resources', 'HL7v2 PID/PV1/OBX segments', 'Patient-uploaded documents (PDF, images)', 'Claims data (837/835 with member ID)'],
-  processing: ['Name, DOB, SSN, MRN extraction', 'Address geocoding to 3-digit ZIP', 'Date shifting (±180 days random offset)', 'Free-text NLP de-identification'],
+  processing: ['Name, DOB, SSN, MRN extraction', 'Address geocoding to 3-digit ZIP', 'Planned: date shifting (truncated to year today)', 'Planned: free-text NLP de-identification'],
   storage: [
     { location: 'Ingestion staging (temporary)', encrypted: true, retention: '72 hours max', phiPresent: true },
     { location: 'OMOP CDM tables', encrypted: true, retention: 'Indefinite', phiPresent: false },
@@ -126,16 +126,16 @@ const phiBoundary = {
     { location: 'Audit log store', encrypted: true, retention: '7 years', phiPresent: false },
   ],
   deIdSteps: [
-    'Remove all 18 HIPAA Safe Harbor identifiers',
+    'Remove identifier-bearing fields and redact identifier patterns from text',
     'Replace MRN/SSN with irreversible hash (SHA-256 + salt)',
-    'Shift dates by per-patient random offset',
+    'Planned: shift dates by per-patient offset (truncated to year today)',
     'Generalize ZIP to 3-digit prefix',
     'Suppress ages > 89',
-    'NLP scan for PHI in free-text fields',
-    'Verify k-anonymity (k >= 5) on output dataset',
+    'Planned: NLP scan for PHI in free-text fields',
+    'Planned: verify k-anonymity on the output dataset',
   ],
   reLink: 'Tokenized re-linkage available under IRB-approved protocol only. Tokens stored in AWS KMS vault with dual-custodian access.',
-  exit: 'Export datasets pass a final re-identification risk check (k >= 5). Download via expiring signed URLs (24h TTL).',
+  exit: 'Planned: a final re-identification risk check and expiring signed download URLs. Today an export is rejected if residual identifier patterns are detected.',
 };
 
 const views = ['Security Zones', 'Access Paths', 'RLS Policies', 'PHI Boundary Map'];
@@ -153,7 +153,7 @@ const SecurityPostureMap = () => {
           </p>
         </motion.div>
         <TargetArchitectureBanner
-          implemented={["Role checks resolved from the database", "PBKDF2-SHA256 password hashing (600k iterations)", "Consent checked at query time", "Append-only access logging", "Safe Harbor de-identification (api/deidentification.py)"]}
+          implemented={["Role checks resolved from the database", "PBKDF2-SHA256 password hashing (600k iterations)", "Consent checked at query time", "Append-only access logging", "Identifier removal and year-only dates (api/deidentification.py)"]}
           planned={["Supabase / Row-Level Security", "AWS KMS token vault", "API gateway (Kong) and WAF", "MFA (TOTP / WebAuthn)", "Signed expiring download URLs"]}
         />
 

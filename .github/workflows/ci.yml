@@ -38,6 +38,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+      - name: Verify the checker still detects violations
+        # A checker whose patterns stopped matching passes silently while
+        # claims regress, so its teeth are tested before it is trusted.
+        run: node scripts/test_content_claims.js
       - name: Reject unsupported claims
         run: node scripts/check_content_claims.js
       - name: Sitemap and route config are in sync with the app

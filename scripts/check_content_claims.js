@@ -27,7 +27,7 @@ const ALLOWED_FILES = new Set([
 ]);
 
 // Words that, on the same line, make an otherwise-forbidden phrase acceptable.
-const QUALIFIERS = /\b(planned|not built|not in place|no |none|never|would|could|intends?|intended|roadmap|target|hypothetical|illustrative|does not|do not|cannot|no longer|pending|aspiration)\b/i;
+const QUALIFIERS = /\b(planned|not|no|none|never|would|could|intends?|intended|roadmap|target|hypothetical|illustrative|cannot|pending|aspiration|instead of|rather than)\b/i;
 
 const RULES = [
   { id: 'partner-count', pattern: /\b\d{2,}\+?\s+(institutions|partners|sites|hospitals)\b/i,
@@ -49,7 +49,20 @@ const RULES = [
     why: 'No EHR vendor connection exists.' },
   { id: 'federated-live', pattern: /\bwe(?:'| a)re\s+(?:running|operating)\s+federated\b/i,
     why: 'There is one database and no federation.' },
-  { id: 'rewards-money', pattern: /\b(gift\s*card|cash\s*(?:out|value|payment)|medical\s*bill|paid\s+in\s+(?:cash|dollars))\b/i,
+  { id: 'safe-harbor-achieved', pattern: /\b(?:is|are|fully|automated|achieves?|meets?|implements?)\b[^.\n]{0,30}\bsafe harbor\b|\bsafe harbor\s+(?:compliant|compliance|certified)\b/i,
+    why: 'The pipeline is Safe Harbor-oriented. No qualified statistician has '
+       + 'reviewed whether its output meets the standard, so it cannot be '
+       + 'stated as achieved. Describe the transformations instead.' },
+  { id: 'all-18-identifiers', pattern: /\ball\s+(?:18|eighteen)\b[^.\n]{0,25}\bidentifiers?\b/i,
+    why: 'The module does no named-entity recognition, so names in free text '
+       + 'may survive. It cannot claim all 18 are removed.' },
+  { id: 'date-shifting', pattern: /\bdate[- ]shift(?:ing|ed)?\b(?![^.\n]{0,60}\b(?:planned|not|would|could)\b)/i,
+    why: 'Dates are truncated to the year, not shifted by an offset.' },
+  { id: 'k-anonymity-claimed', pattern: /\bk\s*(?:>=|≥|=)\s*\d|\bk-anonymity\b(?![^.\n]{0,60}\b(?:planned|not|no |would|could|verification is)\b)/i,
+    why: 'No k is computed or enforced on any output.' },
+  { id: 'differential-privacy', pattern: /\bdifferential privacy\b(?![^.\n]{0,60}\b(?:planned|not|no |would|could)\b)/i,
+    why: 'No noise is added to aggregate queries.' },
+  { id: 'rewards-money', pattern: /\b(gift\s*cards?|cash\s*(?:out|value|payment)s?|medical\s*bills?|paid\s+in\s+(?:cash|dollars))\b/i,
     why: 'Rewards have no monetary value and no fulfilment provider exists.' },
 ];
 

@@ -1014,7 +1014,7 @@ const CohortBuilder = () => {
                     <div className="space-y-2">
                       {[
                         { id: 'limited_dataset', label: 'Limited Dataset', desc: 'Year-level dates, no geography below state' },
-                        { id: 'safe_harbor', label: 'Safe Harbor', desc: 'All 18 HIPAA identifiers removed' },
+                        { id: 'safe_harbor', label: 'De-identified', desc: 'Identifier fields removed, dates reduced to year, ages over 89 capped' },
                         { id: 'expert', label: 'Expert Determination', desc: 'Requires a documented statistical determination' }
                       ].map(opt => (
                         <button

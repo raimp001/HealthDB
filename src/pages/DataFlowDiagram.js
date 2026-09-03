@@ -79,7 +79,7 @@ const pipelineStages = [
     phiDetail: 'Final re-identification risk check before release.',
     description: 'Generate de-identified dataset exports with data dictionaries.',
     dataSources: ['Query result sets', 'Data dictionary templates', 'Export format configs (CSV, Parquet, REDCap)'],
-    technicalDetail: 'k-anonymity verification (k >= 5). Signed download URLs (24h TTL). Export logged to immutable audit store. Auto-generated data dictionary.',
+    technicalDetail: 'Planned: k-anonymity verification, signed expiring download URLs, an immutable audit store and a generated data dictionary. None are built.',
     authBoundary: 'Export requires study approval + researcher identity match. One-time download links.',
   },
 ];
@@ -111,7 +111,7 @@ const DataFlowDiagram = () => {
           </p>
         </motion.div>
         <TargetArchitectureBanner
-          implemented={["FHIR R4 bundle ingest (api/fhir_ingest.py)", "Safe Harbor de-identification", "Small-cell suppression on aggregates", "Consent-gated cohort queries"]}
+          implemented={["FHIR R4 bundle ingest (api/fhir_ingest.py)", "Identifier removal, dates reduced to year, ages over 89 capped", "Small-cell suppression on aggregates", "Consent-gated cohort queries"]}
           planned={["OMOP CDM normalization", "Bulk FHIR $export and HL7v2 MLLP", "k-anonymity verification", "Tokenized re-linkage vault"]}
         />
 

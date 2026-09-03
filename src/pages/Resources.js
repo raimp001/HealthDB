@@ -193,7 +193,9 @@ HIPAA defines two de-identification methods:
 1. **Safe Harbor**: Remove 18 specific identifiers
 2. **Expert Determination**: Statistical verification that re-identification risk is very small
 
-HealthDB implements both, choosing the appropriate method based on data sensitivity and use case.
+HealthDB has completed neither. The pipeline performs Safe Harbor-oriented
+transformations, described below, but no qualified statistician has reviewed
+whether its output meets either standard.
 
 **The 18 Safe Harbor Identifiers**
 
@@ -216,21 +218,31 @@ HealthDB implements both, choosing the appropriate method based on data sensitiv
 - Full-face photos
 - Any unique identifying number
 
-**Beyond Safe Harbor**
+**What HealthDB actually does today**
 
-For longitudinal cancer data, additional protections are necessary:
+- **Identifier fields removed.** Keys naming people, contacts, addresses and
+  record numbers are dropped.
+- **Free-text redaction.** Email addresses, phone numbers, SSNs, URLs, long
+  digit strings and ZIP patterns are redacted by regular expression. There is
+  no named-entity recognition, so a name written into prose can survive.
+- **Dates reduced to the year.** Month and day are discarded at parse time and
+  never stored.
+- **Ages over 89 capped.**
+- **Residual scan before export.** An export whose rows still match identifier
+  patterns is rejected rather than released.
+- **Small-cell suppression** on aggregate counts.
 
-**Date Shifting**
-Instead of removing dates entirely, we shift all dates for a patient by a random offset (±180 days), preserving temporal relationships while preventing identification.
+**What it does not do**
 
-**Generalization**
-Rare values are generalized. A rare cancer type affecting <10 patients might be categorized as "Other hematologic malignancy."
+- **Date shifting.** Dates are truncated, not offset. Truncation loses the
+  intervals that a shift would preserve, which is a real analytical cost.
+- **k-anonymity verification.** No k is computed or enforced on output.
+- **Differential privacy.** No noise is added to aggregate queries.
+- **Generalization of rare values.** Small categories are withheld entirely
+  rather than collapsed into a broader bucket.
 
-**K-Anonymity**
-Every record is indistinguishable from at least k-1 other records on quasi-identifiers. We maintain k≥5 across all datasets.
-
-**Differential Privacy**
-For aggregate queries, we add calibrated noise to prevent inference attacks.
+Each of these is a plausible next step, and each would need the statistician
+in the loop before it could be claimed.
 
 **Validation**
 
@@ -244,7 +256,11 @@ not ones HealthDB has completed.
 
 **The Result**
 
-Researchers get the longitudinal data they need. Patients get mathematical guarantees of privacy. That's the balance we've achieved.`
+Reducing dates to the year is a real analytical constraint: it rules out
+day-level longitudinal analysis. Recovering that would require the Expert
+Determination pathway rather than Safe Harbor, with a statistician's written
+determination on file first. No such determination exists, so no mathematical
+privacy guarantee is being claimed here.`
     },
     {
       id: 4,
@@ -482,7 +498,7 @@ This enables even broader collaboration while strengthening privacy.`
         { title: '1. Threat Model', content: 'We consider: external attackers, insider threats, third-party risks, and regulatory exposure. Each requires specific mitigations.' },
         { title: '2. Data Architecture', content: 'PHI is stored in encrypted form using AES-256. Keys are managed in AWS KMS with hardware security modules. Data at rest and in transit is always encrypted.' },
         { title: '3. Access Control', content: 'Role-based access control (RBAC) with principle of least privilege. Researchers can only access data matching their approved protocols. All access is logged.' },
-        { title: '4. De-identification Pipeline', content: 'Automated Safe Harbor compliance with date shifting, generalization, and k-anonymity verification. Statistical risk analysis before any data release.' },
+        { title: '4. De-identification Pipeline', content: 'Implemented today: identifier-bearing fields are removed, common identifier formats are redacted from free text, dates are reduced to the year, and ages over 89 are capped. An export whose rows still match identifier patterns is rejected. Date shifting, k-anonymity verification and statistical risk analysis are planned, not built, and no qualified statistician has reviewed the pipeline.' },
         { title: '5. Audit & Logging', content: 'Comprehensive audit trail of all data access. Immutable logs stored separately. Real-time anomaly detection for unusual access patterns.' },
         { title: '6. Incident Response', content: 'Documented procedures for potential breaches. Automatic detection, containment, and notification workflows. Regular tabletop exercises.' },
         { title: '7. Compliance Validation', content: 'Target state: annual SOC 2 Type II audit, periodic penetration testing, and continuous automated control monitoring. None of these have been performed to date; HealthDB currently holds no certifications.' }

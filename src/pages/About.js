@@ -53,7 +53,7 @@ const About = () => {
               <h3 className="text-sm text-emerald-400 uppercase tracking-wider mb-4">Solution</h3>
               <ul className="space-y-2 text-sm text-white/60">
                 <li>Patient-consented contribution</li>
-                <li>Safe Harbor de-identification</li>
+                <li>Identifier removal and year-only dates</li>
                 <li>Patient-visible access logs</li>
               </ul>
             </div>
@@ -88,7 +88,7 @@ const About = () => {
           <div className="space-y-4">
             {[
               { status: 'Built', event: 'Patient portal, consent management and access logging' },
-              { status: 'Built', event: 'FHIR record import and Safe Harbor de-identification' },
+              { status: 'Built', event: 'FHIR record import, identifier removal and year-only dates' },
               { status: 'Built', event: 'Cohort feasibility with small-cell suppression' },
               { status: 'Planned', event: 'Independent security assessment' },
               { status: 'Planned', event: 'IRB reliance and institutional agreements' },

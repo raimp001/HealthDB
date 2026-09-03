@@ -42,7 +42,7 @@ const repoModules = [
     ],
     phiEntryPoints: [
       { location: 'normalizer.ts:mapToOMOP()', risk: 'high', detail: 'Receives raw resources with PHI for vocabulary mapping' },
-      { location: 'deid-engine.ts:processRecord()', risk: 'critical', detail: 'PHI boundary — this function strips all 18 HIPAA identifiers' },
+      { location: 'deid-engine.ts:processRecord()', risk: 'critical', detail: 'PHI boundary. Target module; the built equivalent is api/deidentification.py, which does not cover names in prose.' },
     ],
     phiStorage: [
       { location: 'normalization_queue', persistence: 'Temporary (in-memory)', encrypted: true },
@@ -50,11 +50,11 @@ const repoModules = [
     ],
     deIdSteps: [
       'Remove names, SSN, MRN (SHA-256 hash + salt)',
-      'Date shift (±180 day per-patient offset)',
+      'Planned: per-patient date shift (dates are truncated to year today)',
       'ZIP generalization (3-digit prefix)',
       'Age suppression (> 89)',
       'NLP scan for PHI in free-text',
-      'k-anonymity check (k >= 5)',
+      'Planned: k-anonymity check (no k is computed today)',
     ],
     authBoundaries: [
       'Internal service — no external access',
@@ -143,7 +143,7 @@ const repoModules = [
       { location: 'cohort_results table', persistence: 'Study duration', encrypted: true },
       { location: 'export_files (S3)', persistence: '30 days', encrypted: true },
     ],
-    deIdSteps: ['Input is already de-identified', 'k-anonymity check on export (k >= 5)', 'Re-identification risk assessment before download'],
+    deIdSteps: ['Input is already de-identified', 'Planned: k-anonymity check on export', 'Planned: re-identification risk assessment before download'],
     authBoundaries: [
       'RLS: study_id must match researcher assignment',
       'Export requires IRB approval status = approved',
@@ -215,7 +215,7 @@ const RepoAnalyzer = () => {
           </p>
         </motion.div>
         <TargetArchitectureBanner
-          implemented={["FastAPI + SQLAlchemy service", "Safe Harbor de-identification module", "Consent and audit-log tables"]}
+          implemented={["FastAPI + SQLAlchemy service", "De-identification module (identifier removal, year-only dates)", "Consent and audit-log tables"]}
           planned={["Supabase RLS policies", "AWS KMS credential vault", "NLP de-identification of free text", "OMOP CDM tables"]}
         />
 

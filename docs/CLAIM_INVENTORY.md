@@ -35,8 +35,14 @@ Status keys refer to `src/data/featureStatus.js`, which the content check
 
 | Was | Now | Evidence |
 |---|---|---|
-| "HIPAA Safe Harbor de-identification" | "Direct identifier removal; dates reduced to year; ages over 89 capped" | `api/deidentification.py`, `privacy.identifier-removal` |
+| "HIPAA Safe Harbor de-identification" | "Identifier removal, dates reduced to year, ages over 89 capped" | `api/deidentification.py`, `privacy.identifier-removal` |
 | "Automated Safe Harbor compliance" | Named transformations, with Expert Determination listed as not performed | `privacy.expert-determination` (planned) |
+| "HealthDB implements both [Safe Harbor and Expert Determination]" | "HealthDB has completed neither" | `privacy.expert-determination` (planned) |
+| "All 18 HIPAA identifiers removed" | "Identifier fields removed... no named-entity recognition, so a name in prose can survive" | `api/deidentification.py` docstring |
+| "We shift all dates by a random offset (±180 days)" | "Dates are truncated, not offset" — listed under what the pipeline does **not** do | `privacy.date-shifting` (planned) |
+| "We maintain k≥5 across all datasets" | "No k is computed or enforced on any output" | `privacy.k-anonymity` (planned) |
+| "For aggregate queries, we add calibrated noise" | "No noise is added to aggregate queries" | `privacy.differential-privacy` (planned) |
+| "Patients get mathematical guarantees of privacy" | "No mathematical privacy guarantee is being claimed here" | — |
 | "Connect your medical records (Epic, Cerner)" | "Upload a FHIR bundle exported from your patient portal" | `ingest.fhir-upload` (live) |
 | "IRB Management — streamlined ethics approval" | "IRB protocol drafting and status tracking" | `governance.irb-tracking` (pilot) |
 | "Earn rewards for contributions" | "Points record your participation and have no monetary value" | `patient.rewards` (planned) |
@@ -70,4 +76,16 @@ penetration test · SOC 2 · federated querying · trial matching · central sIR
 pre-negotiated DUAs · dual review · incident response · rewards programme
 
 The four architecture pages carry a banner separating built from not-built,
-and `/status` renders the whole manifest.
+each roadmap item is additionally labelled "Planned:" on its own line so a
+reader scanning one entry does not have to rely on the page banner, and
+`/status` renders the whole manifest.
+
+## Enforcement
+
+`scripts/check_content_claims.js` runs 15 rules over `src/` and `public/`.
+`scripts/test_content_claims.js` injects 11 known-bad phrasings and asserts
+each is caught, plus 4 correctly-qualified phrasings and asserts each passes.
+Both run in CI. The self-test exists because a checker whose patterns quietly
+stop matching reports success while claims regress — it caught exactly that:
+a trailing word boundary meant "gift cards" was missed while "gift card"
+was flagged.
