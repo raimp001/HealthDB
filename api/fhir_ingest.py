@@ -162,11 +162,28 @@ def _extension_display(resource, extension_name):
     return None
 
 
-def _record(data_category, data_type, original_date, data):
+_YEAR_RE = re.compile(r"^((?:19|20)\d{2})(?:-\d{2}(?:-\d{2}(?:T.*)?)?)?$")
+
+
+def _year_only(value):
+    """Return the 4-digit year from a FHIR date/dateTime, or None.
+
+    Month and day are dropped here, at the parse boundary, so no caller can
+    persist or log them by accident. Safe Harbor permits the year alone for
+    dates tied to an individual.
+    """
+    if not isinstance(value, str):
+        return None
+    match = _YEAR_RE.match(value.strip())
+    return int(match.group(1)) if match else None
+
+
+def _record(data_category, data_type, source_date, data):
     return {
         "data_category": data_category,
         "data_type": data_type,
-        "original_date": original_date if isinstance(original_date, str) else None,
+        # Year only; the source month and day are discarded, never returned.
+        "original_year": _year_only(source_date),
         "data": data,
     }
 
@@ -176,7 +193,8 @@ def parse_fhir_bundle(bundle: dict, ref_date=None) -> list[dict]:
 
     Malformed entries and unsupported resource types are skipped. Returned
     ``data`` mappings contain no direct demographic identifiers or full dates;
-    raw dates are exposed only as ``original_date`` for the caller's Date column.
+    dates are reduced to a 4-digit year in ``original_year``; the source month
+    and day are discarded at parse time and never returned.
     """
     if not isinstance(bundle, dict):
         return []
