@@ -58,7 +58,7 @@ const LandingPage = () => {
           <p className="text-center text-xs text-white/50 uppercase tracking-wider mb-6">
             Built on open healthcare standards
           </p>
-          <div className="flex flex-wrap justify-center items-center gap-12 opacity-40">
+          <div className="flex flex-wrap justify-center items-center gap-12 text-white/60">
             <span className="text-lg font-medium">FHIR R4</span>
             <span className="text-lg font-medium">HL7v2</span>
             <span className="text-lg font-medium">OMOP CDM</span>
@@ -154,7 +154,7 @@ const LandingPage = () => {
       <section className="py-24 px-6 border-t border-white/5">
         <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-16">
           <div>
-            <h3 className="text-sm text-red-400/70 uppercase tracking-wider mb-4">The Problem</h3>
+            <h3 className="text-sm text-red-400 uppercase tracking-wider mb-4">The Problem</h3>
             <h2 className="text-2xl font-bold mb-6">Multi-center research is slow</h2>
             <ul className="space-y-3 text-white/50 text-sm">
               <li>6+ months for IRB approvals</li>
@@ -165,7 +165,7 @@ const LandingPage = () => {
           </div>
 
           <div>
-            <h3 className="text-sm text-emerald-400/70 uppercase tracking-wider mb-4">Our Solution</h3>
+            <h3 className="text-sm text-emerald-400 uppercase tracking-wider mb-4">Our Solution</h3>
             <h2 className="text-2xl font-bold mb-6">HealthDB removes friction</h2>
             <ul className="space-y-3 text-white/50 text-sm">
               <li>Patient-consented contribution, revocable at any time</li>

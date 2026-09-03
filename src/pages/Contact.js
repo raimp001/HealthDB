@@ -84,10 +84,13 @@ const Contact = () => {
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="grid md:grid-cols-2 gap-5">
                 <div>
-                  <label className="block text-xs uppercase tracking-wider text-white/60 mb-2">
+                  <label htmlFor="contact-name" className="block text-xs uppercase tracking-wider text-white/60 mb-2">
                     Name
                   </label>
                   <input
+                  id="contact-organization"
+                  id="contact-email"
+                  id="contact-name"
                     type="text"
                     required
                     value={form.name}
@@ -97,7 +100,7 @@ const Contact = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs uppercase tracking-wider text-white/60 mb-2">
+                  <label htmlFor="contact-email" className="block text-xs uppercase tracking-wider text-white/60 mb-2">
                     Email
                   </label>
                   <input
@@ -112,7 +115,7 @@ const Contact = () => {
               </div>
 
               <div>
-                <label className="block text-xs uppercase tracking-wider text-white/60 mb-2">
+                <label htmlFor="contact-organization" className="block text-xs uppercase tracking-wider text-white/60 mb-2">
                   Organization
                 </label>
                 <input
@@ -126,10 +129,11 @@ const Contact = () => {
               </div>
 
               <div>
-                <label className="block text-xs uppercase tracking-wider text-white/60 mb-2">
+                <label htmlFor="contact-interest" className="block text-xs uppercase tracking-wider text-white/60 mb-2">
                   What brings you here?
                 </label>
-                <select value={form.interest_type} onChange={update('interest_type')} className={inputClass}>
+                <select value={form.interest_type}
+                  id="contact-interest" onChange={update('interest_type')} className={inputClass}>
                   {INTEREST_TYPES.map((opt) => (
                     <option key={opt.value} value={opt.value} className="bg-black">
                       {opt.label}
@@ -139,10 +143,11 @@ const Contact = () => {
               </div>
 
               <div>
-                <label className="block text-xs uppercase tracking-wider text-white/60 mb-2">
+                <label htmlFor="contact-message" className="block text-xs uppercase tracking-wider text-white/60 mb-2">
                   Message
                 </label>
                 <textarea
+                  id="contact-message"
                   required
                   rows={6}
                   value={form.message}

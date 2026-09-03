@@ -35,7 +35,10 @@ module.exports = defineConfig({
   webServer: process.env.E2E_BASE_URL ? undefined : {
     command: 'npx serve -s build -l 3000',
     url: 'http://127.0.0.1:3000',
-    reuseExistingServer: !process.env.CI,
+    // Always start a fresh server. Reusing one left over from an earlier
+    // run serves a stale build, which reported contrast failures that had
+    // already been fixed on disk.
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 });

@@ -346,7 +346,7 @@ const RepoAnalyzer = () => {
                 <h3 className="font-bold font-mono text-sm mb-4">{m.name}/</h3>
                 {m.phiEntryPoints.filter((p) => p.risk !== 'none').length > 0 && (
                   <div className="mb-4">
-                    <h4 className="text-xs text-red-400/60 uppercase tracking-wider mb-2">Entry Points</h4>
+                    <h4 className="text-xs text-red-400 uppercase tracking-wider mb-2">Entry Points</h4>
                     {m.phiEntryPoints.filter((p) => p.risk !== 'none').map((p) => (
                       <div key={p.location} className="text-sm text-white/50 mb-1">
                         <span className="text-red-400">⚠</span> <span className="font-mono text-xs text-white/60">{p.location}</span> — {p.detail}
@@ -356,7 +356,7 @@ const RepoAnalyzer = () => {
                 )}
                 {m.phiStorage.length > 0 && (
                   <div>
-                    <h4 className="text-xs text-amber-400/60 uppercase tracking-wider mb-2">Storage Locations</h4>
+                    <h4 className="text-xs text-amber-400 uppercase tracking-wider mb-2">Storage Locations</h4>
                     {m.phiStorage.map((s) => (
                       <div key={s.location} className="text-sm text-white/50 mb-1">
                         <span className="text-amber-400">●</span> {s.location} — {s.persistence} {s.encrypted ? '(encrypted)' : ''}

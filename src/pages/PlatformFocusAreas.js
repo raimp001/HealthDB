@@ -214,7 +214,7 @@ const PlatformFocusAreas = () => {
                 </React.Fragment>
               ))}
             </div>
-            <div className="mt-2 text-center text-xs text-amber-400/60">
+            <div className="mt-2 text-center text-xs text-amber-400">
               ▲ PHI Boundary — HIPAA Safe Harbor de-identification applied between Normalize and Store
             </div>
           </div>

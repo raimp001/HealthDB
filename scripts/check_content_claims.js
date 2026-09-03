@@ -70,6 +70,10 @@ for (const dir of SEARCH_DIRS) {
   for (const file of walk(abs)) {
     const rel = path.relative(ROOT, file).split(path.sep).join('/');
     if (ALLOWED_FILES.has(rel)) continue;
+    // Tests are not user-facing copy. featureStatus.test.js lists manifest
+    // keys such as governance.prenegotiated-dua precisely to assert they stay
+    // planned, which the naive pattern reads as the claim itself.
+    if (/(^|\/)__tests__\//.test(rel) || /\.(test|spec)\.jsx?$/.test(rel)) continue;
     const lines = fs.readFileSync(file, 'utf8').split('\n');
     lines.forEach((line, i) => {
       for (const rule of RULES) {

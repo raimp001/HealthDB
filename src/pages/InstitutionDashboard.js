@@ -661,7 +661,7 @@ const ComplianceTab = () => {
           {notInPlace.map((item) => (
             <div key={item.name} className="flex items-center justify-between py-2 border-b border-white/5">
               <span className="text-sm text-white/60">{item.name}</span>
-              <span className="text-xs text-amber-400/60">{item.note}</span>
+              <span className="text-xs text-amber-400">{item.note}</span>
             </div>
           ))}
         </div>

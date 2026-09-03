@@ -110,10 +110,11 @@ const Register = () => {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block text-xs uppercase tracking-wider text-white/60 mb-2">
+              <label htmlFor="full-name" className="block text-xs uppercase tracking-wider text-white/60 mb-2">
                 Full Name
               </label>
               <input
+                id="full-name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -124,10 +125,11 @@ const Register = () => {
             </div>
 
             <div>
-              <label className="block text-xs uppercase tracking-wider text-white/60 mb-2">
+              <label htmlFor="email" className="block text-xs uppercase tracking-wider text-white/60 mb-2">
                 Email
               </label>
               <input
+                id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -139,10 +141,11 @@ const Register = () => {
 
             {userType === 'researcher' && (
               <div>
-                <label className="block text-xs uppercase tracking-wider text-white/60 mb-2">
-                  Institution
-                </label>
+                <label htmlFor="institution" className="block text-xs uppercase tracking-wider text-white/60 mb-2">
+                Institution
+              </label>
                 <input
+                id="institution"
                   type="text"
                   value={institution}
                   onChange={(e) => setInstitution(e.target.value)}
@@ -153,10 +156,11 @@ const Register = () => {
             )}
 
             <div>
-              <label className="block text-xs uppercase tracking-wider text-white/60 mb-2">
+              <label htmlFor="password" className="block text-xs uppercase tracking-wider text-white/60 mb-2">
                 Password
               </label>
               <input
+                id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

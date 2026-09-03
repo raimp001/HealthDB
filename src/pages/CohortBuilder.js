@@ -628,6 +628,31 @@ const CohortBuilder = () => {
           </div>
         )}
 
+        {needsSignIn && (
+          <div className="border border-white/15 bg-white/5 p-6 mb-8">
+            <h2 className="text-white font-medium mb-2">Sign in required</h2>
+            <p className="text-white/60 text-sm mb-4 max-w-xl">
+              The variable inventory and cohort sizing are only available to
+              approved researchers. You can explore the builder, but counts and
+              variables stay empty until you sign in with an approved account.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Link
+                to="/login"
+                className="px-5 py-2 bg-white text-black text-sm font-medium hover:bg-gray-100 transition-colors"
+              >
+                Sign in
+              </Link>
+              <Link
+                to="/register?type=researcher"
+                className="px-5 py-2 border border-white/25 text-sm text-white hover:bg-white/5 transition-colors"
+              >
+                Create an account
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Step 2: Variable Selection */}
         {step === 2 && (
           <div className="grid grid-cols-3 gap-6">
@@ -639,30 +664,6 @@ const CohortBuilder = () => {
                     {totalVars} selected
                   </div>
                 </div>
-                {needsSignIn && (
-                  <div className="border border-white/15 bg-white/5 p-5">
-                    <h3 className="text-white font-medium mb-2">Sign in required</h3>
-                    <p className="text-white/60 text-sm mb-4">
-                      The variable inventory and cohort sizing are only available to
-                      approved researchers. Sign in, or create an account and request
-                      approval.
-                    </p>
-                    <div className="flex flex-wrap gap-3">
-                      <Link
-                        to="/login"
-                        className="px-5 py-2 bg-white text-black text-sm font-medium hover:bg-gray-100 transition-colors"
-                      >
-                        Sign in
-                      </Link>
-                      <Link
-                        to="/register?type=researcher"
-                        className="px-5 py-2 border border-white/25 text-sm text-white hover:bg-white/5 transition-colors"
-                      >
-                        Create an account
-                      </Link>
-                    </div>
-                  </div>
-                )}
                 {inventoryError && !needsSignIn && (
                   <p className="text-amber-300 text-sm" role="alert">{inventoryError}</p>
                 )}

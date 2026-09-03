@@ -42,7 +42,7 @@ const About = () => {
           </div>
           <div className="p-6 border border-white/10">
             <div className="mb-6">
-              <h3 className="text-sm text-red-400/70 uppercase tracking-wider mb-4">Problem</h3>
+              <h3 className="text-sm text-red-400 uppercase tracking-wider mb-4">Problem</h3>
               <ul className="space-y-2 text-sm text-white/60">
                 <li>6+ months for approvals</li>
                 <li>Data siloed in EMRs</li>
@@ -50,7 +50,7 @@ const About = () => {
               </ul>
             </div>
             <div>
-              <h3 className="text-sm text-emerald-400/70 uppercase tracking-wider mb-4">Solution</h3>
+              <h3 className="text-sm text-emerald-400 uppercase tracking-wider mb-4">Solution</h3>
               <ul className="space-y-2 text-sm text-white/60">
                 <li>Patient-consented contribution</li>
                 <li>Safe Harbor de-identification</li>
@@ -96,7 +96,7 @@ const About = () => {
             ].map((item, i) => (
               <div key={i} className="flex gap-6">
                 <span className={`text-xs font-mono w-16 shrink-0 ${
-                  item.status === 'Built' ? 'text-emerald-400/70' : 'text-amber-400/70'
+                  item.status === 'Built' ? 'text-emerald-400' : 'text-amber-400'
                 }`}>{item.status}</span>
                 <span className="text-white/60">{item.event}</span>
               </div>

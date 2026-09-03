@@ -169,7 +169,7 @@ const ForInstitutions = () => {
             implemented in the platform today, and what is not yet in place.
           </p>
 
-          <h3 className="text-xs text-emerald-400/70 uppercase tracking-wider mb-4">Implemented</h3>
+          <h3 className="text-xs text-emerald-400 uppercase tracking-wider mb-4">Implemented</h3>
           <div className="grid md:grid-cols-3 gap-6 mb-12">
             {[
               { title: 'Safe Harbor de-identification', desc: 'Identifier removal before research access' },
@@ -186,7 +186,7 @@ const ForInstitutions = () => {
             ))}
           </div>
 
-          <h3 className="text-xs text-amber-400/70 uppercase tracking-wider mb-4">Not yet in place</h3>
+          <h3 className="text-xs text-amber-400 uppercase tracking-wider mb-4">Not yet in place</h3>
           <div className="grid md:grid-cols-4 gap-6">
             {[
               { title: 'SOC 2 Type II', desc: 'No audit commenced' },
@@ -196,7 +196,7 @@ const ForInstitutions = () => {
             ].map((item, i) => (
               <div key={i} className="text-center p-6 border border-white/10 opacity-60">
                 <div className="text-lg font-bold mb-2">{item.title}</div>
-                <div className="text-xs text-amber-400/60">{item.desc}</div>
+                <div className="text-xs text-amber-400">{item.desc}</div>
               </div>
             ))}
           </div>

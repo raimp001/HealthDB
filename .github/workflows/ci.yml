@@ -14,18 +14,41 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install dependencies
-        run: pip install -r requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
       - name: Run tests
         env:
           JWT_SECRET: ci-only-secret
           ENVIRONMENT: test
-        # -x stops on first failure; --strict-markers catches typo'd marks.
-        # A run that collects no tests must fail, not silently pass.
-        run: pytest tests/ -v --strict-markers
+        # --strict-markers catches typo'd marks. An empty collection must fail
+        # rather than pass silently, so the count is asserted afterwards.
+        run: |
+          pytest tests/ -v --strict-markers --junitxml=pytest.xml
+          python - <<'PY'
+          import xml.etree.ElementTree as ET
+          total = int(ET.parse('pytest.xml').getroot().attrib.get('tests', 0))
+          assert total > 0, "no tests were collected"
+          print(f"collected {total} tests")
+          PY
+
+  content:
+    name: Content consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Reject unsupported claims
+        run: node scripts/check_content_claims.js
+      - name: Sitemap and route config are in sync with the app
+        run: |
+          node scripts/generate_sitemap.js
+          node scripts/generate_vercel_routes.js
+          git diff --exit-code public/sitemap.xml vercel.json \
+            || (echo "::error::Regenerate the sitemap and vercel routes and commit them." && exit 1)
 
   frontend:
-    name: Frontend build
+    name: Frontend build and unit tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,13 +56,17 @@ jobs:
         with:
           node-version: '20'
       - run: npm ci
-      - name: Build (warnings are errors)
+      - name: Unit tests
+        env:
+          CI: true
+        run: npm test -- --watchAll=false --passWithNoTests
+      - name: Production build (warnings are errors)
         env:
           CI: true
         run: npm run build
 
   e2e:
-    name: End-to-end (desktop + mobile)
+    name: End-to-end and accessibility
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -47,13 +74,12 @@ jobs:
         with:
           node-version: '20'
       - run: npm ci
-      - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium
       - name: Build
         env:
           CI: true
         run: npm run build
-      - name: Run E2E
+      - name: Playwright (desktop + mobile, includes axe)
         run: npx playwright test
       - uses: actions/upload-artifact@v4
         if: failure()

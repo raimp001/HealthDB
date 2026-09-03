@@ -150,7 +150,7 @@ const DataFlowDiagram = () => {
                   </React.Fragment>
                 ))}
               </div>
-              <div className="mt-2 text-center text-xs text-amber-400/60">
+              <div className="mt-2 text-center text-xs text-amber-400">
                 ▲ PHI Boundary between Normalize and Store
               </div>
             </div>
