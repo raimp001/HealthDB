@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import StatusBadge from '../components/StatusBadge';
 
 const LandingPage = () => {
   return (
@@ -187,15 +188,24 @@ const LandingPage = () => {
           <p className="text-white/60 mb-12">Six planned infrastructure modules. Most are not built yet — each page marks what exists today.</p>
           <div className="grid md:grid-cols-3 gap-6">
             {[
-              { icon: '⚡', title: 'FHIR/HL7 Ingestion', desc: 'FHIR R4, Bulk FHIR, HL7v2 ingestion with OMOP CDM normalization', color: 'text-emerald-400' },
-              { icon: '🔐', title: 'Connector Auth Vault', desc: 'AWS KMS-backed credential storage with auto token refresh', color: 'text-blue-400' },
-              { icon: '🛡️', title: 'PHI Boundary & De-ID', desc: 'Identifier removal, year-only dates, age capping. Tokenized re-linkage is planned.', color: 'text-amber-400' },
-              { icon: '📋', title: 'Audit & Access Control', desc: 'Supabase RLS policies with immutable append-only audit logging', color: 'text-purple-400' },
-              { icon: '📊', title: 'Dataset Builder & Export', desc: 'Visual cohort builder across 50+ OMOP CDM fields with CSV/Parquet export', color: 'text-cyan-400' },
-              { icon: '🔬', title: 'Trial Matching Pipeline', desc: 'Match cohorts to ClinicalTrials.gov with NLP eligibility parsing', color: 'text-rose-400' },
+              { icon: '⚡', title: 'FHIR ingestion', featureKey: 'ingest.fhir-upload',
+                desc: 'Patients upload a FHIR R4 bundle. Bulk FHIR, HL7v2 and OMOP normalization are planned.', color: 'text-emerald-400' },
+              { icon: '🔐', title: 'Connector auth vault', featureKey: 'security.kms',
+                desc: 'A KMS-backed credential store for EHR connections. No KMS integration exists.', color: 'text-blue-400' },
+              { icon: '🛡️', title: 'De-identification', featureKey: 'privacy.identifier-removal',
+                desc: 'Identifier removal, dates reduced to year, ages over 89 capped. Tokenized re-linkage is planned.', color: 'text-amber-400' },
+              { icon: '📋', title: 'Audit and access control', featureKey: 'security.rbac',
+                desc: 'Roles resolved from the database on every request, with an append-only access log. Row-level security is planned.', color: 'text-purple-400' },
+              { icon: '📊', title: 'Dataset export', featureKey: 'research.export',
+                desc: 'Cohort building and de-identified CSV export, against pilot data only.', color: 'text-cyan-400' },
+              { icon: '🔬', title: 'Trial matching', featureKey: 'research.trial-matching',
+                desc: 'Matching cohorts to ClinicalTrials.gov. Not built.', color: 'text-rose-400' },
             ].map((item) => (
               <div key={item.title} className="p-6 border border-white/10 card-hover">
-                <div className={`text-2xl mb-3`}>{item.icon}</div>
+                <div className="flex items-start justify-between gap-2 mb-3">
+                  <span className="text-2xl">{item.icon}</span>
+                  <StatusBadge featureKey={item.featureKey} size="xs" />
+                </div>
                 <h3 className={`font-medium mb-2 ${item.color}`}>{item.title}</h3>
                 <p className="text-sm text-white/60">{item.desc}</p>
               </div>

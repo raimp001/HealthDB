@@ -175,11 +175,11 @@ const DataFlowDiagram = () => {
                     </ul>
                   </div>
                   <div>
-                    <h4 className="text-xs text-white/50 uppercase mb-2">Technical</h4>
+                    <h4 className="text-xs text-amber-400 uppercase mb-2">Target design</h4>
                     <p className="text-white/50">{stage.technicalDetail}</p>
                   </div>
                   <div>
-                    <h4 className="text-xs text-white/50 uppercase mb-2">Auth Boundary</h4>
+                    <h4 className="text-xs text-amber-400 uppercase mb-2">Target auth boundary</h4>
                     <p className="text-white/50">{stage.authBoundary}</p>
                   </div>
                 </div>

@@ -186,7 +186,7 @@ const SecurityPostureMap = () => {
                 <p className="text-sm text-white/60 mb-4">{zone.phiDetail}</p>
                 <div className="grid md:grid-cols-2 gap-6">
                   <div>
-                    <h4 className="text-xs text-white/50 uppercase tracking-wider mb-2">Components</h4>
+                    <h4 className="text-xs text-amber-400 uppercase tracking-wider mb-2">Target components — not deployed</h4>
                     <ul className="space-y-1">
                       {zone.components.map((c) => (
                         <li key={c} className="text-sm text-white/60">• {c}</li>
@@ -194,7 +194,7 @@ const SecurityPostureMap = () => {
                     </ul>
                   </div>
                   <div>
-                    <h4 className="text-xs text-white/50 uppercase tracking-wider mb-2">Security Controls</h4>
+                    <h4 className="text-xs text-amber-400 uppercase tracking-wider mb-2">Target controls — not implemented</h4>
                     <ul className="space-y-1">
                       {zone.controls.map((c) => (
                         <li key={c} className="text-sm text-white/60">✓ {c}</li>

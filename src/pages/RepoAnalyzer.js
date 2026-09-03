@@ -327,7 +327,7 @@ const RepoAnalyzer = () => {
                   ))}
                 </ul>
 
-                <h4 className="text-xs text-white/50 uppercase tracking-wider mb-2">Auth Boundaries</h4>
+                <h4 className="text-xs text-amber-400 uppercase tracking-wider mb-2">Target auth boundaries</h4>
                 <ul className="space-y-1">
                   {selected.authBoundaries.map((ab) => (
                     <li key={ab} className="text-sm text-white/50">🔒 {ab}</li>
