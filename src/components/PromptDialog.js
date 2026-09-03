@@ -40,8 +40,8 @@ const PromptDialog = ({
       <form onSubmit={handleSubmit} className="space-y-4">
         {fields.map((f) => (
           <div key={f.name}>
-            <label htmlFor={`pd-${f.name}`} className="block text-xs uppercase tracking-wider text-white/40 mb-2">
-              {f.label}{f.required && <span className="text-white/30"> (required)</span>}
+            <label htmlFor={`pd-${f.name}`} className="block text-xs uppercase tracking-wider text-white/60 mb-2">
+              {f.label}{f.required && <span className="text-white/50"> (required)</span>}
             </label>
             {f.type === 'textarea' ? (
               <textarea
@@ -56,7 +56,7 @@ const PromptDialog = ({
                 onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))}
               />
             )}
-            {f.help && <p className="text-xs text-white/30 mt-1">{f.help}</p>}
+            {f.help && <p className="text-xs text-white/50 mt-1">{f.help}</p>}
           </div>
         ))}
 

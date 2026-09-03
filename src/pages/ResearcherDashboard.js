@@ -10,7 +10,7 @@ const AnalyticsBars = ({ items, emptyMessage }) => {
   const maxValue = Math.max(...items.map(item => item.value), 0);
 
   if (items.length === 0) {
-    return <p className="text-white/30 text-sm">{emptyMessage}</p>;
+    return <p className="text-white/50 text-sm">{emptyMessage}</p>;
   }
 
   return (
@@ -540,14 +540,14 @@ const ResearcherDashboard = () => {
   const docStatusStyle = (status) => {
     if (status === 'approved' || status === 'signed') return 'bg-[#00d4aa]/20 text-[#00d4aa]';
     if (status === 'submitted' || status === 'under_review') return 'bg-amber-500/20 text-amber-500';
-    return 'bg-white/10 text-white/40';
+    return 'bg-white/10 text-white/60';
   };
 
   const jobStatusStyle = (status) => {
     if (status === 'completed') return 'bg-[#00d4aa]/20 text-[#00d4aa]';
     if (status === 'queued' || status === 'running') return 'bg-amber-500/20 text-amber-500';
     if (status === 'failed') return 'bg-red-500/20 text-red-400';
-    return 'bg-white/10 text-white/40';
+    return 'bg-white/10 text-white/60';
   };
 
   return (
@@ -562,17 +562,17 @@ const ResearcherDashboard = () => {
             className="flex flex-col md:flex-row md:items-end justify-between gap-6"
           >
             <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-white/40 mb-4">Researcher Portal</p>
+              <p className="text-xs uppercase tracking-[0.3em] text-white/60 mb-4">Researcher Portal</p>
               <h1 className="heading-display text-4xl md:text-5xl text-white/90">Research Dashboard</h1>
             </div>
             <div className="flex items-center gap-6">
               <div className="text-right">
-                <p className="text-white/40 text-xs mb-1">Active Studies</p>
+                <p className="text-white/60 text-xs mb-1">Active Studies</p>
                 <p className="text-white font-mono text-lg">{studies.length}</p>
               </div>
               <div className="h-8 w-px bg-white/10"></div>
               <div className="text-right">
-                <p className="text-white/40 text-xs mb-1">Saved Cohorts</p>
+                <p className="text-white/60 text-xs mb-1">Saved Cohorts</p>
                 <p className="text-white font-mono text-lg">{savedCohorts.length}</p>
               </div>
             </div>
@@ -591,7 +591,7 @@ const ResearcherDashboard = () => {
                 className={`px-6 py-4 text-xs uppercase tracking-wider transition-colors whitespace-nowrap ${
                   activeTab === tab.id
                     ? 'text-white border-b-2 border-white'
-                    : 'text-white/40 hover:text-white/60'
+                    : 'text-white/60 hover:text-white/60'
                 }`}
               >
                 {tab.label}
@@ -613,14 +613,14 @@ const ResearcherDashboard = () => {
                   <div className="lg:col-span-2 space-y-8">
                     <div>
                       <h2 className="text-lg font-medium text-white mb-2">Build Your Cohort</h2>
-                      <p className="text-white/40 text-sm">
+                      <p className="text-white/60 text-sm">
                         Define inclusion/exclusion criteria. Results show actual de-identified patient counts.
                       </p>
                     </div>
 
                     {/* Inclusion Criteria */}
                     <div className="card-glass p-6">
-                      <h3 className="text-sm uppercase tracking-wider text-white/40 mb-6">Inclusion Criteria</h3>
+                      <h3 className="text-sm uppercase tracking-wider text-white/60 mb-6">Inclusion Criteria</h3>
                       
                       {/* Cancer Types with ICD-10 */}
                       <div className="mb-6">
@@ -654,7 +654,7 @@ const ResearcherDashboard = () => {
                             onChange={(e) => setCohortCriteria(prev => ({ ...prev, ageMin: e.target.value }))}
                             className="w-20 px-3 py-2 bg-white/5 border border-white/10 text-white text-sm placeholder-white/30 focus:border-white/30 focus:outline-none"
                           />
-                          <span className="text-white/30 text-sm">to</span>
+                          <span className="text-white/50 text-sm">to</span>
                           <input
                             type="number"
                             placeholder="Max"
@@ -718,7 +718,7 @@ const ResearcherDashboard = () => {
                             }))}
                             className="min-w-0 flex-1 px-3 py-2 bg-white/5 border border-white/10 text-white text-sm focus:border-white/30 focus:outline-none"
                           />
-                          <span className="text-white/30 text-sm shrink-0">to</span>
+                          <span className="text-white/50 text-sm shrink-0">to</span>
                           <input
                             type="date"
                             value={cohortCriteria.dateRange.end}
@@ -742,7 +742,7 @@ const ResearcherDashboard = () => {
                             onChange={(e) => setCohortCriteria(prev => ({ ...prev, minFollowup: e.target.value }))}
                             className="w-20 px-3 py-2 bg-white/5 border border-white/10 text-white text-sm placeholder-white/30 focus:border-white/30 focus:outline-none"
                           />
-                          <span className="text-white/30 text-sm">months</span>
+                          <span className="text-white/50 text-sm">months</span>
                         </div>
                       </div>
                     </div>
@@ -775,11 +775,11 @@ const ResearcherDashboard = () => {
                       {cohortResult ? (
                         <div className="space-y-6">
                           <div>
-                            <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Eligible Patients</p>
+                            <p className="text-white/60 text-xs uppercase tracking-wider mb-2">Eligible Patients</p>
                             <p className="text-4xl font-light text-white font-mono">
                               {cohortResult.patient_count.toLocaleString()}
                             </p>
-                            <p className="text-white/30 text-sm mt-1">
+                            <p className="text-white/50 text-sm mt-1">
                               consented and matching your criteria
                             </p>
                             {cohortResult.suppressed && (
@@ -791,7 +791,7 @@ const ResearcherDashboard = () => {
                           </div>
 
                           <div>
-                            <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Data Completeness</p>
+                            <p className="text-white/60 text-xs uppercase tracking-wider mb-2">Data Completeness</p>
                             <div className="flex items-center gap-3">
                               <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
                                 <div 
@@ -807,7 +807,7 @@ const ResearcherDashboard = () => {
 
                           {cohortResult.available_institutions.length > 0 && (
                             <div>
-                              <p className="text-white/40 text-xs uppercase tracking-wider mb-2">
+                              <p className="text-white/60 text-xs uppercase tracking-wider mb-2">
                                 Sites you can file this study with
                               </p>
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -817,7 +817,7 @@ const ResearcherDashboard = () => {
                                   </div>
                                 ))}
                               </div>
-                              <p className="text-white/30 text-xs mt-2">
+                              <p className="text-white/50 text-xs mt-2">
                                 Records are contributed by patients directly, so a cohort is not
                                 attributed to a source institution.
                               </p>
@@ -826,15 +826,15 @@ const ResearcherDashboard = () => {
 
                           <div className="pt-4 border-t border-white/10 space-y-2">
                             <div className="flex justify-between text-sm">
-                              <span className="text-white/40">Diagnoses</span>
+                              <span className="text-white/60">Diagnoses</span>
                               <span className="text-white font-mono">{cohortResult.diagnosis_count}</span>
                             </div>
                             <div className="flex justify-between text-sm">
-                              <span className="text-white/40">Treatments</span>
+                              <span className="text-white/60">Treatments</span>
                               <span className="text-white font-mono">{cohortResult.treatment_count}</span>
                             </div>
                             <div className="flex justify-between text-sm">
-                              <span className="text-white/40">Molecular</span>
+                              <span className="text-white/60">Molecular</span>
                               <span className="text-white font-mono">{cohortResult.molecular_count}</span>
                             </div>
                           </div>
@@ -857,7 +857,7 @@ const ResearcherDashboard = () => {
                         </div>
                       ) : (
                         <div className="text-center py-8">
-                          <p className="text-white/30 text-sm">
+                          <p className="text-white/50 text-sm">
                             Define criteria and run feasibility to see patient counts
                           </p>
                         </div>
@@ -873,7 +873,7 @@ const ResearcherDashboard = () => {
               <motion.div key="analytics" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 <div className="mb-8">
                   <h2 className="text-lg font-medium text-white mb-2">Research Analytics</h2>
-                  <p className="text-white/40 text-sm">Aggregate insights across consented, de-identified contributions.</p>
+                  <p className="text-white/60 text-sm">Aggregate insights across consented, de-identified contributions.</p>
                 </div>
 
                 <div className="flex flex-wrap gap-2 mb-8">
@@ -900,12 +900,12 @@ const ResearcherDashboard = () => {
 
                 {!analytics ? (
                   <div className="card-glass p-8 text-center">
-                    <p className="text-white/40 text-sm">Loading aggregate analytics...</p>
+                    <p className="text-white/60 text-sm">Loading aggregate analytics...</p>
                   </div>
                 ) : analytics.total_patients === 0 ? (
                   <div className="card-glass p-8 text-center">
-                    <p className="text-white/40">No consented data yet.</p>
-                    <p className="text-white/30 text-sm mt-2">
+                    <p className="text-white/60">No consented data yet.</p>
+                    <p className="text-white/50 text-sm mt-2">
                       Aggregate analytics appear once patients contribute de-identified data under active consent.
                     </p>
                   </div>
@@ -918,17 +918,17 @@ const ResearcherDashboard = () => {
                         ['Diagnosis Types', analytics.diagnoses.length],
                       ].map(([label, value]) => (
                         <div key={label} className="card-glass p-6">
-                          <p className="text-sm uppercase tracking-wider text-white/40 mb-3">{label}</p>
+                          <p className="text-sm uppercase tracking-wider text-white/60 mb-3">{label}</p>
                           <p className="text-3xl font-light text-white font-mono">{value.toLocaleString()}</p>
                         </div>
                       ))}
                       <div className="card-glass p-6 flex items-center">
-                        <p className="text-white/30 text-sm">Counts reflect distinct consented patients, not clinical event volume.</p>
+                        <p className="text-white/50 text-sm">Counts reflect distinct consented patients, not clinical event volume.</p>
                       </div>
                     </div>
 
                     <div className="card-glass p-6">
-                      <h3 className="text-sm uppercase tracking-wider text-white/40 mb-6">Data by Category</h3>
+                      <h3 className="text-sm uppercase tracking-wider text-white/60 mb-6">Data by Category</h3>
                       <AnalyticsBars
                         items={Object.entries(analytics.records_by_category).map(([label, value]) => ({ label, value }))}
                         emptyMessage="No extracted data categories yet."
@@ -937,7 +937,7 @@ const ResearcherDashboard = () => {
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       <div className="card-glass p-6">
-                        <h3 className="text-sm uppercase tracking-wider text-white/40 mb-6">Top Diagnoses</h3>
+                        <h3 className="text-sm uppercase tracking-wider text-white/60 mb-6">Top Diagnoses</h3>
                         <AnalyticsBars
                           items={analytics.diagnoses.map(item => ({ label: item.label, value: item.patient_count }))}
                           emptyMessage={`Not enough data to display groups (min ${analytics.min_cell_size} patients per group).`}
@@ -945,7 +945,7 @@ const ResearcherDashboard = () => {
                       </div>
 
                       <div className="card-glass p-6">
-                        <h3 className="text-sm uppercase tracking-wider text-white/40 mb-6">Treatments</h3>
+                        <h3 className="text-sm uppercase tracking-wider text-white/60 mb-6">Treatments</h3>
                         <AnalyticsBars
                           items={analytics.treatments.map(item => ({ label: item.label, value: item.patient_count }))}
                           emptyMessage={`Not enough data to display groups (min ${analytics.min_cell_size} patients per group).`}
@@ -954,7 +954,7 @@ const ResearcherDashboard = () => {
                     </div>
 
                     <div className="card-glass p-6">
-                      <h3 className="text-sm uppercase tracking-wider text-white/40 mb-6">Demographics</h3>
+                      <h3 className="text-sm uppercase tracking-wider text-white/60 mb-6">Demographics</h3>
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <div>
                           <p className="text-white/50 text-xs uppercase tracking-wider mb-4">Age Bands</p>
@@ -974,7 +974,7 @@ const ResearcherDashboard = () => {
                     </div>
 
                     <div className="card-glass p-6">
-                      <h3 className="text-sm uppercase tracking-wider text-white/40 mb-6">Real-World Outcomes</h3>
+                      <h3 className="text-sm uppercase tracking-wider text-white/60 mb-6">Real-World Outcomes</h3>
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <div>
                           <p className="text-white/50 text-xs uppercase tracking-wider mb-4">Treatment Response</p>
@@ -993,7 +993,7 @@ const ResearcherDashboard = () => {
                       </div>
                     </div>
 
-                    <p className="text-white/30 text-xs">
+                    <p className="text-white/50 text-xs">
                       Groups with fewer than {analytics.min_cell_size} patients are hidden to protect privacy.
                       {analytics.suppressed_groups > 0 && ` ${analytics.suppressed_groups} group(s) hidden.`}
                     </p>
@@ -1008,7 +1008,7 @@ const ResearcherDashboard = () => {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
                   <div>
                     <h2 className="text-lg font-medium text-white mb-2">My Studies</h2>
-                    <p className="text-white/40 text-sm">Track your research studies and saved cohorts</p>
+                    <p className="text-white/60 text-sm">Track your research studies and saved cohorts</p>
                   </div>
                   <button
                     onClick={() => setDialog({ type: 'createStudy' })}
@@ -1035,13 +1035,13 @@ const ResearcherDashboard = () => {
                               <span className="px-2 py-0.5 text-xs bg-blue-500/20 text-blue-400 uppercase">
                                 {study.status.replace('_', ' ')}
                               </span>
-                              <span className={`px-2 py-0.5 text-xs uppercase ${study.is_recruiting ? 'bg-[#00d4aa]/20 text-[#00d4aa]' : 'bg-white/10 text-white/40'}`}>
+                              <span className={`px-2 py-0.5 text-xs uppercase ${study.is_recruiting ? 'bg-[#00d4aa]/20 text-[#00d4aa]' : 'bg-white/10 text-white/60'}`}>
                                 {study.is_recruiting ? 'Recruiting' : 'Not Recruiting'}
                               </span>
                             </div>
-                            <p className="text-white/40 text-sm">{study.enrolled_count} patient{study.enrolled_count === 1 ? '' : 's'} enrolled</p>
+                            <p className="text-white/60 text-sm">{study.enrolled_count} patient{study.enrolled_count === 1 ? '' : 's'} enrolled</p>
                             {study.eligibility_summary && (
-                              <p className="text-white/30 text-xs mt-2 max-w-xl">{study.eligibility_summary}</p>
+                              <p className="text-white/50 text-xs mt-2 max-w-xl">{study.eligibility_summary}</p>
                             )}
                           </div>
                           <div className="flex flex-wrap gap-2 shrink-0">
@@ -1067,45 +1067,45 @@ const ResearcherDashboard = () => {
 
                         {expandedParticipants === study.id && (
                           <div className="pt-4 border-t border-white/10">
-                            <p className="text-white/40 text-xs uppercase tracking-wider mb-3">Enrolled Participants</p>
+                            <p className="text-white/60 text-xs uppercase tracking-wider mb-3">Enrolled Participants</p>
                             {loadingParticipants ? (
-                              <p className="text-white/30 text-sm">Loading...</p>
+                              <p className="text-white/50 text-sm">Loading...</p>
                             ) : participants.length > 0 ? (
                               <div className="space-y-2">
                                 {participants.map((p) => (
                                   <div key={p.id} className="flex items-center justify-between text-sm">
                                     <span className="text-white/60 font-mono">{p.patient_ref}</span>
                                     <div className="flex items-center gap-3">
-                                      <span className={`px-2 py-0.5 text-xs uppercase ${p.status === 'enrolled' ? 'bg-[#00d4aa]/20 text-[#00d4aa]' : 'bg-white/10 text-white/40'}`}>
+                                      <span className={`px-2 py-0.5 text-xs uppercase ${p.status === 'enrolled' ? 'bg-[#00d4aa]/20 text-[#00d4aa]' : 'bg-white/10 text-white/60'}`}>
                                         {p.status}
                                       </span>
-                                      <span className="text-white/30 text-xs">{p.enrolled_at ? new Date(p.enrolled_at).toLocaleDateString() : ''}</span>
+                                      <span className="text-white/50 text-xs">{p.enrolled_at ? new Date(p.enrolled_at).toLocaleDateString() : ''}</span>
                                     </div>
                                   </div>
                                 ))}
                               </div>
                             ) : (
-                              <p className="text-white/30 text-sm">No patients have joined this study yet.</p>
+                              <p className="text-white/50 text-sm">No patients have joined this study yet.</p>
                             )}
                           </div>
                         )}
                       </div>
                     )) : (
                       <div className="card-glass p-8 text-center">
-                        <p className="text-white/40">No studies yet</p>
-                        <p className="text-white/30 text-sm mt-2">Create a study and open it for recruiting to connect with consented patients.</p>
+                        <p className="text-white/60">No studies yet</p>
+                        <p className="text-white/50 text-sm mt-2">Create a study and open it for recruiting to connect with consented patients.</p>
                       </div>
                     )}
 
                     {/* Saved Cohorts */}
-                    <h3 className="text-white/40 text-xs uppercase tracking-wider pt-8 pb-4">Saved Cohorts</h3>
+                    <h3 className="text-white/60 text-xs uppercase tracking-wider pt-8 pb-4">Saved Cohorts</h3>
                     {savedCohorts.length > 0 ? (
                       savedCohorts.map((cohort) => (
                         <div key={cohort.id} className="card-glass card-hover p-4">
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div>
                               <h4 className="text-white font-medium">{cohort.name}</h4>
-                              <p className="text-white/40 text-sm">{cohort.description}</p>
+                              <p className="text-white/60 text-sm">{cohort.description}</p>
                             </div>
                             <div className="flex items-center gap-4 shrink-0">
                               <span className="text-white font-mono">{cohort.patient_count} pts</span>
@@ -1122,7 +1122,7 @@ const ResearcherDashboard = () => {
                       ))
                     ) : (
                       <div className="card-glass p-8 text-center">
-                        <p className="text-white/40">No saved cohorts yet</p>
+                        <p className="text-white/60">No saved cohorts yet</p>
                       </div>
                     )}
                   </div>
@@ -1135,13 +1135,13 @@ const ResearcherDashboard = () => {
               <motion.div key="regulatory" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 <div className="mb-8">
                   <h2 className="text-lg font-medium text-white mb-2">Multicenter Studies</h2>
-                  <p className="text-white/40 text-sm">Manage participating sites, IRB approvals, DUAs, and your study team across institutions</p>
+                  <p className="text-white/60 text-sm">Manage participating sites, IRB approvals, DUAs, and your study team across institutions</p>
                 </div>
 
                 {regulatoryStudies.length === 0 ? (
                   <div className="card-glass p-8 text-center">
-                    <p className="text-white/40">No studies yet</p>
-                    <p className="text-white/30 text-sm mt-2">Create a study in the My Studies tab, then manage its sites and regulatory documents here.</p>
+                    <p className="text-white/60">No studies yet</p>
+                    <p className="text-white/50 text-sm mt-2">Create a study in the My Studies tab, then manage its sites and regulatory documents here.</p>
                   </div>
                 ) : (
                   <>
@@ -1165,7 +1165,7 @@ const ResearcherDashboard = () => {
                     {/* Central IRB + Sites */}
                     <div className="card-glass p-6 mb-6">
                       <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-sm uppercase tracking-wider text-white/40">Regulatory Status</h3>
+                        <h3 className="text-sm uppercase tracking-wider text-white/60">Regulatory Status</h3>
                         {regulatoryStudies.find(s => s.id === selectedStudyId)?.mine && (
                           <button
                             onClick={() => setShowAddSite(!showAddSite)}
@@ -1178,7 +1178,7 @@ const ResearcherDashboard = () => {
 
                       {showAddSite && (
                         <div className="mb-6 p-4 border border-white/10">
-                          <p className="text-white/40 text-xs uppercase tracking-wider mb-3">Add a participating institution</p>
+                          <p className="text-white/60 text-xs uppercase tracking-wider mb-3">Add a participating institution</p>
                           <div className="flex flex-wrap gap-2">
                             {institutions
                               .filter(inst => !(siteData?.sites || []).some(s => s.institution_id === inst.id))
@@ -1193,7 +1193,7 @@ const ResearcherDashboard = () => {
                                 </button>
                               ))}
                           </div>
-                          <p className="text-white/30 text-xs mt-3">Adding a site creates its reliance agreement and DUA, plus a central IRB protocol for the study if one doesn't exist yet.</p>
+                          <p className="text-white/50 text-xs mt-3">Adding a site creates its reliance agreement and DUA, plus a central IRB protocol for the study if one doesn't exist yet.</p>
                         </div>
                       )}
 
@@ -1204,7 +1204,7 @@ const ResearcherDashboard = () => {
                             <p className="text-white font-medium capitalize">
                               {String(doc.document_type || 'document').replace(/_/g, ' ')}
                             </p>
-                            {doc.protocol_number && <p className="text-white/40 text-sm">Protocol #{doc.protocol_number}</p>}
+                            {doc.protocol_number && <p className="text-white/60 text-sm">Protocol #{doc.protocol_number}</p>}
                           </div>
                           <div className="flex items-center gap-3">
                             <span className={`px-3 py-1 text-xs uppercase ${docStatusStyle(doc.status)}`}>{doc.status.replace(/_/g, ' ')}</span>
@@ -1227,7 +1227,7 @@ const ResearcherDashboard = () => {
                           <div key={site.institution_id} className="py-4 border-b border-white/5 last:border-b-0">
                             <p className="text-white font-medium mb-2">
                               {site.institution_name}
-                              {site.city && <span className="text-white/30 text-sm font-normal"> — {site.city}, {site.state}</span>}
+                              {site.city && <span className="text-white/50 text-sm font-normal"> — {site.city}, {site.state}</span>}
                             </p>
                             <div className="space-y-2">
                               {site.documents.map((doc) => (
@@ -1252,8 +1252,8 @@ const ResearcherDashboard = () => {
                         ))
                       ) : (
                         <div className="py-6 text-center">
-                          <p className="text-white/40 text-sm">No participating sites yet</p>
-                          <p className="text-white/30 text-xs mt-1">Add institutions to run this study across multiple centers.</p>
+                          <p className="text-white/60 text-sm">No participating sites yet</p>
+                          <p className="text-white/50 text-xs mt-1">Add institutions to run this study across multiple centers.</p>
                         </div>
                       )}
                     </div>
@@ -1261,7 +1261,7 @@ const ResearcherDashboard = () => {
                     {/* Study Team */}
                     <div className="card-glass p-6 mb-6">
                       <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-sm uppercase tracking-wider text-white/40">Study Team</h3>
+                        <h3 className="text-sm uppercase tracking-wider text-white/60">Study Team</h3>
                         {regulatoryStudies.find(s => s.id === selectedStudyId)?.mine && (
                           <button
                             onClick={() => setDialog({ type: 'invite' })}
@@ -1277,7 +1277,7 @@ const ResearcherDashboard = () => {
                             <div key={member.id} className="flex items-center justify-between py-2 border-b border-white/5 last:border-b-0">
                               <div>
                                 <p className="text-white/80 text-sm">{member.user?.name || member.email}</p>
-                                <p className="text-white/30 text-xs">
+                                <p className="text-white/50 text-xs">
                                   {member.role.replace(/_/g, ' ')}
                                   {member.user?.organization && ` • ${member.user.organization}`}
                                 </p>
@@ -1289,14 +1289,14 @@ const ResearcherDashboard = () => {
                           ))}
                         </div>
                       ) : (
-                        <p className="text-white/40 text-sm">No collaborators yet. Invite researchers from other institutions to work on this study.</p>
+                        <p className="text-white/60 text-sm">No collaborators yet. Invite researchers from other institutions to work on this study.</p>
                       )}
                     </div>
 
                     {regulatoryStudies.find(s => s.id === selectedStudyId)?.mine && (
                       <div className="card-glass p-6 mb-6">
                         <div className="flex items-center justify-between mb-4">
-                          <h3 className="text-sm uppercase tracking-wider text-white/40">DATA EXTRACTION</h3>
+                          <h3 className="text-sm uppercase tracking-wider text-white/60">DATA EXTRACTION</h3>
                           <button
                             onClick={handleRequestExtract}
                             disabled={extractActionId === 'create'}
@@ -1311,7 +1311,7 @@ const ResearcherDashboard = () => {
                               <div key={job.id} className="flex flex-wrap items-center justify-between gap-3 py-3 border-b border-white/5 last:border-b-0">
                                 <div className="min-w-0">
                                   <p className="text-white/80 text-sm break-all">{job.job_name}</p>
-                                  <p className="text-white/30 text-xs">
+                                  <p className="text-white/50 text-xs">
                                     {job.patient_count || 0} patient{job.patient_count === 1 ? '' : 's'} • {new Date(job.created_at).toLocaleDateString()}
                                   </p>
                                 </div>
@@ -1331,7 +1331,7 @@ const ResearcherDashboard = () => {
                             ))}
                           </div>
                         ) : (
-                          <p className="text-white/40 text-sm">No extracts yet. Extraction requires an approved IRB protocol and signed DUA.</p>
+                          <p className="text-white/60 text-sm">No extracts yet. Extraction requires an approved IRB protocol and signed DUA.</p>
                         )}
                       </div>
                     )}
@@ -1339,17 +1339,17 @@ const ResearcherDashboard = () => {
                     {/* Shared with me */}
                     {collaborations.length > 0 && (
                       <div className="card-glass p-6">
-                        <h3 className="text-sm uppercase tracking-wider text-white/40 mb-4">Shared With Me</h3>
+                        <h3 className="text-sm uppercase tracking-wider text-white/60 mb-4">Shared With Me</h3>
                         <div className="space-y-2">
                           {collaborations.map((c) => (
                             <div key={c.study_id} className="flex items-center justify-between py-2 border-b border-white/5 last:border-b-0">
                               <div>
                                 <p className="text-white/80 text-sm">{c.study_name}</p>
-                                <p className="text-white/30 text-xs">
+                                <p className="text-white/50 text-xs">
                                   PI: {c.pi_name}{c.pi_organization && ` (${c.pi_organization})`} • your role: {c.my_role.replace(/_/g, ' ')} • {c.site_count} site{c.site_count === 1 ? '' : 's'}
                                 </p>
                               </div>
-                              <span className="px-2 py-0.5 text-xs uppercase bg-white/10 text-white/40">{c.status.replace(/_/g, ' ')}</span>
+                              <span className="px-2 py-0.5 text-xs uppercase bg-white/10 text-white/60">{c.status.replace(/_/g, ' ')}</span>
                             </div>
                           ))}
                         </div>
@@ -1383,7 +1383,7 @@ const ResearcherDashboard = () => {
               <div className="p-6 border-b border-white/10 flex items-center justify-between">
                 <div>
                   <h2 className="text-xl text-white">Select Variables</h2>
-                  <p className="text-white/40 text-sm mt-1">{selectedVariables.length} variables selected</p>
+                  <p className="text-white/60 text-sm mt-1">{selectedVariables.length} variables selected</p>
                 </div>
                 <button onClick={() => setShowVariableSelector(false)} className="p-2 hover:bg-white/10">
                   <svg className="w-5 h-5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1393,7 +1393,7 @@ const ResearcherDashboard = () => {
               </div>
               <div className="flex-1 overflow-y-auto p-6">
                 {Object.keys(variableCategories).length === 0 && (
-                  <p className="text-white/40 text-sm">
+                  <p className="text-white/60 text-sm">
                     No variables available yet. They appear here once enough consented patients have
                     contributed records
                     {variableInventory?.min_cell_size
@@ -1404,7 +1404,7 @@ const ResearcherDashboard = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {Object.entries(variableCategories).map(([category, variables]) => (
                     <div key={category}>
-                      <h3 className="text-sm uppercase tracking-wider text-white/40 mb-3">
+                      <h3 className="text-sm uppercase tracking-wider text-white/60 mb-3">
                         {category.replace(/_/g, ' ')}
                       </h3>
                       <div className="space-y-2">
@@ -1432,7 +1432,7 @@ const ResearcherDashboard = () => {
               <div className="p-6 border-t border-white/10 flex justify-between">
                 <button
                   onClick={() => setSelectedVariables(Object.values(variableCategories).flat())}
-                  className="text-white/40 text-sm hover:text-white transition-colors"
+                  className="text-white/60 text-sm hover:text-white transition-colors"
                 >
                   Select All
                 </button>

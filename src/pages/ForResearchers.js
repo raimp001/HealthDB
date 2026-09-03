@@ -17,7 +17,7 @@ const ForResearchers = () => {
             <h1 className="text-4xl md:text-5xl font-bold mb-6">
               Multi-center oncology data
             </h1>
-            <p className="text-lg text-white/40 max-w-2xl mb-8">
+            <p className="text-lg text-white/60 max-w-2xl mb-8">
               Access de-identified patient data, create studies, apply for IRB, 
               and collaborate across institutions in weeks instead of months.
             </p>
@@ -45,9 +45,9 @@ const ForResearchers = () => {
               { step: '04', title: 'Analyze', desc: 'Export and publish' },
             ].map((item) => (
               <div key={item.step} className="p-6 border border-white/10">
-                <span className="text-xs text-white/30 font-mono">{item.step}</span>
+                <span className="text-xs text-white/50 font-mono">{item.step}</span>
                 <h3 className="font-medium mt-2 mb-2">{item.title}</h3>
-                <p className="text-sm text-white/40">{item.desc}</p>
+                <p className="text-sm text-white/60">{item.desc}</p>
               </div>
             ))}
           </div>
@@ -59,7 +59,7 @@ const ForResearchers = () => {
         <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-12">
           <div>
             <h2 className="text-2xl font-bold mb-6">Supported research</h2>
-            <p className="text-white/40">
+            <p className="text-white/60">
               Retrospective studies, real-world evidence, comparative effectiveness, 
               epidemiology, biomarker discovery, and health economics.
             </p>
@@ -89,7 +89,7 @@ const ForResearchers = () => {
             ].map((item) => (
               <div key={item.title} className="p-6 border border-white/10">
                 <h3 className="font-medium mb-4">{item.title}</h3>
-                <ul className="space-y-2 text-sm text-white/40">
+                <ul className="space-y-2 text-sm text-white/60">
                   {item.features.map((f) => <li key={f}>→ {f}</li>)}
                 </ul>
               </div>
@@ -103,7 +103,7 @@ const ForResearchers = () => {
         <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-12">
           <div>
             <h2 className="text-2xl font-bold mb-6">Multi-center studies</h2>
-            <p className="text-white/40 mb-6">
+            <p className="text-white/60 mb-6">
               Partner with cancer centers to increase study power and validate findings.
             </p>
             <div className="space-y-4">
@@ -114,14 +114,14 @@ const ForResearchers = () => {
               ].map((item) => (
                 <div key={item.title} className="border-l-2 border-blue-400/30 pl-4">
                   <div className="font-medium">{item.title}</div>
-                  <div className="text-sm text-white/40">{item.desc}</div>
+                  <div className="text-sm text-white/60">{item.desc}</div>
                 </div>
               ))}
             </div>
           </div>
           <div className="p-6 border border-white/10">
             <h3 className="font-medium mb-4">Partner Institutions</h3>
-            <p className="text-sm text-white/40 mb-4">Building partnerships with leading centers</p>
+            <p className="text-sm text-white/60 mb-4">Building partnerships with leading centers</p>
             <div className="grid grid-cols-2 gap-3 mb-6">
               {['Academic', 'NCI-Designated', 'Community', 'International'].map((type) => (
                 <div key={type} className="p-3 bg-white/5 text-center text-sm text-white/50">{type}</div>
@@ -149,7 +149,7 @@ const ForResearchers = () => {
             ].map((item) => (
               <div key={item.cat} className="p-4 border border-white/10">
                 <h3 className="font-medium mb-3">{item.cat}</h3>
-                <ul className="space-y-1 text-sm text-white/40">
+                <ul className="space-y-1 text-sm text-white/60">
                   {item.items.map((i) => <li key={i}>· {i}</li>)}
                 </ul>
               </div>
@@ -171,7 +171,7 @@ const ForResearchers = () => {
               <div key={item.tier} className={`p-6 border ${item.featured ? 'border-blue-400/30' : 'border-white/10'}`}>
                 <h3 className="font-medium">{item.tier}</h3>
                 <p className="text-2xl font-bold my-2">{item.price}</p>
-                <ul className="space-y-2 text-sm text-white/40 mb-6">
+                <ul className="space-y-2 text-sm text-white/60 mb-6">
                   {item.features.map((f) => <li key={f}>✓ {f}</li>)}
                 </ul>
                 <Link to="/register?type=researcher" className={`block text-center py-2 text-sm ${item.featured ? 'bg-white text-black' : 'bg-white/10'}`}>
@@ -187,7 +187,7 @@ const ForResearchers = () => {
       <section className="py-20 px-6 border-t border-white/5">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-3xl font-bold mb-4">Accelerate your research</h2>
-          <p className="text-white/40 mb-8">From hypothesis to data in weeks</p>
+          <p className="text-white/60 mb-8">From hypothesis to data in weeks</p>
           <div className="flex gap-4 justify-center">
             <Link to="/register?type=researcher" className="px-8 py-3 bg-white text-black font-medium hover:bg-gray-100 transition-colors">
               Apply for Access
@@ -196,7 +196,7 @@ const ForResearchers = () => {
               Contact Us
             </a>
           </div>
-          <p className="text-white/30 text-sm mt-6">
+          <p className="text-white/50 text-sm mt-6">
             Already have access? <Link to="/login" className="text-blue-400 hover:underline">Sign in</Link>
           </p>
         </div>

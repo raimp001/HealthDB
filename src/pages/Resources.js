@@ -1,10 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 const API_URL = process.env.NODE_ENV === 'production' ? '' : (process.env.REACT_APP_API_URL || 'http://localhost:8000');
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 
 const Resources = () => {
+  const dialogRef = useRef(null);
+  // The element that opened the dialog, so focus can go back to it on close.
+  const openerRef = useRef(null);
+
   const [subscribeEmail, setSubscribeEmail] = useState('');
   const [subscribeState, setSubscribeState] = useState({ status: 'idle', message: '' });
 
@@ -32,6 +36,55 @@ const Resources = () => {
 
   const [activeCategory, setActiveCategory] = useState('all');
   const [selectedArticle, setSelectedArticle] = useState(null);
+
+  // Dialog behaviour: initial focus, focus trapping, Escape to close, focus
+  // restoration and body-scroll locking. Without these a keyboard or screen
+  // reader user can tab out of the open dialog into the page behind it and
+  // has no way back.
+  useEffect(() => {
+    if (!selectedArticle) return undefined;
+
+    openerRef.current = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const panel = dialogRef.current;
+    const focusable = () => Array.from(
+      panel?.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      ) || []
+    ).filter((el) => !el.hasAttribute('disabled'));
+
+    focusable()[0]?.focus();
+
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.stopPropagation();
+        setSelectedArticle(null);
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const items = focusable();
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      openerRef.current?.focus?.();
+    };
+  }, [selectedArticle]);
+
   const [selectedWhitepaper, setSelectedWhitepaper] = useState(null);
 
   const articles = [
@@ -309,15 +362,16 @@ Researchers see "Patient #12847 with Stage III Multiple Myeloma" not "John Smith
 - **See the log**: Every data access is recorded and visible to you
 - **Ask questions**: Our support team is here to help
 
-**Rewards**
+**Contribution points**
 
-Contributing data earns you points redeemable for:
+Contributing data records points against your account so you can see your
+participation. Points are an internal counter: they have no monetary value,
+they are not payment for data, and there is no redemption programme.
 
-- Gift cards
-- Charitable donations in your name
-- Premium health tracking features
-
-This isn't payment for data—it's recognition of your contribution to science.
+A rewards programme is planned. Before one could exist HealthDB would need an
+audited ledger, a redemption API, fraud controls, published terms, a tax
+review and a fulfilment provider. Compensating research participants is also
+regulated and would need legal and IRB review first.
 
 **Getting Started**
 
@@ -525,7 +579,7 @@ This enables even broader collaboration while strengthening privacy.`
             <h1 className="text-4xl md:text-5xl font-bold mb-6">
               Insights & Documentation
             </h1>
-            <p className="text-lg text-white/40 max-w-2xl">
+            <p className="text-lg text-white/60 max-w-2xl">
               In-depth articles, whitepapers, and guides on ethical data sharing, 
               real-world evidence, and research methodology.
             </p>
@@ -542,7 +596,7 @@ This enables even broader collaboration while strengthening privacy.`
               <div key={index} className="p-6 border border-white/10 hover:border-white/20 transition-colors">
                 <div className="text-xs text-emerald-400 mb-2">{guide.audience}</div>
                 <h3 className="font-medium text-lg mb-2">{guide.title}</h3>
-                <p className="text-sm text-white/40 mb-4">{guide.description}</p>
+                <p className="text-sm text-white/60 mb-4">{guide.description}</p>
                 <ol className="space-y-2">
                   {guide.steps.map((step, i) => (
                     <li key={i} className="text-xs text-white/60 flex gap-2">
@@ -581,27 +635,29 @@ This enables even broader collaboration while strengthening privacy.`
 
           <div className="grid md:grid-cols-2 gap-6">
             {filteredArticles.map((article) => (
-              <motion.article
+              <motion.button
                 key={article.id}
+                type="button"
                 layout
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="p-6 border border-white/10 hover:border-white/20 transition-colors cursor-pointer"
                 onClick={() => setSelectedArticle(article)}
+                aria-haspopup="dialog"
+                className="p-6 border border-white/10 hover:border-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400 transition-colors text-left w-full"
               >
                 <div className="flex items-center gap-3 mb-3">
                   <span className={`px-2 py-0.5 text-xs border ${categoryColors[article.category]}`}>
                     {article.category}
                   </span>
-                  <span className="text-xs text-white/40">{article.readTime}</span>
+                  <span className="text-xs text-white/60">{article.readTime}</span>
                 </div>
                 <h3 className="font-medium text-lg mb-2">{article.title}</h3>
-                <p className="text-sm text-white/40 mb-4">{article.excerpt}</p>
+                <p className="text-sm text-white/60 mb-4">{article.excerpt}</p>
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-white/30">{article.date}</span>
+                  <span className="text-xs text-white/50">{article.date}</span>
                   <span className="text-sm text-emerald-400">Read article →</span>
                 </div>
-              </motion.article>
+              </motion.button>
             ))}
           </div>
         </div>
@@ -611,7 +667,7 @@ This enables even broader collaboration while strengthening privacy.`
       <section className="py-16 px-6 border-t border-white/5 bg-white/[0.02]">
         <div className="max-w-5xl mx-auto">
           <h2 className="text-2xl font-bold mb-2">Whitepapers & Guides</h2>
-          <p className="text-white/40 mb-8">In-depth resources for researchers and institutions</p>
+          <p className="text-white/60 mb-8">In-depth resources for researchers and institutions</p>
           
           <div className="grid md:grid-cols-3 gap-6">
             {whitepapers.map((paper) => (
@@ -626,9 +682,9 @@ This enables even broader collaboration while strengthening privacy.`
                   </svg>
                 </div>
                 <h3 className="font-medium mb-2">{paper.title}</h3>
-                <p className="text-sm text-white/40 mb-4">{paper.description}</p>
+                <p className="text-sm text-white/60 mb-4">{paper.description}</p>
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-white/30">{paper.pages}</span>
+                  <span className="text-xs text-white/50">{paper.pages}</span>
                   <span className="text-sm text-emerald-400">Read →</span>
                 </div>
               </div>
@@ -641,7 +697,7 @@ This enables even broader collaboration while strengthening privacy.`
       <section className="py-20 px-6 border-t border-white/5">
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="text-2xl font-bold mb-4">Stay Updated</h2>
-          <p className="text-white/40 mb-8">
+          <p className="text-white/60 mb-8">
             Leave your address and we will contact you as the pilot opens.
             We are not currently sending a scheduled newsletter.
           </p>
@@ -677,8 +733,15 @@ This enables even broader collaboration while strengthening privacy.`
 
       {/* Article Modal */}
       {selectedArticle && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setSelectedArticle(null)}>
-          <motion.div 
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+          onClick={() => setSelectedArticle(null)}
+        >
+          <motion.div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="article-dialog-title"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             className="bg-neutral-900 border border-white/10 max-w-3xl max-h-[80vh] overflow-y-auto w-full"
@@ -689,10 +752,15 @@ This enables even broader collaboration while strengthening privacy.`
                 <span className={`px-2 py-0.5 text-xs border ${categoryColors[selectedArticle.category]} mb-2 inline-block`}>
                   {selectedArticle.category}
                 </span>
-                <h2 className="text-xl font-bold">{selectedArticle.title}</h2>
-                <p className="text-sm text-white/40 mt-1">{selectedArticle.date} · {selectedArticle.readTime}</p>
+                <h2 id="article-dialog-title" className="text-xl font-bold">{selectedArticle.title}</h2>
+                <p className="text-sm text-white/60 mt-1">{selectedArticle.date} · {selectedArticle.readTime}</p>
               </div>
-              <button onClick={() => setSelectedArticle(null)} className="text-white/40 hover:text-white">
+              <button
+                type="button"
+                onClick={() => setSelectedArticle(null)}
+                aria-label="Close article"
+                className="text-white/60 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400"
+              >
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -743,9 +811,9 @@ This enables even broader collaboration while strengthening privacy.`
               <div>
                 <p className="text-xs text-emerald-400 mb-2">WHITEPAPER</p>
                 <h2 className="text-xl font-bold">{selectedWhitepaper.title}</h2>
-                <p className="text-sm text-white/40 mt-1">{selectedWhitepaper.pages}</p>
+                <p className="text-sm text-white/60 mt-1">{selectedWhitepaper.pages}</p>
               </div>
-              <button onClick={() => setSelectedWhitepaper(null)} className="text-white/40 hover:text-white">
+              <button onClick={() => setSelectedWhitepaper(null)} className="text-white/60 hover:text-white">
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>

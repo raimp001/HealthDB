@@ -106,7 +106,7 @@ const DataFlowDiagram = () => {
       <div className="max-w-6xl mx-auto px-6 py-16">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
           <h1 className="text-4xl md:text-5xl font-bold mb-4">Target Data Flow</h1>
-          <p className="text-white/40 max-w-2xl mb-12">
+          <p className="text-white/60 max-w-2xl mb-12">
             Connector → Ingestion → Normalize → Store → Query → Export — with PHI boundaries and authorization at every stage.
           </p>
         </motion.div>
@@ -122,7 +122,7 @@ const DataFlowDiagram = () => {
               key={v}
               onClick={() => setActiveView(v)}
               className={`px-4 py-2 text-sm border transition-colors ${
-                activeView === v ? 'bg-white/10 border-white/20 text-white' : 'border-white/5 text-white/40 hover:text-white/70'
+                activeView === v ? 'bg-white/10 border-white/20 text-white' : 'border-white/5 text-white/60 hover:text-white/70'
               }`}
             >
               {v}
@@ -140,7 +140,7 @@ const DataFlowDiagram = () => {
                   <React.Fragment key={stage.id}>
                     <div className={`flex-1 p-3 border text-center ${stage.border} ${stage.bg}`}>
                       <div className={`font-bold ${stage.color}`}>{stage.name}</div>
-                      <div className="text-white/30 mt-1">{stage.phiPresent ? 'PHI ⚠' : 'De-ID ✓'}</div>
+                      <div className="text-white/50 mt-1">{stage.phiPresent ? 'PHI ⚠' : 'De-ID ✓'}</div>
                     </div>
                     {i < pipelineStages.length - 1 && (
                       <div className={`px-1 text-lg ${i === 2 ? 'text-amber-400' : 'text-white/20'}`}>
@@ -167,7 +167,7 @@ const DataFlowDiagram = () => {
                 <p className="text-sm text-white/50 mb-4">{stage.description}</p>
                 <div className="grid md:grid-cols-3 gap-4 text-sm">
                   <div>
-                    <h4 className="text-xs text-white/30 uppercase mb-2">Data In/Out</h4>
+                    <h4 className="text-xs text-white/50 uppercase mb-2">Data In/Out</h4>
                     <ul className="space-y-1">
                       {stage.dataSources.map((d) => (
                         <li key={d} className="text-white/50">• {d}</li>
@@ -175,11 +175,11 @@ const DataFlowDiagram = () => {
                     </ul>
                   </div>
                   <div>
-                    <h4 className="text-xs text-white/30 uppercase mb-2">Technical</h4>
+                    <h4 className="text-xs text-white/50 uppercase mb-2">Technical</h4>
                     <p className="text-white/50">{stage.technicalDetail}</p>
                   </div>
                   <div>
-                    <h4 className="text-xs text-white/30 uppercase mb-2">Auth Boundary</h4>
+                    <h4 className="text-xs text-white/50 uppercase mb-2">Auth Boundary</h4>
                     <p className="text-white/50">{stage.authBoundary}</p>
                   </div>
                 </div>
@@ -192,7 +192,7 @@ const DataFlowDiagram = () => {
         {activeView === 'Data Sources' && (
           <motion.div key="sources" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <div className="border border-white/10">
-              <div className="grid grid-cols-5 gap-4 p-4 border-b border-white/10 text-xs text-white/30 uppercase tracking-wider">
+              <div className="grid grid-cols-5 gap-4 p-4 border-b border-white/10 text-xs text-white/50 uppercase tracking-wider">
                 <span>Source</span>
                 <span>Type</span>
                 <span>Protocol</span>
@@ -204,7 +204,7 @@ const DataFlowDiagram = () => {
                   <span className="text-white/80 font-medium">{src.name}</span>
                   <span className="text-cyan-400 text-xs">{src.type}</span>
                   <span className="text-white/50 font-mono text-xs">{src.protocol}</span>
-                  <span className="text-white/40 text-xs">{src.dataTypes}</span>
+                  <span className="text-white/60 text-xs">{src.dataTypes}</span>
                   <span className={`text-xs ${src.phiAtEntry ? 'text-red-400' : 'text-emerald-400'}`}>
                     {src.phiAtEntry ? '⚠ Yes' : '✓ No'}
                   </span>
@@ -217,7 +217,7 @@ const DataFlowDiagram = () => {
         {/* PHI Tracking */}
         {activeView === 'PHI Tracking' && (
           <motion.div key="phi" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-            <p className="text-white/40 text-sm">
+            <p className="text-white/60 text-sm">
               Tracks PHI presence at each pipeline stage. The PHI boundary between Normalize and Store is enforced by the de-identification engine.
             </p>
             {pipelineStages.map((stage, i) => (
@@ -225,7 +225,7 @@ const DataFlowDiagram = () => {
                 <div className={`p-4 border ${stage.border} flex items-center justify-between`}>
                   <div>
                     <span className={`font-bold ${stage.color}`}>{stage.name}</span>
-                    <p className="text-xs text-white/40 mt-1">{stage.phiDetail}</p>
+                    <p className="text-xs text-white/60 mt-1">{stage.phiDetail}</p>
                   </div>
                   <span className={`text-xs px-3 py-1 border ${stage.phiPresent ? 'border-red-400/30 text-red-400' : 'border-emerald-400/30 text-emerald-400'}`}>
                     {stage.phiPresent ? 'PHI ⚠' : 'CLEAN ✓'}
@@ -235,7 +235,7 @@ const DataFlowDiagram = () => {
                   <div className="text-center py-4">
                     <div className="inline-block px-6 py-3 border-2 border-amber-400/40 bg-amber-400/10">
                       <div className="text-amber-400 font-bold text-sm">🛡️ PHI BOUNDARY</div>
-                      <div className="text-xs text-white/40 mt-1">HIPAA Safe Harbor de-identification — 18 identifiers removed</div>
+                      <div className="text-xs text-white/60 mt-1">HIPAA Safe Harbor de-identification — 18 identifiers removed</div>
                     </div>
                   </div>
                 )}

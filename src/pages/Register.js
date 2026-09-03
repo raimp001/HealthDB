@@ -66,14 +66,14 @@ const Register = () => {
             HealthDB
           </Link>
           <h1 className="heading-display text-3xl text-white mb-2">Create account</h1>
-          <p className="text-white/40">Join the platform</p>
+          <p className="text-white/60">Join the platform</p>
         </div>
 
         {/* Form */}
         <div className="border border-white/10 p-8">
           {/* User Type Toggle */}
           <div className="mb-8">
-            <label className="block text-xs uppercase tracking-wider text-white/40 mb-3">
+            <label className="block text-xs uppercase tracking-wider text-white/60 mb-3">
               Account Type
             </label>
             <div className="grid grid-cols-2 gap-px bg-white/10">
@@ -110,7 +110,7 @@ const Register = () => {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block text-xs uppercase tracking-wider text-white/40 mb-2">
+              <label className="block text-xs uppercase tracking-wider text-white/60 mb-2">
                 Full Name
               </label>
               <input
@@ -124,7 +124,7 @@ const Register = () => {
             </div>
 
             <div>
-              <label className="block text-xs uppercase tracking-wider text-white/40 mb-2">
+              <label className="block text-xs uppercase tracking-wider text-white/60 mb-2">
                 Email
               </label>
               <input
@@ -139,7 +139,7 @@ const Register = () => {
 
             {userType === 'researcher' && (
               <div>
-                <label className="block text-xs uppercase tracking-wider text-white/40 mb-2">
+                <label className="block text-xs uppercase tracking-wider text-white/60 mb-2">
                   Institution
                 </label>
                 <input
@@ -153,7 +153,7 @@ const Register = () => {
             )}
 
             <div>
-              <label className="block text-xs uppercase tracking-wider text-white/40 mb-2">
+              <label className="block text-xs uppercase tracking-wider text-white/60 mb-2">
                 Password
               </label>
               <input
@@ -165,7 +165,7 @@ const Register = () => {
                 className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white placeholder-white/30 focus:border-white/30 focus:outline-none transition-colors"
                 placeholder="••••••••"
               />
-              <p className="mt-2 text-xs text-white/30">
+              <p className="mt-2 text-xs text-white/50">
                 Min 12 characters with uppercase, lowercase, number, and special character
               </p>
             </div>
@@ -176,7 +176,7 @@ const Register = () => {
                 required
                 className="mt-1 w-4 h-4 bg-white/5 border border-white/20 rounded-none"
               />
-              <label className="text-sm text-white/40">
+              <label className="text-sm text-white/60">
                 I agree to the{' '}
                 <Link to="/terms" className="text-white/60 hover:text-white">Terms</Link>
                 {' '}and{' '}
@@ -196,7 +196,7 @@ const Register = () => {
           {/* Benefits */}
           {userType === 'researcher' && (
             <div className="mt-8 pt-8 border-t border-white/10">
-              <p className="text-xs uppercase tracking-wider text-white/40 mb-4">Researcher Benefits</p>
+              <p className="text-xs uppercase tracking-wider text-white/60 mb-4">Researcher Benefits</p>
               <ul className="space-y-2 text-sm text-white/50">
                 <li className="flex items-center gap-2">
                   <span className="w-1 h-1 bg-[#00d4aa] rounded-full"></span>
@@ -216,7 +216,7 @@ const Register = () => {
 
           {userType === 'patient' && (
             <div className="mt-8 pt-8 border-t border-white/10">
-              <p className="text-xs uppercase tracking-wider text-white/40 mb-4">Patient Benefits</p>
+              <p className="text-xs uppercase tracking-wider text-white/60 mb-4">Patient Benefits</p>
               <ul className="space-y-2 text-sm text-white/50">
                 <li className="flex items-center gap-2">
                   <span className="w-1 h-1 bg-[#00d4aa] rounded-full"></span>
@@ -235,7 +235,7 @@ const Register = () => {
           )}
 
           <div className="mt-8 pt-8 border-t border-white/10">
-            <p className="text-center text-white/40 text-sm">
+            <p className="text-center text-white/60 text-sm">
               Already have an account?{' '}
               <Link to="/login" className="text-white hover:text-[#00d4aa] transition-colors">
                 Sign in

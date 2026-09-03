@@ -59,7 +59,7 @@ const Contact = () => {
           >
             <p className="text-sm text-emerald-400 uppercase tracking-wider mb-4">Contact</p>
             <h1 className="text-4xl md:text-5xl font-bold mb-6">Get in touch</h1>
-            <p className="text-white/40 mb-10">
+            <p className="text-white/60 mb-10">
               Tell us what you're working on. We read every message and typically respond within one
               business day.
             </p>
@@ -75,7 +75,7 @@ const Contact = () => {
               <p className="text-white/60 text-sm mb-6">{status.message}</p>
               <button
                 onClick={() => setStatus({ state: 'idle', message: '' })}
-                className="text-sm text-white/40 hover:text-white underline"
+                className="text-sm text-white/60 hover:text-white underline"
               >
                 Send another message
               </button>
@@ -84,7 +84,7 @@ const Contact = () => {
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="grid md:grid-cols-2 gap-5">
                 <div>
-                  <label className="block text-xs uppercase tracking-wider text-white/40 mb-2">
+                  <label className="block text-xs uppercase tracking-wider text-white/60 mb-2">
                     Name
                   </label>
                   <input
@@ -97,7 +97,7 @@ const Contact = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs uppercase tracking-wider text-white/40 mb-2">
+                  <label className="block text-xs uppercase tracking-wider text-white/60 mb-2">
                     Email
                   </label>
                   <input
@@ -112,7 +112,7 @@ const Contact = () => {
               </div>
 
               <div>
-                <label className="block text-xs uppercase tracking-wider text-white/40 mb-2">
+                <label className="block text-xs uppercase tracking-wider text-white/60 mb-2">
                   Organization
                 </label>
                 <input
@@ -126,7 +126,7 @@ const Contact = () => {
               </div>
 
               <div>
-                <label className="block text-xs uppercase tracking-wider text-white/40 mb-2">
+                <label className="block text-xs uppercase tracking-wider text-white/60 mb-2">
                   What brings you here?
                 </label>
                 <select value={form.interest_type} onChange={update('interest_type')} className={inputClass}>
@@ -139,7 +139,7 @@ const Contact = () => {
               </div>
 
               <div>
-                <label className="block text-xs uppercase tracking-wider text-white/40 mb-2">
+                <label className="block text-xs uppercase tracking-wider text-white/60 mb-2">
                   Message
                 </label>
                 <textarea
@@ -164,7 +164,7 @@ const Contact = () => {
                 {status.state === 'sending' ? 'Sending…' : 'Send message'}
               </button>
 
-              <p className="text-white/30 text-xs leading-relaxed">
+              <p className="text-white/50 text-xs leading-relaxed">
                 Please don't include patient identifiers or protected health information in this
                 form. It is a general enquiry channel, not a clinical data pathway.
               </p>

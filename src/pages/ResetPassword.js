@@ -71,7 +71,7 @@ const ResetPassword = () => {
         <h1 className="text-2xl font-bold mb-2">
           {token ? 'Choose a new password' : 'Reset your password'}
         </h1>
-        <p className="text-white/40 text-sm mb-8">
+        <p className="text-white/60 text-sm mb-8">
           {token
             ? 'Reset links expire 30 minutes after they are issued and work once.'
             : 'Enter your address and we will send a reset link.'}
@@ -89,19 +89,19 @@ const ResetPassword = () => {
             {token ? (
               <>
                 <div>
-                  <label htmlFor="new-password" className="block text-xs uppercase tracking-wider text-white/40 mb-2">
+                  <label htmlFor="new-password" className="block text-xs uppercase tracking-wider text-white/60 mb-2">
                     New password
                   </label>
                   <input
                     id="new-password" type="password" required autoComplete="new-password"
                     value={password} onChange={(e) => setPassword(e.target.value)} className={field}
                   />
-                  <p className="text-xs text-white/30 mt-2">
+                  <p className="text-xs text-white/50 mt-2">
                     At least 12 characters, with upper and lower case, a number and a symbol.
                   </p>
                 </div>
                 <div>
-                  <label htmlFor="confirm-password" className="block text-xs uppercase tracking-wider text-white/40 mb-2">
+                  <label htmlFor="confirm-password" className="block text-xs uppercase tracking-wider text-white/60 mb-2">
                     Confirm password
                   </label>
                   <input
@@ -112,7 +112,7 @@ const ResetPassword = () => {
               </>
             ) : (
               <div>
-                <label htmlFor="email" className="block text-xs uppercase tracking-wider text-white/40 mb-2">
+                <label htmlFor="email" className="block text-xs uppercase tracking-wider text-white/60 mb-2">
                   Email
                 </label>
                 <input
@@ -136,7 +136,7 @@ const ResetPassword = () => {
           </form>
         )}
 
-        <p className="text-white/30 text-sm mt-8">
+        <p className="text-white/50 text-sm mt-8">
           Remembered it? <Link to="/login" className="text-white/60 hover:text-white underline">Sign in</Link>
         </p>
       </motion.div>

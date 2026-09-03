@@ -43,14 +43,14 @@ const TargetArchitectureBanner = ({ implemented = [], planned = [] }) => (
           </p>
           <ul className="space-y-1">
             {planned.map((item) => (
-              <li key={item} className="text-sm text-white/40">◦ {item}</li>
+              <li key={item} className="text-sm text-white/60">◦ {item}</li>
             ))}
           </ul>
         </div>
       </div>
     )}
 
-    <p className="text-xs text-white/30 mt-6">
+    <p className="text-xs text-white/50 mt-6">
       For what is actually implemented, see{' '}
       <Link to="/institutions" className="text-white/50 hover:text-white underline">
         Security &amp; Compliance

@@ -69,7 +69,7 @@ const Login = () => {
             HealthDB
           </Link>
           <h1 className="heading-display text-3xl text-white mb-2">Sign in</h1>
-          <p className="text-white/40">Access your account</p>
+          <p className="text-white/60">Access your account</p>
         </div>
 
         {/* Form */}
@@ -82,7 +82,7 @@ const Login = () => {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block text-xs uppercase tracking-wider text-white/40 mb-2">
+              <label className="block text-xs uppercase tracking-wider text-white/60 mb-2">
                 Email
               </label>
               <input
@@ -97,10 +97,10 @@ const Login = () => {
 
             <div>
               <div className="flex justify-between items-center mb-2">
-                <label className="block text-xs uppercase tracking-wider text-white/40">
+                <label className="block text-xs uppercase tracking-wider text-white/60">
                   Password
                 </label>
-                <Link to="/reset-password" className="text-xs text-white/40 hover:text-white transition-colors">
+                <Link to="/reset-password" className="text-xs text-white/60 hover:text-white transition-colors">
                   Forgot?
                 </Link>
               </div>
@@ -124,7 +124,7 @@ const Login = () => {
           </form>
 
           <div className="mt-8 pt-8 border-t border-white/10">
-            <p className="text-center text-white/40 text-sm">
+            <p className="text-center text-white/60 text-sm">
               Don't have an account?{' '}
               <Link to="/register" className="text-white hover:text-[#00d4aa] transition-colors">
                 Create one

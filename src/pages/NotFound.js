@@ -10,7 +10,7 @@ const NotFound = () => (
     <div className="max-w-md text-center">
       <p className="text-6xl font-bold mb-4 text-white/20">404</p>
       <h1 className="text-2xl font-bold mb-3">Page not found</h1>
-      <p className="text-white/40 text-sm mb-8">
+      <p className="text-white/60 text-sm mb-8">
         That page does not exist. It may have moved, or the link may be wrong.
       </p>
       <div className="flex flex-wrap gap-3 justify-center">

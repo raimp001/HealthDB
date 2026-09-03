@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import StatusBadge from '../components/StatusBadge';
 
 const ForPatients = () => {
   return (
@@ -17,9 +18,9 @@ const ForPatients = () => {
             <h1 className="text-4xl md:text-5xl font-bold mb-6">
               Your data advances research
             </h1>
-            <p className="text-lg text-white/40 max-w-2xl mb-8">
+            <p className="text-lg text-white/60 max-w-2xl mb-8">
               Contribute de-identified health data to help researchers discover treatments. 
-              You control what you share. Earn rewards for contributions.
+              You control what you share, and can withdraw it at any time.
             </p>
             <div className="flex gap-4">
               <Link to="/register?type=patient" className="px-8 py-3 bg-white text-black font-medium hover:bg-gray-100 transition-colors">
@@ -41,11 +42,11 @@ const ForPatients = () => {
             {[
               { title: 'Advance Research', desc: 'Your journey data helps researchers understand cancer and develop better treatments.' },
               { title: 'Help Future Patients', desc: 'Insights from your data may help doctors make better treatment decisions.' },
-              { title: 'Earn Rewards', desc: 'Receive points for contributions, redeemable for gift cards or donations.' },
+              { title: 'Track contributions', desc: 'Points record your participation. They have no monetary value and cannot be redeemed.' },
             ].map((item) => (
               <div key={item.title} className="p-6 border border-white/10">
                 <h3 className="font-medium mb-3">{item.title}</h3>
-                <p className="text-sm text-white/40">{item.desc}</p>
+                <p className="text-sm text-white/60">{item.desc}</p>
               </div>
             ))}
           </div>
@@ -57,7 +58,7 @@ const ForPatients = () => {
         <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-16">
           <div>
             <h2 className="text-2xl font-bold mb-6">How it works</h2>
-            <p className="text-white/40 mb-8">
+            <p className="text-white/60 mb-8">
               Contributing is voluntary. You control what you share and can revoke access anytime.
             </p>
             <Link to="/register?type=patient" className="px-6 py-3 bg-white text-black font-medium hover:bg-gray-100 transition-colors inline-block">
@@ -70,13 +71,13 @@ const ForPatients = () => {
               { step: '2', title: 'Review Consent', desc: 'Clear explanation of data use' },
               { step: '3', title: 'Connect Records', desc: 'MyChart, Cerner, or upload' },
               { step: '4', title: 'Data De-identified', desc: 'Name, SSN, dates never shared' },
-              { step: '5', title: 'Earn Rewards', desc: 'Points when researchers access data' },
+              { step: '5', title: 'See your contribution', desc: 'Points recorded when researchers access data' },
             ].map((item) => (
               <div key={item.step} className="flex gap-4">
                 <span className="text-white/20 text-lg">{item.step}</span>
                 <div>
                   <div className="font-medium">{item.title}</div>
-                  <div className="text-sm text-white/40">{item.desc}</div>
+                  <div className="text-sm text-white/60">{item.desc}</div>
                 </div>
               </div>
             ))}
@@ -97,7 +98,7 @@ const ForPatients = () => {
             ].map((item) => (
               <div key={item.title} className="text-center p-4">
                 <h3 className="font-medium mb-2">{item.title}</h3>
-                <p className="text-sm text-white/40">{item.desc}</p>
+                <p className="text-sm text-white/60">{item.desc}</p>
               </div>
             ))}
           </div>
@@ -118,8 +119,14 @@ const ForPatients = () => {
       <section className="py-20 px-6 border-t border-white/5">
         <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-12">
           <div>
-            <h2 className="text-2xl font-bold mb-6">Rewards</h2>
-            <p className="text-white/40 mb-6">Earn points for contributions</p>
+            <div className="flex items-center gap-3 mb-6">
+              <h2 className="text-2xl font-bold">Contribution points</h2>
+              <StatusBadge featureKey="patient.rewards" />
+            </div>
+            <p className="text-white/60 mb-6">
+              Contributions are counted so you can see your participation. Points
+              have no monetary value and cannot currently be redeemed for anything.
+            </p>
             <div className="space-y-3">
               {[
                 { action: 'Sign up', points: 100 },
@@ -133,16 +140,26 @@ const ForPatients = () => {
                 </div>
               ))}
             </div>
-            <p className="text-white/30 text-xs mt-4">100 pts = $1</p>
+            <p className="text-white/50 text-xs mt-4">
+              Points are an internal counter. They are not currency, not a payment
+              for data, and carry no cash value.
+            </p>
           </div>
           <div className="p-6 border border-white/10">
-            <h3 className="font-medium mb-4">Redeem for</h3>
-            <ul className="space-y-3 text-sm text-white/50">
-              <li>Gift cards (Amazon, Visa)</li>
-              <li>Charity donations</li>
-              <li>Direct payment</li>
-              <li>Recognition in study acknowledgements</li>
-            </ul>
+            <div className="flex items-center gap-3 mb-4">
+              <h3 className="font-medium">Redemption</h3>
+              <StatusBadge featureKey="patient.rewards" />
+            </div>
+            <p className="text-sm text-white/60 mb-4">
+              There is no redemption programme. Before points could be exchanged
+              for anything, HealthDB would need an audited ledger, a redemption
+              API, fraud controls, published terms, a tax review and a working
+              fulfilment provider. None of those exist.
+            </p>
+            <p className="text-xs text-white/60">
+              Compensating research participants is also regulated, so any future
+              programme needs legal and IRB review before it is offered.
+            </p>
           </div>
         </div>
       </section>
@@ -160,7 +177,7 @@ const ForPatients = () => {
             ].map((item, i) => (
               <div key={i} className="p-4 border border-white/10">
                 <h3 className="font-medium mb-2">{item.q}</h3>
-                <p className="text-sm text-white/40">{item.a}</p>
+                <p className="text-sm text-white/60">{item.a}</p>
               </div>
             ))}
           </div>
@@ -171,11 +188,11 @@ const ForPatients = () => {
       <section className="py-20 px-6 border-t border-white/5">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-3xl font-bold mb-4">Make a difference</h2>
-          <p className="text-white/40 mb-8">Join patients helping advance cancer research</p>
+          <p className="text-white/60 mb-8">Join patients helping advance cancer research</p>
           <Link to="/register?type=patient" className="px-8 py-3 bg-white text-black font-medium hover:bg-gray-100 transition-colors inline-block">
             Create Account
           </Link>
-          <p className="text-white/30 text-sm mt-4">
+          <p className="text-white/50 text-sm mt-4">
             Already have an account? <Link to="/login" className="text-emerald-400 hover:underline">Sign in</Link>
           </p>
         </div>

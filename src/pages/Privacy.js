@@ -14,7 +14,7 @@ const Privacy = () => (
       <div className="max-w-3xl mx-auto">
         <p className="text-sm text-emerald-400 uppercase tracking-wider mb-4">Privacy</p>
         <h1 className="text-4xl md:text-5xl font-bold mb-4">Privacy Notice</h1>
-        <p className="text-white/30 text-sm mb-12">
+        <p className="text-white/50 text-sm mb-12">
           This notice describes how the HealthDB platform handles the information you give it. It
           reflects how the software actually behaves, not an aspiration.
         </p>

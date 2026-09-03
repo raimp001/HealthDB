@@ -227,7 +227,7 @@ const PatientPortal = () => {
     { id: 'consent', label: 'Consent' },
     { id: 'studies', label: 'Studies' },
     { id: 'data', label: 'My Data' },
-    { id: 'rewards', label: 'Rewards' },
+    { id: 'rewards', label: 'Contributions' },
   ];
 
   const hasActiveResearchConsent = consents.some(c => c.consent_type === 'research_data_sharing' && c.status === 'active');
@@ -238,7 +238,7 @@ const PatientPortal = () => {
       <div className="min-h-screen bg-black flex items-center justify-center pt-20">
         <div className="text-center">
           <div className="w-8 h-8 border border-white/20 border-t-white/60 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white/40 text-sm">Loading your data...</p>
+          <p className="text-white/60 text-sm">Loading your data...</p>
         </div>
       </div>
     );
@@ -269,12 +269,12 @@ const PatientPortal = () => {
             className="flex flex-col md:flex-row md:items-end justify-between gap-6"
           >
             <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-white/40 mb-4">Patient Portal</p>
+              <p className="text-xs uppercase tracking-[0.3em] text-white/60 mb-4">Patient Portal</p>
               <h1 className="heading-display text-4xl md:text-5xl text-white/90">Your Dashboard</h1>
             </div>
             <div className="flex items-center gap-6">
               <div className="text-right">
-                <p className="text-white/40 text-xs mb-1">Consent Status</p>
+                <p className="text-white/60 text-xs mb-1">Consent Status</p>
                 <div className="flex items-center gap-2">
                   <span className={`w-2 h-2 rounded-full ${hasActiveResearchConsent ? 'bg-[#00d4aa]' : 'bg-amber-500'}`}></span>
                   <span className={`uppercase text-sm tracking-wider ${hasActiveResearchConsent ? 'text-[#00d4aa]' : 'text-amber-500'}`}>
@@ -284,7 +284,7 @@ const PatientPortal = () => {
               </div>
               <div className="h-8 w-px bg-white/10"></div>
               <div className="text-right">
-                <p className="text-white/40 text-xs mb-1">Rewards</p>
+                <p className="text-white/60 text-xs mb-1">Rewards</p>
                 <p className="text-white font-mono text-lg">{profile?.points_balance || 0} pts</p>
               </div>
             </div>
@@ -321,7 +321,7 @@ const PatientPortal = () => {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`px-4 sm:px-6 py-4 text-xs uppercase tracking-wider transition-colors whitespace-nowrap ${
-                  activeTab === tab.id ? 'text-white border-b-2 border-white' : 'text-white/40 hover:text-white/60'
+                  activeTab === tab.id ? 'text-white border-b-2 border-white' : 'text-white/60 hover:text-white/60'
                 }`}
               >
                 {tab.label}
@@ -341,19 +341,19 @@ const PatientPortal = () => {
                 {/* Stats Grid */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/5 mb-12">
                   <div className="card-glass p-6">
-                    <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Points Balance</p>
+                    <p className="text-white/60 text-xs uppercase tracking-wider mb-2">Points Balance</p>
                     <p className="text-2xl font-light text-white font-mono">{profile?.points_balance || 0}</p>
                   </div>
                   <div className="card-glass p-6">
-                    <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Active Consents</p>
+                    <p className="text-white/60 text-xs uppercase tracking-wider mb-2">Active Consents</p>
                     <p className="text-2xl font-light text-white font-mono">{consents.filter(c => c.status === 'active').length}</p>
                   </div>
                   <div className="card-glass p-6">
-                    <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Data Records</p>
+                    <p className="text-white/60 text-xs uppercase tracking-wider mb-2">Data Records</p>
                     <p className="text-2xl font-light text-white font-mono">{dataSummary?.total_records || 0}</p>
                   </div>
                   <div className="card-glass p-6">
-                    <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Completeness</p>
+                    <p className="text-white/60 text-xs uppercase tracking-wider mb-2">Completeness</p>
                     <p className="text-2xl font-light text-white font-mono">{Math.round(dataSummary?.completeness_score || 0)}%</p>
                   </div>
                 </div>
@@ -369,7 +369,7 @@ const PatientPortal = () => {
                         </span>
                         <span className="text-white font-medium">Sign Consent</span>
                       </div>
-                      <p className="text-white/40 text-sm mb-4">
+                      <p className="text-white/60 text-sm mb-4">
                         {hasActiveResearchConsent 
                           ? 'You have signed the research data sharing consent.'
                           : 'Sign a consent to allow your de-identified data to be used for research.'}
@@ -383,12 +383,12 @@ const PatientPortal = () => {
 
                     <div className={`card-glass p-6 ${connections.length > 0 ? 'border-l-2 border-[#00d4aa]' : 'border-l-2 border-white/20'}`}>
                       <div className="flex items-center gap-3 mb-4">
-                        <span className={`w-8 h-8 rounded-full flex items-center justify-center ${connections.length > 0 ? 'bg-[#00d4aa]/20 text-[#00d4aa]' : 'bg-white/10 text-white/40'}`}>
+                        <span className={`w-8 h-8 rounded-full flex items-center justify-center ${connections.length > 0 ? 'bg-[#00d4aa]/20 text-[#00d4aa]' : 'bg-white/10 text-white/60'}`}>
                           {connections.length > 0 ? '✓' : '2'}
                         </span>
                         <span className="text-white font-medium">Connect Records</span>
                       </div>
-                      <p className="text-white/40 text-sm mb-4">
+                      <p className="text-white/60 text-sm mb-4">
                         {connections.length > 0
                           ? `Connected to ${connections.length} source(s).`
                           : 'Connect your medical records to contribute data.'}
@@ -402,12 +402,12 @@ const PatientPortal = () => {
 
                     <div className={`card-glass p-6 ${extractedData.length > 0 ? 'border-l-2 border-[#00d4aa]' : 'border-l-2 border-white/20'}`}>
                       <div className="flex items-center gap-3 mb-4">
-                        <span className={`w-8 h-8 rounded-full flex items-center justify-center ${extractedData.length > 0 ? 'bg-[#00d4aa]/20 text-[#00d4aa]' : 'bg-white/10 text-white/40'}`}>
+                        <span className={`w-8 h-8 rounded-full flex items-center justify-center ${extractedData.length > 0 ? 'bg-[#00d4aa]/20 text-[#00d4aa]' : 'bg-white/10 text-white/60'}`}>
                           {extractedData.length > 0 ? '✓' : '3'}
                         </span>
                         <span className="text-white font-medium">Earn Rewards</span>
                       </div>
-                      <p className="text-white/40 text-sm mb-4">
+                      <p className="text-white/60 text-sm mb-4">
                         {extractedData.length > 0
                           ? `Contributing ${extractedData.length} data record(s) to research.`
                           : 'Earn points for each data contribution.'}
@@ -427,14 +427,14 @@ const PatientPortal = () => {
                             <div className="w-2 h-2 rounded-full bg-blue-400"></div>
                             <span className="text-white/70 text-sm">{log.institution} accessed {log.data_type} for {log.purpose}</span>
                           </div>
-                          <span className="text-white/30 text-xs">{log.date}</span>
+                          <span className="text-white/50 text-xs">{log.date}</span>
                         </div>
                       ))}
                     </div>
                   ) : (
                     <div className="card-glass p-8 text-center">
-                      <p className="text-white/40">No data access activity yet</p>
-                      <p className="text-white/30 text-sm mt-2">When researchers access your de-identified data, it will appear here.</p>
+                      <p className="text-white/60">No data access activity yet</p>
+                      <p className="text-white/50 text-sm mt-2">When researchers access your de-identified data, it will appear here.</p>
                     </div>
                   )}
                 </div>
@@ -446,21 +446,21 @@ const PatientPortal = () => {
               <motion.div key="consent" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 <div className="max-w-4xl">
                   <h2 className="text-lg font-medium text-white mb-2">Consent Management</h2>
-                  <p className="text-white/40 mb-8">Control how your de-identified data is shared with researchers.</p>
+                  <p className="text-white/60 mb-8">Control how your de-identified data is shared with researchers.</p>
 
                   {/* Active Consents */}
                   {consents.filter(c => c.status === 'active').length > 0 && (
                     <div className="mb-12">
-                      <h3 className="text-sm uppercase tracking-wider text-white/40 mb-4">Active Consents</h3>
+                      <h3 className="text-sm uppercase tracking-wider text-white/60 mb-4">Active Consents</h3>
                       <div className="space-y-3">
                         {consents.filter(c => c.status === 'active').map((consent) => (
                           <div key={consent.id} className="card-glass p-6 border-l-2 border-[#00d4aa]">
                             <div className="flex items-start justify-between">
                               <div>
                                 <h4 className="text-white font-medium mb-1">{consent.consent_type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</h4>
-                                <p className="text-white/40 text-sm">Signed {new Date(consent.signed_date).toLocaleDateString()}</p>
+                                <p className="text-white/60 text-sm">Signed {new Date(consent.signed_date).toLocaleDateString()}</p>
                                 {consent.expires_at && (
-                                  <p className="text-white/30 text-xs mt-1">Expires {new Date(consent.expires_at).toLocaleDateString()}</p>
+                                  <p className="text-white/50 text-xs mt-1">Expires {new Date(consent.expires_at).toLocaleDateString()}</p>
                                 )}
                               </div>
                               <button
@@ -478,7 +478,7 @@ const PatientPortal = () => {
 
                   {/* Available Consents */}
                   <div>
-                    <h3 className="text-sm uppercase tracking-wider text-white/40 mb-4">Available Consents</h3>
+                    <h3 className="text-sm uppercase tracking-wider text-white/60 mb-4">Available Consents</h3>
                     <div className="space-y-3">
                       {consentTemplates.map((template) => {
                         const isSigned = consents.some(c => c.consent_type === template.consent_type && c.status === 'active');
@@ -490,14 +490,14 @@ const PatientPortal = () => {
                                   <h4 className="text-white font-medium">{template.name}</h4>
                                   {isSigned && <span className="px-2 py-0.5 text-xs bg-[#00d4aa]/20 text-[#00d4aa]">SIGNED</span>}
                                 </div>
-                                <p className="text-white/40 text-sm mb-3">{template.description}</p>
+                                <p className="text-white/60 text-sm mb-3">{template.description}</p>
                                 <div className="flex flex-wrap gap-2">
                                   {template.data_categories.map((cat) => (
-                                    <span key={cat} className="px-2 py-1 text-xs bg-white/5 text-white/40">{cat}</span>
+                                    <span key={cat} className="px-2 py-1 text-xs bg-white/5 text-white/60">{cat}</span>
                                   ))}
                                 </div>
                                 {template.duration_months && (
-                                  <p className="text-white/30 text-xs mt-3">Valid for {template.duration_months} months</p>
+                                  <p className="text-white/50 text-xs mt-3">Valid for {template.duration_months} months</p>
                                 )}
                               </div>
                               {!isSigned && (
@@ -518,13 +518,13 @@ const PatientPortal = () => {
                   {/* Revoked/Expired */}
                   {consents.filter(c => c.status !== 'active').length > 0 && (
                     <div className="mt-12">
-                      <h3 className="text-sm uppercase tracking-wider text-white/40 mb-4">Past Consents</h3>
+                      <h3 className="text-sm uppercase tracking-wider text-white/60 mb-4">Past Consents</h3>
                       <div className="space-y-2">
                         {consents.filter(c => c.status !== 'active').map((consent) => (
                           <div key={consent.id} className="card-glass p-4 opacity-50">
                             <div className="flex items-center justify-between">
                               <span className="text-white/60">{consent.consent_type.replace(/_/g, ' ')}</span>
-                              <span className="px-2 py-0.5 text-xs bg-white/10 text-white/40">{consent.status.toUpperCase()}</span>
+                              <span className="px-2 py-0.5 text-xs bg-white/10 text-white/60">{consent.status.toUpperCase()}</span>
                             </div>
                           </div>
                         ))}
@@ -540,13 +540,13 @@ const PatientPortal = () => {
               <motion.div key="studies" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 <div className="max-w-4xl">
                   <h2 className="text-lg font-medium text-white mb-2">Research Studies</h2>
-                  <p className="text-white/40 mb-8">Browse studies recruiting participants and manage the studies you've joined.</p>
+                  <p className="text-white/60 mb-8">Browse studies recruiting participants and manage the studies you've joined.</p>
 
                   {!hasActiveTrialMatchingConsent ? (
                     <div className="card-glass p-8 text-center border border-amber-500/20">
                       <span className="text-4xl mb-4 block">🔒</span>
                       <h3 className="text-white font-medium mb-2">Consent Required</h3>
-                      <p className="text-white/40 mb-6">Sign the Clinical Trial Matching consent to browse and join research studies.</p>
+                      <p className="text-white/60 mb-6">Sign the Clinical Trial Matching consent to browse and join research studies.</p>
                       <button
                         onClick={() => setActiveTab('consent')}
                         className="px-6 py-3 bg-amber-500 text-black text-xs uppercase tracking-wider font-medium"
@@ -559,14 +559,14 @@ const PatientPortal = () => {
                       {/* My Enrollments */}
                       {myStudies.filter(s => s.status === 'enrolled').length > 0 && (
                         <div className="mb-12">
-                          <h3 className="text-sm uppercase tracking-wider text-white/40 mb-4">Studies You've Joined</h3>
+                          <h3 className="text-sm uppercase tracking-wider text-white/60 mb-4">Studies You've Joined</h3>
                           <div className="space-y-3">
                             {myStudies.filter(s => s.status === 'enrolled').map((s) => (
                               <div key={s.id} className="card-glass p-6 border-l-2 border-[#00d4aa]">
                                 <div className="flex items-start justify-between">
                                   <div>
                                     <h4 className="text-white font-medium mb-1">{s.study_name}</h4>
-                                    <p className="text-white/40 text-sm">Joined {new Date(s.enrolled_at).toLocaleDateString()}</p>
+                                    <p className="text-white/60 text-sm">Joined {new Date(s.enrolled_at).toLocaleDateString()}</p>
                                   </div>
                                   <button
                                     onClick={() => handleLeaveStudy(s.study_id)}
@@ -584,7 +584,7 @@ const PatientPortal = () => {
 
                       {/* Available Studies */}
                       <div>
-                        <h3 className="text-sm uppercase tracking-wider text-white/40 mb-4">Recruiting Now</h3>
+                        <h3 className="text-sm uppercase tracking-wider text-white/60 mb-4">Recruiting Now</h3>
                         {availableStudies.length > 0 ? (
                           <div className="space-y-3">
                             {availableStudies.map((study) => (
@@ -595,11 +595,11 @@ const PatientPortal = () => {
                                       <h4 className="text-white font-medium">{study.name}</h4>
                                       {study.already_enrolled && <span className="px-2 py-0.5 text-xs bg-[#00d4aa]/20 text-[#00d4aa]">JOINED</span>}
                                     </div>
-                                    {study.description && <p className="text-white/40 text-sm mb-3">{study.description}</p>}
+                                    {study.description && <p className="text-white/60 text-sm mb-3">{study.description}</p>}
                                     {study.eligibility_summary && (
-                                      <p className="text-white/50 text-sm mb-3"><span className="text-white/30 uppercase text-xs tracking-wider">Eligibility: </span>{study.eligibility_summary}</p>
+                                      <p className="text-white/50 text-sm mb-3"><span className="text-white/50 uppercase text-xs tracking-wider">Eligibility: </span>{study.eligibility_summary}</p>
                                     )}
-                                    <div className="flex items-center gap-4 text-white/30 text-xs">
+                                    <div className="flex items-center gap-4 text-white/50 text-xs">
                                       {study.principal_investigator && <span>PI: {study.principal_investigator}</span>}
                                       <span>{study.enrolled_count} participant{study.enrolled_count === 1 ? '' : 's'}</span>
                                     </div>
@@ -619,8 +619,8 @@ const PatientPortal = () => {
                           </div>
                         ) : (
                           <div className="card-glass p-8 text-center">
-                            <p className="text-white/40">No studies are currently recruiting</p>
-                            <p className="text-white/30 text-sm mt-2">Check back later for new research opportunities matching your profile.</p>
+                            <p className="text-white/60">No studies are currently recruiting</p>
+                            <p className="text-white/50 text-sm mt-2">Check back later for new research opportunities matching your profile.</p>
                           </div>
                         )}
                       </div>
@@ -635,14 +635,14 @@ const PatientPortal = () => {
               <motion.div key="data" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 <div className="max-w-4xl">
                   <h2 className="text-lg font-medium text-white mb-2">Your Contributed Data</h2>
-                  <p className="text-white/40 mb-8">View and manage the de-identified data you've contributed to the platform.</p>
+                  <p className="text-white/60 mb-8">View and manage the de-identified data you've contributed to the platform.</p>
 
                   {/* Requirement check */}
                   {!hasActiveResearchConsent ? (
                     <div className="card-glass p-8 text-center border border-amber-500/20">
                       <span className="text-4xl mb-4 block">🔒</span>
                       <h3 className="text-white font-medium mb-2">Consent Required</h3>
-                      <p className="text-white/40 mb-6">You must sign the Research Data Sharing consent before connecting your medical records.</p>
+                      <p className="text-white/60 mb-6">You must sign the Research Data Sharing consent before connecting your medical records.</p>
                       <button
                         onClick={() => setActiveTab('consent')}
                         className="px-6 py-3 bg-amber-500 text-black text-xs uppercase tracking-wider font-medium"
@@ -655,7 +655,7 @@ const PatientPortal = () => {
                       {/* Connected Sources */}
                       <div className="mb-8">
                         <div className="flex items-center justify-between mb-4">
-                          <h3 className="text-sm uppercase tracking-wider text-white/40">Connected Sources</h3>
+                          <h3 className="text-sm uppercase tracking-wider text-white/60">Connected Sources</h3>
                           <button
                             onClick={() => setShowConnectionModal(true)}
                             className="px-4 py-2 bg-white text-black text-xs uppercase tracking-wider font-medium hover:bg-gray-100 transition-colors"
@@ -672,12 +672,12 @@ const PatientPortal = () => {
                                   <div className={`w-3 h-3 rounded-full ${conn.connection_status === 'connected' ? 'bg-[#00d4aa]' : conn.connection_status === 'pending' ? 'bg-amber-500 animate-pulse' : 'bg-red-500'}`}></div>
                                   <div>
                                     <p className="text-white font-medium">{conn.source_name}</p>
-                                    <p className="text-white/40 text-sm">{conn.source_type.replace(/_/g, ' ')} • {conn.records_synced} records</p>
+                                    <p className="text-white/60 text-sm">{conn.source_type.replace(/_/g, ' ')} • {conn.records_synced} records</p>
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-4">
                                   {conn.last_sync && (
-                                    <span className="text-white/30 text-xs">Last sync: {new Date(conn.last_sync).toLocaleDateString()}</span>
+                                    <span className="text-white/50 text-xs">Last sync: {new Date(conn.last_sync).toLocaleDateString()}</span>
                                   )}
                                   <span className={`px-2 py-1 text-xs uppercase ${conn.connection_status === 'connected' ? 'bg-[#00d4aa]/20 text-[#00d4aa]' : conn.connection_status === 'pending' ? 'bg-amber-500/20 text-amber-500' : 'bg-red-500/20 text-red-400'}`}>
                                     {conn.connection_status}
@@ -690,7 +690,7 @@ const PatientPortal = () => {
                           <div className="card-glass p-8 text-center">
                             <span className="text-4xl mb-4 block">📋</span>
                             <h3 className="text-white font-medium mb-2">No Records Connected</h3>
-                            <p className="text-white/40 mb-6">Connect your medical records to start contributing to cancer research.</p>
+                            <p className="text-white/60 mb-6">Connect your medical records to start contributing to cancer research.</p>
                             <button
                               onClick={() => setShowConnectionModal(true)}
                               className="px-6 py-3 bg-white text-black text-xs uppercase tracking-wider font-medium"
@@ -704,7 +704,7 @@ const PatientPortal = () => {
                       {/* Extracted Data Summary */}
                       {extractedData.length > 0 && (
                         <div>
-                          <h3 className="text-sm uppercase tracking-wider text-white/40 mb-4">De-identified Data Summary</h3>
+                          <h3 className="text-sm uppercase tracking-wider text-white/60 mb-4">De-identified Data Summary</h3>
                           <div className="space-y-3">
                             {extractedData.map((data) => (
                               <div key={data.id} className="card-glass p-4">
@@ -712,7 +712,7 @@ const PatientPortal = () => {
                                   <div>
                                     <div className="flex items-center gap-2 mb-2">
                                       <span className="text-white font-medium">{data.data_category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
-                                      {data.data_type && <span className="text-white/40 text-sm">• {data.data_type}</span>}
+                                      {data.data_type && <span className="text-white/60 text-sm">• {data.data_type}</span>}
                                     </div>
                                     <div className="flex flex-wrap gap-2">
                                       {Object.entries(data.summary || {}).slice(0, 4).map(([key, value]) => (
@@ -724,7 +724,7 @@ const PatientPortal = () => {
                                   </div>
                                   <div className="text-right">
                                     <span className="text-[#00d4aa] text-sm font-mono">{Math.round(data.data_quality_score || 0)}%</span>
-                                    <p className="text-white/30 text-xs">quality</p>
+                                    <p className="text-white/50 text-xs">quality</p>
                                   </div>
                                 </div>
                               </div>
@@ -745,26 +745,41 @@ const PatientPortal = () => {
                   <div>
                     <h2 className="text-lg font-medium text-white mb-6">Your Rewards</h2>
                     <div className="card-glass p-8 mb-8">
-                      <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Available Balance</p>
+                      <p className="text-white/60 text-xs uppercase tracking-wider mb-2">Contribution points</p>
                       <p className="text-5xl font-light text-white font-mono mb-2">{profile?.points_balance || 0}</p>
-                      <p className="text-white/40 text-sm mb-4">≈ ${((profile?.points_balance || 0) / 100).toFixed(2)} value</p>
+                      <p className="text-white/50 text-sm mb-4">
+                        An internal counter with no monetary value.
+                      </p>
                       <div className="pt-4 border-t border-white/10 grid grid-cols-2 gap-4 text-sm">
                         <div>
-                          <p className="text-white/30">Total Earned</p>
+                          <p className="text-white/50">Total Earned</p>
                           <p className="text-white font-mono">{rewards?.total_earned || 0} pts</p>
                         </div>
                         <div>
-                          <p className="text-white/30">Redeemed</p>
+                          <p className="text-white/50">Redeemed</p>
                           <p className="text-white font-mono">{rewards?.total_redeemed || 0} pts</p>
                         </div>
                       </div>
                     </div>
+                    {/* Unconditionally disabled: there is no ledger, no
+                        redemption API and no fulfilment provider, so enabling
+                        this at any balance would promise something that does
+                        not exist. */}
                     <button
-                      disabled={!profile?.points_balance || profile.points_balance < 500}
-                      className="w-full py-3 bg-white text-black text-xs uppercase tracking-wider font-medium hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                      type="button"
+                      disabled
+                      aria-describedby="redeem-disabled-reason"
+                      className="w-full py-3 border border-white/20 text-white/60 text-xs uppercase tracking-wider font-medium cursor-not-allowed"
                     >
-                      Redeem Points (min 500)
+                      Redemption unavailable
                     </button>
+                    <p id="redeem-disabled-reason" className="text-xs text-white/50 mt-3">
+                      Points cannot be redeemed. A rewards programme is planned but
+                      not built: it needs an audited ledger, a redemption API, fraud
+                      controls, published terms, a tax review and a fulfilment
+                      provider, plus legal and IRB review, before anything can be
+                      offered.
+                    </p>
                   </div>
 
                   <div>
@@ -781,7 +796,7 @@ const PatientPortal = () => {
                             <span className="text-xl">{item.icon}</span>
                             <div>
                               <p className="text-white/80 text-sm">{item.action}</p>
-                              {item.note && <p className="text-white/30 text-xs">{item.note}</p>}
+                              {item.note && <p className="text-white/50 text-xs">{item.note}</p>}
                             </div>
                           </div>
                           <span className="text-[#00d4aa] font-mono">+{item.points}</span>
@@ -796,7 +811,7 @@ const PatientPortal = () => {
                           <div key={index} className="card-glass p-3 flex items-center justify-between">
                             <div>
                               <p className="text-white/70 text-sm">{item.activity}</p>
-                              <p className="text-white/30 text-xs">{item.date}</p>
+                              <p className="text-white/50 text-xs">{item.date}</p>
                             </div>
                             <span className="text-[#00d4aa] font-mono text-sm">+{item.points}</span>
                           </div>
@@ -804,7 +819,7 @@ const PatientPortal = () => {
                       </div>
                     ) : (
                       <div className="card-glass p-6 text-center">
-                        <p className="text-white/40 text-sm">No rewards activity yet</p>
+                        <p className="text-white/60 text-sm">No rewards activity yet</p>
                       </div>
                     )}
                   </div>
@@ -848,7 +863,7 @@ const PatientPortal = () => {
                 </div>
               </div>
               <div className="p-6 border-t border-white/10">
-                <p className="text-white/40 text-sm mb-4">
+                <p className="text-white/60 text-sm mb-4">
                   By clicking "I Agree", you confirm that you have read and understood this consent.
                 </p>
                 <div className="flex gap-4">
@@ -898,7 +913,7 @@ const PatientPortal = () => {
                 </button>
               </div>
               <div className="p-6 space-y-4">
-                <p className="text-white/40 text-sm mb-6">
+                <p className="text-white/60 text-sm mb-6">
                   Upload a FHIR export of your own records. Under your HIPAA right of access, your
                   provider must give you a machine-readable copy on request.
                 </p>
@@ -909,7 +924,7 @@ const PatientPortal = () => {
                     <p className="text-white font-medium">
                       {isSubmitting ? 'Importing…' : 'Upload health records (FHIR export)'}
                     </p>
-                    <p className="text-white/40 text-sm">Choose a JSON file exported by your patient portal</p>
+                    <p className="text-white/60 text-sm">Choose a JSON file exported by your patient portal</p>
                   </div>
                   <input
                     type="file"
@@ -922,14 +937,14 @@ const PatientPortal = () => {
 
                 <div className="border border-white/10 p-4 space-y-2">
                   <p className="text-white/60 text-xs uppercase tracking-wider">How to get your file</p>
-                  <ol className="text-white/40 text-xs leading-relaxed space-y-1 list-decimal list-inside">
+                  <ol className="text-white/60 text-xs leading-relaxed space-y-1 list-decimal list-inside">
                     <li>Epic MyChart: Menu → Sharing → Download My Record → Download (FHIR JSON).</li>
                     <li>Apple Health (iOS): Profile → Export All Health Data, then use the FHIR clinical records file.</li>
                     <li>Any portal: request your records in "USCDI / FHIR JSON" format.</li>
                   </ol>
                 </div>
 
-                <p className="text-white/40 text-xs leading-relaxed">
+                <p className="text-white/60 text-xs leading-relaxed">
                   Your file is de-identified in transit: names, addresses, contact details, record
                   numbers and exact dates are stripped before anything is stored. Only coded clinical
                   facts (conditions, medications, procedures, labs), age bands and years are kept.

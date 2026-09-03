@@ -135,6 +135,8 @@ const CohortBuilder = () => {
   // contributed. Loaded from the API — nothing here is assumed or estimated.
   const [variableInventory, setVariableInventory] = useState(null);
   const [inventoryError, setInventoryError] = useState(null);
+  // Being signed out is not an error; it needs an action, not a message.
+  const [needsSignIn, setNeedsSignIn] = useState(false);
 
   // Real study + regulatory state, loaded from the API.
   const [studies, setStudies] = useState([]);
@@ -201,9 +203,10 @@ const CohortBuilder = () => {
   // Load the measured variable inventory and the researcher's real studies
   useEffect(() => {
     if (!sessionStorage.getItem('token')) {
-      setInventoryError('Sign in as a researcher to load the variable inventory.');
+      setNeedsSignIn(true);
       return;
     }
+    setNeedsSignIn(false);
     fetch(`${API_URL}/api/cohort/variables`, { headers: authHeaders() })
       .then(async res => {
         if (!res.ok) throw new Error((await res.json()).detail || 'Failed to load variables');
@@ -365,17 +368,17 @@ const CohortBuilder = () => {
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <Link to="/research" className="text-white/40 text-sm hover:text-white/60 mb-4 inline-block">
+          <Link to="/research" className="text-white/60 text-sm hover:text-white/60 mb-4 inline-block">
             ← Back to Dashboard
           </Link>
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-semibold">Cohort Builder</h1>
-              <p className="text-white/40 text-sm">Define criteria, select variables, complete regulatory</p>
+              <p className="text-white/60 text-sm">Define criteria, select variables, complete regulatory</p>
             </div>
             {studyName && (
               <div className="text-right">
-                <div className="text-xs text-white/40">Study Name</div>
+                <div className="text-xs text-white/60">Study Name</div>
                 <div className="text-emerald-400">{studyName}</div>
               </div>
             )}
@@ -390,7 +393,7 @@ const CohortBuilder = () => {
                 onClick={() => i + 1 <= step && setStep(i + 1)}
                 className={`flex items-center gap-2 px-3 py-1.5 transition-colors ${
                   step === i + 1 ? 'bg-emerald-500/20 text-emerald-400' : 
-                  step > i + 1 ? 'bg-white/10 text-white/60 hover:bg-white/20' : 'bg-white/5 text-white/30'
+                  step > i + 1 ? 'bg-white/10 text-white/60 hover:bg-white/20' : 'bg-white/5 text-white/50'
                 }`}
               >
                 <span className={`w-5 h-5 flex items-center justify-center text-xs ${
@@ -458,7 +461,7 @@ const CohortBuilder = () => {
                         exit={{ opacity: 0, height: 0 }}
                         className="flex items-center gap-2 bg-white/5 p-3"
                       >
-                        <span className="text-xs text-white/40 w-24 truncate">
+                        <span className="text-xs text-white/60 w-24 truncate">
                           {fieldDefinitions[rule.field]?.label || rule.field}
                         </span>
                         <span className="text-xs text-emerald-400 px-2 py-0.5 bg-emerald-500/10">
@@ -467,7 +470,7 @@ const CohortBuilder = () => {
                         <span className="flex-1 text-sm">{rule.value}</span>
                         <button 
                           onClick={() => removeRule('inclusion', rule.id)}
-                          className="text-white/30 hover:text-red-400 p-1 text-lg"
+                          className="text-white/50 hover:text-red-400 p-1 text-lg"
                         >
                           ×
                         </button>
@@ -475,7 +478,7 @@ const CohortBuilder = () => {
                     ))}
                   </AnimatePresence>
                   {inclusions.length === 0 && (
-                    <div className="text-center text-white/30 py-4 text-sm">
+                    <div className="text-center text-white/50 py-4 text-sm">
                       No inclusion criteria. Add at least one rule.
                     </div>
                   )}
@@ -513,12 +516,12 @@ const CohortBuilder = () => {
                           }}
                           className="rounded bg-white/10 border-white/20 text-emerald-500 focus:ring-emerald-500"
                         />
-                        <span className={`flex-1 text-sm ${rule.enabled ? '' : 'text-white/30 line-through'}`}>
+                        <span className={`flex-1 text-sm ${rule.enabled ? '' : 'text-white/50 line-through'}`}>
                           {fieldDefinitions[rule.field]?.label || rule.field} {rule.operator} {rule.value}
                         </span>
                         <button 
                           onClick={() => removeRule('exclusion', rule.id)}
-                          className="text-white/30 hover:text-red-400 p-1 text-lg"
+                          className="text-white/50 hover:text-red-400 p-1 text-lg"
                         >
                           ×
                         </button>
@@ -526,7 +529,7 @@ const CohortBuilder = () => {
                     ))}
                   </AnimatePresence>
                   {exclusions.length === 0 && (
-                    <div className="text-center text-white/30 py-4 text-sm">
+                    <div className="text-center text-white/50 py-4 text-sm">
                       No exclusion criteria (optional)
                     </div>
                   )}
@@ -560,7 +563,7 @@ const CohortBuilder = () => {
                       <div className="text-4xl font-bold text-emerald-400">
                         {(cohortResult?.patient_count ?? 0).toLocaleString()}
                       </div>
-                      <div className="text-white/40 text-sm">eligible patients</div>
+                      <div className="text-white/60 text-sm">eligible patients</div>
                     </div>
 
                     <div className="space-y-2 mb-4">
@@ -571,7 +574,7 @@ const CohortBuilder = () => {
                         ['Data points', cohortResult?.data_points],
                       ].map(([label, value]) => (
                         <div key={label} className="flex items-center justify-between text-sm">
-                          <span className="text-white/40">{label}</span>
+                          <span className="text-white/60">{label}</span>
                           <span className="text-white font-mono">{(value ?? 0).toLocaleString()}</span>
                         </div>
                       ))}
@@ -579,11 +582,11 @@ const CohortBuilder = () => {
 
                     {institutions.length > 0 && (
                       <div className="space-y-2">
-                        <div className="text-xs uppercase tracking-wider text-white/40">Sites you can file a study with</div>
+                        <div className="text-xs uppercase tracking-wider text-white/60">Sites you can file a study with</div>
                         {institutions.map(inst => (
                           <div key={inst.id} className="bg-white/5 p-3 text-sm">
                             <div className="font-medium">{inst.name}</div>
-                            <div className="text-white/30 text-xs">
+                            <div className="text-white/50 text-xs">
                               {[inst.city, inst.state].filter(Boolean).join(', ')}
                               {inst.emr_system ? ` \u00b7 ${inst.emr_system}` : ''}
                             </div>
@@ -600,7 +603,7 @@ const CohortBuilder = () => {
                   className={`w-full mt-4 py-2 font-medium transition-colors ${
                     feasibilityRun 
                       ? 'bg-white/10 hover:bg-white/20 text-white' 
-                      : 'bg-white/5 text-white/30 cursor-not-allowed'
+                      : 'bg-white/5 text-white/50 cursor-not-allowed'
                   }`}
                 >
                   Select Variables →
@@ -612,11 +615,11 @@ const CohortBuilder = () => {
                 <h3 className="text-sm font-medium mb-3">Criteria Summary</h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-white/40">Inclusions</span>
+                    <span className="text-white/60">Inclusions</span>
                     <span className="text-emerald-400">{inclusions.length}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-white/40">Exclusions</span>
+                    <span className="text-white/60">Exclusions</span>
                     <span className="text-amber-400">{exclusions.filter(e => e.enabled).length}</span>
                   </div>
                 </div>
@@ -632,18 +635,42 @@ const CohortBuilder = () => {
               <div className="bg-white/5 border border-white/10 p-5">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="font-medium">Select Variables</h2>
-                  <div className="text-xs text-white/40">
+                  <div className="text-xs text-white/60">
                     {totalVars} selected
                   </div>
                 </div>
-                {inventoryError && (
-                  <p className="text-amber-400 text-sm">{inventoryError}</p>
+                {needsSignIn && (
+                  <div className="border border-white/15 bg-white/5 p-5">
+                    <h3 className="text-white font-medium mb-2">Sign in required</h3>
+                    <p className="text-white/60 text-sm mb-4">
+                      The variable inventory and cohort sizing are only available to
+                      approved researchers. Sign in, or create an account and request
+                      approval.
+                    </p>
+                    <div className="flex flex-wrap gap-3">
+                      <Link
+                        to="/login"
+                        className="px-5 py-2 bg-white text-black text-sm font-medium hover:bg-gray-100 transition-colors"
+                      >
+                        Sign in
+                      </Link>
+                      <Link
+                        to="/register?type=researcher"
+                        className="px-5 py-2 border border-white/25 text-sm text-white hover:bg-white/5 transition-colors"
+                      >
+                        Create an account
+                      </Link>
+                    </div>
+                  </div>
+                )}
+                {inventoryError && !needsSignIn && (
+                  <p className="text-amber-300 text-sm" role="alert">{inventoryError}</p>
                 )}
                 {!inventoryError && !variableInventory && (
-                  <p className="text-white/40 text-sm">Loading variable inventory…</p>
+                  <p className="text-white/60 text-sm">Loading variable inventory…</p>
                 )}
                 {variableInventory && variableInventory.categories.length === 0 && (
-                  <div className="text-sm text-white/40 space-y-2">
+                  <div className="text-sm text-white/60 space-y-2">
                     <p>No variables are available yet.</p>
                     <p className="text-xs">
                       Variables appear here once enough consented patients have contributed records.
@@ -708,7 +735,7 @@ const CohortBuilder = () => {
                   </div>
                 )}
                 {variableInventory && (
-                  <p className="text-white/30 text-xs mt-4">
+                  <p className="text-white/50 text-xs mt-4">
                     Completeness is measured against {variableInventory.total_patients} contributing
                     {variableInventory.total_patients === 1 ? ' patient' : ' patients'}
                     {variableInventory.suppressed_variables > 0 &&
@@ -725,7 +752,7 @@ const CohortBuilder = () => {
                 <div className="space-y-3 mb-4">
                   {Object.entries(selectedVars).map(([cat, vars]) => vars.length > 0 && (
                     <div key={cat} className="text-sm flex justify-between">
-                      <span className="text-white/40 capitalize">{cat}</span>
+                      <span className="text-white/60 capitalize">{cat}</span>
                       <span className="text-emerald-400">{vars.length}</span>
                     </div>
                   ))}
@@ -734,7 +761,7 @@ const CohortBuilder = () => {
                     <span className="text-emerald-400">{totalVars}</span>
                   </div>
                   {totalVars === 0 && (
-                    <p className="text-white/30 text-xs">
+                    <p className="text-white/50 text-xs">
                       Nothing selected — the extract will include every field available for the cohort.
                     </p>
                   )}
@@ -743,7 +770,7 @@ const CohortBuilder = () => {
                 {avgCompleteness() !== null && (
                   <div className="bg-white/5 p-3 mb-4">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-white/40">Measured completeness</span>
+                      <span className="text-white/60">Measured completeness</span>
                       <span className={
                         avgCompleteness() >= 85 ? 'text-emerald-400' :
                         avgCompleteness() >= 70 ? 'text-amber-400' :
@@ -773,7 +800,7 @@ const CohortBuilder = () => {
               <div className="bg-white/5 border border-white/10 p-5">
                 <h3 className="text-sm font-medium mb-3">Cohort</h3>
                 <div className="text-2xl font-bold text-emerald-400 mb-1">{(cohortResult?.patient_count ?? 0).toLocaleString()}</div>
-                <div className="text-xs text-white/40">consented and matching</div>
+                <div className="text-xs text-white/60">consented and matching</div>
               </div>
             </div>
           </div>
@@ -787,7 +814,7 @@ const CohortBuilder = () => {
                 <h2 className="font-medium mb-4">Study</h2>
                 {studies.length > 0 && (
                   <div className="mb-4">
-                    <label className="block text-xs uppercase tracking-wider text-white/40 mb-2">
+                    <label className="block text-xs uppercase tracking-wider text-white/60 mb-2">
                       Attach this cohort to a study
                     </label>
                     <select
@@ -818,7 +845,7 @@ const CohortBuilder = () => {
                   </button>
                 </div>
                 {studies.length === 0 && (
-                  <p className="text-white/40 text-xs mt-3">
+                  <p className="text-white/60 text-xs mt-3">
                     You have no studies yet. Create one to submit regulatory documents against it.
                   </p>
                 )}
@@ -827,7 +854,7 @@ const CohortBuilder = () => {
               <div className="bg-white/5 border border-white/10 p-5">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="font-medium">Regulatory Pipeline</h2>
-                  <div className="text-xs text-white/40">
+                  <div className="text-xs text-white/60">
                     {approvedDocs.length}/{regDocuments.length} approved
                   </div>
                 </div>
@@ -835,9 +862,9 @@ const CohortBuilder = () => {
                 {regError && <p className="text-red-400 text-sm mb-3">{regError}</p>}
 
                 {!activeStudyId ? (
-                  <p className="text-white/40 text-sm">Select or create a study to see its regulatory status.</p>
+                  <p className="text-white/60 text-sm">Select or create a study to see its regulatory status.</p>
                 ) : regDocuments.length === 0 ? (
-                  <p className="text-white/40 text-sm">
+                  <p className="text-white/60 text-sm">
                     No documents submitted yet. Submit an IRB protocol and a data use agreement below —
                     both must be approved by a reviewer before any extraction can run.
                   </p>
@@ -860,7 +887,7 @@ const CohortBuilder = () => {
                               <div className="font-medium text-sm capitalize">
                                 {String(doc.document_type || '').replace(/_/g, ' ')}
                               </div>
-                              <div className="text-xs text-white/40">
+                              <div className="text-xs text-white/60">
                                 {doc.protocol_number ? `${doc.protocol_number} · ` : ''}
                                 {doc.status}
                                 {doc.approved_at ? ` · approved ${new Date(doc.approved_at).toLocaleDateString()}` : ''}
@@ -896,7 +923,7 @@ const CohortBuilder = () => {
                     Submit reliance agreement
                   </button>
                 </div>
-                <p className="text-white/30 text-xs mt-3">
+                <p className="text-white/50 text-xs mt-3">
                   Submissions are reviewed by an institutional reviewer. You cannot approve your own
                   submission, and extraction stays blocked until the IRB protocol and DUA are both approved.
                 </p>
@@ -908,24 +935,24 @@ const CohortBuilder = () => {
                 <h3 className="text-sm font-medium mb-3">Study Summary</h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-white/40">Patients</span>
+                    <span className="text-white/60">Patients</span>
                     <span>{(cohortResult?.patient_count ?? 0).toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-white/40">Variables</span>
+                    <span className="text-white/60">Variables</span>
                     <span>{totalVars}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-white/40">Sites</span>
+                    <span className="text-white/60">Sites</span>
                     <span>{siteCount}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-white/40">IRB approved</span>
-                    <span className={hasIrb ? 'text-emerald-400' : 'text-white/40'}>{hasIrb ? 'Yes' : 'No'}</span>
+                    <span className="text-white/60">IRB approved</span>
+                    <span className={hasIrb ? 'text-emerald-400' : 'text-white/60'}>{hasIrb ? 'Yes' : 'No'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-white/40">DUA approved</span>
-                    <span className={hasDua ? 'text-emerald-400' : 'text-white/40'}>{hasDua ? 'Yes' : 'No'}</span>
+                    <span className="text-white/60">DUA approved</span>
+                    <span className={hasDua ? 'text-emerald-400' : 'text-white/60'}>{hasDua ? 'Yes' : 'No'}</span>
                   </div>
                 </div>
               </div>
@@ -975,7 +1002,7 @@ const CohortBuilder = () => {
                           }`}
                         >
                           <div className="font-medium text-sm">{opt.label}</div>
-                          <div className="text-xs text-white/40">{opt.desc}</div>
+                          <div className="text-xs text-white/60">{opt.desc}</div>
                         </button>
                       ))}
                     </div>
@@ -999,7 +1026,7 @@ const CohortBuilder = () => {
                           }`}
                         >
                           <div className="font-medium text-sm">{opt.label}</div>
-                          <div className="text-xs text-white/40">{opt.desc}</div>
+                          <div className="text-xs text-white/60">{opt.desc}</div>
                         </button>
                       ))}
                     </div>
@@ -1013,15 +1040,15 @@ const CohortBuilder = () => {
                       <div className="text-2xl font-bold text-emerald-400">
                         {(cohortResult?.patient_count ?? 0).toLocaleString()}
                       </div>
-                      <div className="text-xs text-white/40">Patients</div>
+                      <div className="text-xs text-white/60">Patients</div>
                     </div>
                     <div>
                       <div className="text-2xl font-bold">{totalVars}</div>
-                      <div className="text-xs text-white/40">Variables</div>
+                      <div className="text-xs text-white/60">Variables</div>
                     </div>
                     <div>
                       <div className="text-2xl font-bold">{siteCount}</div>
-                      <div className="text-xs text-white/40">Sites</div>
+                      <div className="text-xs text-white/60">Sites</div>
                     </div>
                   </div>
                 </div>
@@ -1062,30 +1089,30 @@ const CohortBuilder = () => {
                 <h2 className="text-xl font-semibold mb-2">
                   {extractJob.status === 'completed' ? 'Extraction Complete' : 'Extraction Queued'}
                 </h2>
-                <p className="text-white/40 mb-6">
+                <p className="text-white/60 mb-6">
                   {(extractJob.patient_count ?? 0).toLocaleString()} patients · {totalVars} variables
                 </p>
 
                 <div className="bg-white/5 p-4 text-left mb-6">
                   <div className="text-sm space-y-2">
                     <div className="flex justify-between gap-4">
-                      <span className="text-white/40">Job ID</span>
+                      <span className="text-white/60">Job ID</span>
                       <span className="font-mono text-emerald-400 break-all">{extractJob.job_id}</span>
                     </div>
                     <div className="flex justify-between gap-4">
-                      <span className="text-white/40">Status</span>
+                      <span className="text-white/60">Status</span>
                       <span>{extractJob.status}</span>
                     </div>
                     <div className="flex justify-between gap-4">
-                      <span className="text-white/40">Study</span>
+                      <span className="text-white/60">Study</span>
                       <span>{studies.find(st => st.id === activeStudyId)?.name || studyName}</span>
                     </div>
                     <div className="flex justify-between gap-4">
-                      <span className="text-white/40">Format</span>
+                      <span className="text-white/60">Format</span>
                       <span>{outputFormat.toUpperCase()}</span>
                     </div>
                     <div className="flex justify-between gap-4">
-                      <span className="text-white/40">De-identification</span>
+                      <span className="text-white/60">De-identification</span>
                       <span>{deidentLevel.replace(/_/g, ' ')}</span>
                     </div>
                   </div>
@@ -1219,7 +1246,7 @@ const CohortBuilder = () => {
                   className={`flex-1 py-2 text-sm font-medium transition-colors ${
                     newRule.field && newRule.value
                       ? 'bg-emerald-500 hover:bg-emerald-400 text-black'
-                      : 'bg-white/10 text-white/30 cursor-not-allowed'
+                      : 'bg-white/10 text-white/50 cursor-not-allowed'
                   }`}
                 >
                   Add Rule

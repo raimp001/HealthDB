@@ -37,7 +37,7 @@ export const StatusRow = ({ featureKey }) => {
         <div className="text-sm text-white/80">{feature.name}</div>
         {feature.note && <p className="text-xs text-white/50 mt-1">{feature.note}</p>}
         {feature.evidence && (
-          <p className="text-xs text-white/35 mt-1 font-mono break-all">{feature.evidence}</p>
+          <p className="text-xs text-white/50 mt-1 font-mono break-all">{feature.evidence}</p>
         )}
       </div>
       <StatusBadge featureKey={featureKey} />

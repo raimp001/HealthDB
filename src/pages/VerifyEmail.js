@@ -33,7 +33,7 @@ const VerifyEmail = () => {
   }, [token]);
 
   const copy = {
-    verifying: { title: 'Verifying your address…', tone: 'text-white/40' },
+    verifying: { title: 'Verifying your address…', tone: 'text-white/60' },
     done: { title: 'Address verified', tone: 'text-emerald-400' },
     error: { title: 'That link did not work', tone: 'text-red-400' },
     missing: { title: 'No verification token', tone: 'text-amber-400' },
@@ -48,7 +48,7 @@ const VerifyEmail = () => {
         className="relative z-10 w-full max-w-md text-center"
       >
         <h1 className={`text-2xl font-bold mb-3 ${copy.tone}`}>{copy.title}</h1>
-        <p className="text-white/40 text-sm mb-8">
+        <p className="text-white/60 text-sm mb-8">
           {state.status === 'missing'
             ? 'Open the link from your verification email to continue.'
             : state.message || 'Verification links expire after 48 hours and work once.'}

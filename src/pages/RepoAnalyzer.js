@@ -210,7 +210,7 @@ const RepoAnalyzer = () => {
       <div className="max-w-6xl mx-auto px-6 py-16">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
           <h1 className="text-4xl md:text-5xl font-bold mb-4">Target Module Map</h1>
-          <p className="text-white/40 max-w-2xl mb-12">
+          <p className="text-white/60 max-w-2xl mb-12">
             Inferred labels across all HealthDB modules: data sources, PHI entry points, de-identification steps, and authorization boundaries.
           </p>
         </motion.div>
@@ -226,7 +226,7 @@ const RepoAnalyzer = () => {
               key={v}
               onClick={() => setActiveView(v)}
               className={`px-4 py-2 text-sm border transition-colors ${
-                activeView === v ? 'bg-white/10 border-white/20 text-white' : 'border-white/5 text-white/40 hover:text-white/70'
+                activeView === v ? 'bg-white/10 border-white/20 text-white' : 'border-white/5 text-white/60 hover:text-white/70'
               }`}
             >
               {v}
@@ -247,7 +247,7 @@ const RepoAnalyzer = () => {
               ].map((s) => (
                 <div key={s.label} className="p-4 border border-white/10 text-center">
                   <div className={`text-2xl font-bold ${s.color}`}>{s.value}</div>
-                  <div className="text-xs text-white/30 uppercase tracking-wider mt-1">{s.label}</div>
+                  <div className="text-xs text-white/50 uppercase tracking-wider mt-1">{s.label}</div>
                 </div>
               ))}
             </div>
@@ -257,7 +257,7 @@ const RepoAnalyzer = () => {
                 <div key={m.id} className="p-4 border border-white/10 flex items-center justify-between">
                   <div>
                     <span className="text-white font-medium font-mono text-sm">{m.name}/</span>
-                    <span className="text-white/40 text-sm ml-3">{m.description}</span>
+                    <span className="text-white/60 text-sm ml-3">{m.description}</span>
                   </div>
                   <div className="flex gap-3 text-xs">
                     <span className="text-cyan-400">{m.dataSources.length} src</span>
@@ -279,7 +279,7 @@ const RepoAnalyzer = () => {
                   key={m.id}
                   onClick={() => setSelectedModule(m.id)}
                   className={`px-3 py-1.5 text-xs font-mono border transition-colors ${
-                    selectedModule === m.id ? 'bg-white/10 border-white/20 text-white' : 'border-white/5 text-white/40 hover:text-white/70'
+                    selectedModule === m.id ? 'bg-white/10 border-white/20 text-white' : 'border-white/5 text-white/60 hover:text-white/70'
                   }`}
                 >
                   {m.name}/
@@ -292,7 +292,7 @@ const RepoAnalyzer = () => {
                 <h3 className="font-bold mb-2">{selected.name}/</h3>
                 <p className="text-sm text-white/50 mb-4">{selected.description}</p>
 
-                <h4 className="text-xs text-white/30 uppercase tracking-wider mb-2">Data Sources</h4>
+                <h4 className="text-xs text-white/50 uppercase tracking-wider mb-2">Data Sources</h4>
                 <div className="flex flex-wrap gap-2 mb-4">
                   {selected.dataSources.map((ds) => (
                     <span key={ds.name} className="text-xs px-2 py-1 border border-cyan-400/20 text-cyan-400">
@@ -301,7 +301,7 @@ const RepoAnalyzer = () => {
                   ))}
                 </div>
 
-                <h4 className="text-xs text-white/30 uppercase tracking-wider mb-2">PHI Entry Points</h4>
+                <h4 className="text-xs text-white/50 uppercase tracking-wider mb-2">PHI Entry Points</h4>
                 <div className="space-y-2 mb-4">
                   {selected.phiEntryPoints.map((p) => (
                     <div key={p.location} className="flex items-start gap-3 text-sm">
@@ -310,24 +310,24 @@ const RepoAnalyzer = () => {
                         p.risk === 'high' ? 'border-red-400/50 text-red-400' :
                         p.risk === 'medium' ? 'border-amber-400/50 text-amber-400' :
                         p.risk === 'low' ? 'border-emerald-400/50 text-emerald-400' :
-                        'border-white/10 text-white/30'
+                        'border-white/10 text-white/50'
                       }`}>{p.risk}</span>
                       <div>
                         <div className="text-white/70 font-mono text-xs">{p.location}</div>
-                        <div className="text-white/40">{p.detail}</div>
+                        <div className="text-white/60">{p.detail}</div>
                       </div>
                     </div>
                   ))}
                 </div>
 
-                <h4 className="text-xs text-white/30 uppercase tracking-wider mb-2">De-identification Steps</h4>
+                <h4 className="text-xs text-white/50 uppercase tracking-wider mb-2">De-identification Steps</h4>
                 <ul className="space-y-1 mb-4">
                   {selected.deIdSteps.map((step) => (
                     <li key={step} className="text-sm text-white/50">✓ {step}</li>
                   ))}
                 </ul>
 
-                <h4 className="text-xs text-white/30 uppercase tracking-wider mb-2">Auth Boundaries</h4>
+                <h4 className="text-xs text-white/50 uppercase tracking-wider mb-2">Auth Boundaries</h4>
                 <ul className="space-y-1">
                   {selected.authBoundaries.map((ab) => (
                     <li key={ab} className="text-sm text-white/50">🔒 {ab}</li>

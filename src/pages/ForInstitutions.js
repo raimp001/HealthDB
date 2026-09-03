@@ -20,7 +20,7 @@ const ForInstitutions = () => {
               <br />
               <span className="text-white/50">Compliance</span>
             </h1>
-            <p className="text-lg text-white/40 max-w-xl mb-10">
+            <p className="text-lg text-white/60 max-w-xl mb-10">
               Record-keeping for IRB protocols, agreements and site collaborations. 
               Join the network that removes regulatory friction.
             </p>
@@ -63,10 +63,10 @@ const ForInstitutions = () => {
             ].map((item, i) => (
               <div key={i} className="p-6 border border-white/10">
                 <h3 className="font-medium text-lg mb-3">{item.title}</h3>
-                <p className="text-white/40 text-sm mb-6">{item.desc}</p>
+                <p className="text-white/60 text-sm mb-6">{item.desc}</p>
                 <div className="pt-4 border-t border-white/5">
                   <div className="text-2xl font-bold">{item.stat}</div>
-                  <div className="text-xs text-white/30 uppercase tracking-wider">{item.statLabel}</div>
+                  <div className="text-xs text-white/50 uppercase tracking-wider">{item.statLabel}</div>
                 </div>
               </div>
             ))}
@@ -78,7 +78,7 @@ const ForInstitutions = () => {
       <section className="py-20 px-6 border-t border-white/5">
         <div className="max-w-5xl mx-auto">
           <h2 className="text-2xl font-bold mb-4">Regulatory Dashboard</h2>
-          <p className="text-white/40 mb-12">Everything in one place</p>
+          <p className="text-white/60 mb-12">Everything in one place</p>
           
           <div className="grid md:grid-cols-2 gap-8">
             <div className="p-6 border border-white/10 bg-white/[0.02]">
@@ -134,7 +134,7 @@ const ForInstitutions = () => {
           <div className="grid md:grid-cols-2 gap-16 items-center">
             <div>
               <h2 className="text-2xl font-bold mb-4">EMR Integration</h2>
-              <p className="text-white/40 mb-8">
+              <p className="text-white/60 mb-8">
                 Connect your EHR system to enable patient-consented data extraction. 
                 We support all major vendors with FHIR R4 and bulk data APIs.
               </p>
@@ -164,7 +164,7 @@ const ForInstitutions = () => {
       <section className="py-20 px-6 border-t border-white/5">
         <div className="max-w-5xl mx-auto">
           <h2 className="text-2xl font-bold mb-4">Security & Compliance</h2>
-          <p className="text-white/40 text-sm mb-12 max-w-2xl">
+          <p className="text-white/60 text-sm mb-12 max-w-2xl">
             HealthDB has no completed third-party certifications. Below is what is
             implemented in the platform today, and what is not yet in place.
           </p>
@@ -181,7 +181,7 @@ const ForInstitutions = () => {
             ].map((item, i) => (
               <div key={i} className="p-6 border border-emerald-400/20">
                 <div className="text-sm font-bold mb-2">{item.title}</div>
-                <div className="text-xs text-white/40">{item.desc}</div>
+                <div className="text-xs text-white/60">{item.desc}</div>
               </div>
             ))}
           </div>
@@ -217,7 +217,7 @@ const ForInstitutions = () => {
               <div key={i} className="p-5 border border-white/10 relative">
                 <div className="text-xs text-purple-400 mb-2">{item.time}</div>
                 <h3 className="font-medium mb-2">{item.title}</h3>
-                <p className="text-xs text-white/40">{item.desc}</p>
+                <p className="text-xs text-white/60">{item.desc}</p>
               </div>
             ))}
           </div>
@@ -228,7 +228,7 @@ const ForInstitutions = () => {
       <section className="py-20 px-6 border-t border-white/5">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-3xl font-bold mb-4">Join the Network</h2>
-          <p className="text-white/40 mb-8">
+          <p className="text-white/60 mb-8">
             Partner with 50+ academic medical centers and research institutions
           </p>
           <div className="flex gap-4 justify-center">

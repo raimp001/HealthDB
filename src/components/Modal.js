@@ -62,7 +62,7 @@ const Modal = ({ open, title, description, onClose, children, labelledBy = 'moda
       >
         <div className="p-6 border-b border-white/10">
           <h2 id={labelledBy} className="text-lg font-medium">{title}</h2>
-          {description && <p className="text-sm text-white/40 mt-1">{description}</p>}
+          {description && <p className="text-sm text-white/60 mt-1">{description}</p>}
         </div>
         <div className="p-6">{children}</div>
       </div>

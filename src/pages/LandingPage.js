@@ -23,7 +23,7 @@ const LandingPage = () => {
               <span className="text-white/50">oncology research cohorts</span>
             </h1>
             
-            <p className="text-lg text-white/40 max-w-xl mx-auto mb-10">
+            <p className="text-lg text-white/60 max-w-xl mx-auto mb-10">
               Patients contribute their own records. HealthDB de-identifies them. Approved
               researchers run aggregate cohort feasibility.
             </p>
@@ -44,7 +44,7 @@ const LandingPage = () => {
               <span className="text-amber-400 text-xs uppercase tracking-wider whitespace-nowrap">
                 Closed pilot
               </span>
-              <span className="text-white/40 text-sm">
+              <span className="text-white/60 text-sm">
                 Onboarding research partners — not yet open for self-service use
               </span>
             </div>
@@ -55,7 +55,7 @@ const LandingPage = () => {
       {/* Standards the platform builds on. Not partners, not endorsements. */}
       <section className="py-12 border-y border-white/5">
         <div className="max-w-4xl mx-auto px-6">
-          <p className="text-center text-xs text-white/30 uppercase tracking-wider mb-6">
+          <p className="text-center text-xs text-white/50 uppercase tracking-wider mb-6">
             Built on open healthcare standards
           </p>
           <div className="flex flex-wrap justify-center items-center gap-12 opacity-40">
@@ -80,28 +80,28 @@ const LandingPage = () => {
                   <span className="text-emerald-400">1</span>
                   <div>
                     <div className="text-white">Define cohort</div>
-                    <div className="text-white/40">ICD-10, treatments, outcomes</div>
+                    <div className="text-white/60">ICD-10, treatments, outcomes</div>
                   </div>
                 </div>
                 <div className="flex gap-4">
                   <span className="text-emerald-400">2</span>
                   <div>
                     <div className="text-white">Run feasibility</div>
-                    <div className="text-white/40">Instant N counts</div>
+                    <div className="text-white/60">Instant N counts</div>
                   </div>
                 </div>
                 <div className="flex gap-4">
                   <span className="text-emerald-400">3</span>
                   <div>
                     <div className="text-white">Prepare IRB protocol</div>
-                    <div className="text-white/40">Draft generated from your cohort</div>
+                    <div className="text-white/60">Draft generated from your cohort</div>
                   </div>
                 </div>
                 <div className="flex gap-4">
                   <span className="text-emerald-400">4</span>
                   <div>
                     <div className="text-white">Receive dataset</div>
-                    <div className="text-white/40">After approval</div>
+                    <div className="text-white/60">After approval</div>
                   </div>
                 </div>
               </div>
@@ -117,28 +117,28 @@ const LandingPage = () => {
                   <span className="text-blue-400">1</span>
                   <div>
                     <div className="text-white">Connect records</div>
-                    <div className="text-white/40">Epic MyChart or manual</div>
+                    <div className="text-white/60">Epic MyChart or manual</div>
                   </div>
                 </div>
                 <div className="flex gap-4">
                   <span className="text-blue-400">2</span>
                   <div>
                     <div className="text-white">Choose consent level</div>
-                    <div className="text-white/40">Granular control</div>
+                    <div className="text-white/60">Granular control</div>
                   </div>
                 </div>
                 <div className="flex gap-4">
                   <span className="text-blue-400">3</span>
                   <div>
                     <div className="text-white">Contribute data</div>
-                    <div className="text-white/40">Help future patients</div>
+                    <div className="text-white/60">Help future patients</div>
                   </div>
                 </div>
                 <div className="flex gap-4">
                   <span className="text-blue-400">4</span>
                   <div>
                     <div className="text-white">Track how it is used</div>
-                    <div className="text-white/40">Full access log, revoke anytime</div>
+                    <div className="text-white/60">Full access log, revoke anytime</div>
                   </div>
                 </div>
               </div>
@@ -173,7 +173,7 @@ const LandingPage = () => {
               <li>FHIR-based record import</li>
               <li>Aggregate cohort feasibility with small-cell suppression</li>
             </ul>
-            <p className="text-xs text-white/30 mt-4">
+            <p className="text-xs text-white/50 mt-4">
               IRB reliance, executed DUAs and direct EMR integration are planned, not yet in place.
             </p>
           </div>
@@ -184,7 +184,7 @@ const LandingPage = () => {
       <section className="py-24 px-6 border-t border-white/5">
         <div className="max-w-5xl mx-auto">
           <h2 className="text-3xl font-bold mb-4">Where HealthDB is heading</h2>
-          <p className="text-white/40 mb-12">Six planned infrastructure modules. Most are not built yet — each page marks what exists today.</p>
+          <p className="text-white/60 mb-12">Six planned infrastructure modules. Most are not built yet — each page marks what exists today.</p>
           <div className="grid md:grid-cols-3 gap-6">
             {[
               { icon: '⚡', title: 'FHIR/HL7 Ingestion', desc: 'FHIR R4, Bulk FHIR, HL7v2 ingestion with OMOP CDM normalization', color: 'text-emerald-400' },
@@ -197,7 +197,7 @@ const LandingPage = () => {
               <div key={item.title} className="p-6 border border-white/10 card-hover">
                 <div className={`text-2xl mb-3`}>{item.icon}</div>
                 <h3 className={`font-medium mb-2 ${item.color}`}>{item.title}</h3>
-                <p className="text-sm text-white/40">{item.desc}</p>
+                <p className="text-sm text-white/60">{item.desc}</p>
               </div>
             ))}
           </div>
@@ -219,7 +219,7 @@ const LandingPage = () => {
       <section className="py-24 px-6 border-t border-white/5">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-3xl font-bold mb-4">Start your research</h2>
-          <p className="text-white/40 mb-8">Get from hypothesis to data in weeks</p>
+          <p className="text-white/60 mb-8">Get from hypothesis to data in weeks</p>
           <div className="flex gap-4 justify-center">
             <Link to="/contact" className="px-8 py-3 bg-white text-black font-medium hover:bg-gray-100 transition-colors">
               Talk to Us

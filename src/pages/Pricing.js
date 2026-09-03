@@ -17,7 +17,7 @@ const Pricing = () => {
             <h1 className="text-4xl md:text-5xl font-bold mb-6">
               Simple, transparent
             </h1>
-            <p className="text-lg text-white/40">
+            <p className="text-lg text-white/60">
               Pay for what you need. Academic discounts available.
             </p>
           </motion.div>
@@ -67,9 +67,9 @@ const Pricing = () => {
                 <h3 className="font-medium text-lg">{tier.name}</h3>
                 <div className="my-3">
                   <span className="text-2xl font-bold">{tier.price}</span>
-                  {tier.note && <span className="text-sm text-white/40 ml-2">{tier.note}</span>}
+                  {tier.note && <span className="text-sm text-white/60 ml-2">{tier.note}</span>}
                 </div>
-                <p className="text-sm text-white/40 mb-4">{tier.desc}</p>
+                <p className="text-sm text-white/60 mb-4">{tier.desc}</p>
                 <ul className="space-y-2 mb-4">
                   {tier.features.map((f) => (
                     <li key={f} className="text-sm flex gap-2">
@@ -80,7 +80,7 @@ const Pricing = () => {
                   {tier.limitations?.map((f) => (
                     <li key={f} className="text-sm flex gap-2">
                       <span className="text-white/20">×</span>
-                      <span className="text-white/30">{f}</span>
+                      <span className="text-white/50">{f}</span>
                     </li>
                   ))}
                 </ul>
@@ -104,7 +104,7 @@ const Pricing = () => {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-2xl font-bold mb-4">For Institutions</h2>
-            <p className="text-white/40 max-w-xl mx-auto">
+            <p className="text-white/60 max-w-xl mx-auto">
               Partner to join our network. No upfront costs—contribute data and enable your researchers.
             </p>
           </div>
@@ -117,7 +117,7 @@ const Pricing = () => {
             ].map((item) => (
               <div key={item.title} className="p-4 border border-white/10">
                 <h3 className="font-medium mb-2">{item.title}</h3>
-                <p className="text-sm text-white/40">{item.desc}</p>
+                <p className="text-sm text-white/60">{item.desc}</p>
               </div>
             ))}
           </div>
@@ -143,7 +143,7 @@ const Pricing = () => {
             ].map((item, i) => (
               <div key={i} className="p-4 border border-white/10">
                 <h3 className="font-medium mb-2">{item.q}</h3>
-                <p className="text-sm text-white/40">{item.a}</p>
+                <p className="text-sm text-white/60">{item.a}</p>
               </div>
             ))}
           </div>
@@ -154,7 +154,7 @@ const Pricing = () => {
       <section className="py-20 px-6 border-t border-white/5">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-2xl font-bold mb-4">Get started</h2>
-          <p className="text-white/40 mb-8">Schedule a demo to see HealthDB in action</p>
+          <p className="text-white/60 mb-8">Schedule a demo to see HealthDB in action</p>
           <div className="flex gap-4 justify-center">
             <Link to="/contact" className="px-8 py-3 bg-emerald-500 text-black font-medium hover:bg-emerald-400 transition-colors">
               Talk to Us

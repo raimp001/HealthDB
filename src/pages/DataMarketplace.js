@@ -69,7 +69,7 @@ const DataMarketplace = () => {
           <h1 className="text-4xl font-bold mb-4">
             Ethical Cancer Research Data
           </h1>
-          <p className="text-white/40 max-w-2xl mb-8">
+          <p className="text-white/60 max-w-2xl mb-8">
             Patient-contributed, consent-based datasets for IRB-approved research.
           </p>
           <div className="grid md:grid-cols-4 gap-4">
@@ -81,7 +81,7 @@ const DataMarketplace = () => {
             ].map((item) => (
               <div key={item.title} className="p-4 border border-white/10">
                 <h3 className="font-medium text-sm mb-1">{item.title}</h3>
-                <p className="text-xs text-white/40">{item.desc}</p>
+                <p className="text-xs text-white/60">{item.desc}</p>
               </div>
             ))}
           </div>
@@ -94,19 +94,19 @@ const DataMarketplace = () => {
           <div className="grid md:grid-cols-4 gap-4">
             <Link to="/patients" className="p-4 border border-white/10 hover:border-white/30 transition-colors">
               <h3 className="font-medium mb-1">Patients</h3>
-              <p className="text-xs text-white/40">Contribute data, earn rewards</p>
+              <p className="text-xs text-white/60">Contribute data to research</p>
             </Link>
             <Link to="/researchers" className="p-4 border border-white/10 hover:border-white/30 transition-colors">
               <h3 className="font-medium mb-1">Researchers</h3>
-              <p className="text-xs text-white/40">Access for approved studies</p>
+              <p className="text-xs text-white/60">Access for approved studies</p>
             </Link>
             <a href="mailto:enterprise@healthdb.ai" className="p-4 border border-white/10 hover:border-white/30 transition-colors">
               <h3 className="font-medium mb-1">Industry</h3>
-              <p className="text-xs text-white/40">Real-world evidence</p>
+              <p className="text-xs text-white/60">Real-world evidence</p>
             </a>
             <a href="mailto:partnerships@healthdb.ai" className="p-4 border border-white/10 hover:border-white/30 transition-colors">
               <h3 className="font-medium mb-1">Institutions</h3>
-              <p className="text-xs text-white/40">Join the network</p>
+              <p className="text-xs text-white/60">Join the network</p>
             </a>
           </div>
         </div>
@@ -118,7 +118,7 @@ const DataMarketplace = () => {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
             <div>
               <h2 className="text-2xl font-bold">Datasets</h2>
-              <p className="text-sm text-white/40">All ethically sourced with consent</p>
+              <p className="text-sm text-white/60">All ethically sourced with consent</p>
             </div>
             <div className="flex gap-2">
               {categories.map((cat) => (
@@ -146,7 +146,7 @@ const DataMarketplace = () => {
           {filteredProducts.length === 0 ? (
             <div className="text-center py-16 border border-white/10">
               <h2 className="text-xl font-medium mb-4">Building Our Network</h2>
-              <p className="text-white/40 max-w-md mx-auto mb-6">
+              <p className="text-white/60 max-w-md mx-auto mb-6">
                 We're partnering with cancer centers and recruiting patient contributors. 
                 Every record comes from a patient who chose to contribute.
               </p>
@@ -171,17 +171,17 @@ const DataMarketplace = () => {
                     <div>
                       <div className="flex items-center gap-3 mb-1">
                         <h3 className="font-medium">{product.name}</h3>
-                        <span className="text-xs text-white/30">{product.category}</span>
+                        <span className="text-xs text-white/50">{product.category}</span>
                       </div>
-                      <p className="text-sm text-white/40">{product.description}</p>
+                      <p className="text-sm text-white/60">{product.description}</p>
                     </div>
                     <div className="flex items-center gap-6 text-sm">
                       <div>
-                        <p className="text-xs text-white/30">N</p>
+                        <p className="text-xs text-white/50">N</p>
                         <p className="font-mono">{product.patientCount.toLocaleString()}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-white/30">From</p>
+                        <p className="text-xs text-white/50">From</p>
                         <p className="font-mono">{formatPrice(product.priceFrom)}</p>
                       </div>
                       <button
@@ -216,14 +216,14 @@ const DataMarketplace = () => {
               ].map((item, i) => (
                 <div key={i} className="flex items-center gap-2 text-sm">
                   <span className={item.allowed ? 'text-emerald-400' : 'text-red-400'}>{item.allowed ? '✓' : '×'}</span>
-                  <span className={item.allowed ? 'text-white/60' : 'text-white/30'}>{item.text}</span>
+                  <span className={item.allowed ? 'text-white/60' : 'text-white/50'}>{item.text}</span>
                 </div>
               ))}
             </div>
           </div>
           <div>
             <h2 className="text-xl font-bold mb-6">Governance</h2>
-            <div className="space-y-4 text-sm text-white/40">
+            <div className="space-y-4 text-sm text-white/60">
               <p>All data requires patient consent</p>
               <p>IRB approval mandatory for access</p>
               <p>Transparent access logs for contributors</p>
@@ -257,31 +257,31 @@ const DataMarketplace = () => {
           <div className="bg-black border border-white/10 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-white/10 flex justify-between items-start">
               <div>
-                <span className="text-xs text-white/30">{selectedProduct.category}</span>
+                <span className="text-xs text-white/50">{selectedProduct.category}</span>
                 <h2 className="text-xl font-medium mt-1">{selectedProduct.name}</h2>
               </div>
-              <button onClick={() => setSelectedProduct(null)} className="text-white/40 hover:text-white">×</button>
+              <button onClick={() => setSelectedProduct(null)} className="text-white/60 hover:text-white">×</button>
             </div>
             <div className="p-6">
-              <p className="text-white/40 mb-6">{selectedProduct.description}</p>
+              <p className="text-white/60 mb-6">{selectedProduct.description}</p>
               <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 mb-6 text-sm text-emerald-400">
                 Ethically sourced from voluntary patient contributions
               </div>
               <div className="grid grid-cols-4 gap-3 mb-6">
                 <div className="p-3 bg-white/5">
-                  <p className="text-xs text-white/30">N</p>
+                  <p className="text-xs text-white/50">N</p>
                   <p className="font-mono">{selectedProduct.patientCount.toLocaleString()}</p>
                 </div>
                 <div className="p-3 bg-white/5">
-                  <p className="text-xs text-white/30">Records</p>
+                  <p className="text-xs text-white/50">Records</p>
                   <p className="font-mono">{selectedProduct.recordCount.toLocaleString()}</p>
                 </div>
                 <div className="p-3 bg-white/5">
-                  <p className="text-xs text-white/30">Complete</p>
+                  <p className="text-xs text-white/50">Complete</p>
                   <p className="font-mono">{selectedProduct.completeness}%</p>
                 </div>
                 <div className="p-3 bg-white/5">
-                  <p className="text-xs text-white/30">Range</p>
+                  <p className="text-xs text-white/50">Range</p>
                   <p className="font-mono">{selectedProduct.dateRange.split(' ')[0]}</p>
                 </div>
               </div>

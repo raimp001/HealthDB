@@ -123,7 +123,7 @@ const PlatformFocusAreas = () => {
       <div className="max-w-6xl mx-auto px-6 py-16">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
           <h1 className="text-4xl md:text-5xl font-bold mb-4">Platform Roadmap</h1>
-          <p className="text-white/40 max-w-2xl mb-12">
+          <p className="text-white/60 max-w-2xl mb-12">
             HealthDB's core infrastructure modules — from EHR ingestion through de-identified research export.
           </p>
         </motion.div>
@@ -141,7 +141,7 @@ const PlatformFocusAreas = () => {
               className={`px-4 py-2 text-sm border transition-colors ${
                 activeTab === area.id
                   ? 'bg-white/10 border-white/20 text-white'
-                  : 'border-white/5 text-white/40 hover:text-white/70 hover:border-white/10'
+                  : 'border-white/5 text-white/60 hover:text-white/70 hover:border-white/10'
               }`}
             >
               <span className="mr-2">{area.icon}</span>
@@ -161,7 +161,7 @@ const PlatformFocusAreas = () => {
 
               <div className="grid md:grid-cols-2 gap-8">
                 <div>
-                  <h3 className="text-sm text-white/30 uppercase tracking-wider mb-3">Capabilities</h3>
+                  <h3 className="text-sm text-white/50 uppercase tracking-wider mb-3">Capabilities</h3>
                   <ul className="space-y-2">
                     {active.capabilities.map((cap) => (
                       <li key={cap} className="text-sm text-white/60 flex items-start gap-2">
@@ -171,7 +171,7 @@ const PlatformFocusAreas = () => {
                   </ul>
                 </div>
                 <div>
-                  <h3 className="text-sm text-white/30 uppercase tracking-wider mb-3">Data Sources</h3>
+                  <h3 className="text-sm text-white/50 uppercase tracking-wider mb-3">Data Sources</h3>
                   <ul className="space-y-2 mb-6">
                     {active.dataSources.map((ds) => (
                       <li key={ds} className="text-sm text-white/60 flex items-start gap-2">
@@ -180,11 +180,11 @@ const PlatformFocusAreas = () => {
                     ))}
                   </ul>
 
-                  <h3 className="text-sm text-white/30 uppercase tracking-wider mb-3">Design targets (not measured)</h3>
+                  <h3 className="text-sm text-white/50 uppercase tracking-wider mb-3">Design targets (not measured)</h3>
                   <div className="space-y-2">
                     {Object.entries(active.metrics).map(([k, v]) => (
                       <div key={k} className="flex justify-between text-sm">
-                        <span className="text-white/40">{k}</span>
+                        <span className="text-white/60">{k}</span>
                         <span className="text-white/80 font-medium">{v}</span>
                       </div>
                     ))}
@@ -204,7 +204,7 @@ const PlatformFocusAreas = () => {
                 <React.Fragment key={stage}>
                   <div className={`flex-1 p-4 border text-center ${i < 3 ? 'border-red-400/20 bg-red-400/5' : 'border-emerald-400/20 bg-emerald-400/5'}`}>
                     <div className="font-medium text-white mb-1">{stage}</div>
-                    <div className="text-white/30">{i < 3 ? 'PHI Present' : 'De-identified'}</div>
+                    <div className="text-white/50">{i < 3 ? 'PHI Present' : 'De-identified'}</div>
                   </div>
                   {i < 5 && (
                     <div className={`px-2 ${i === 2 ? 'text-amber-400 font-bold' : 'text-white/20'}`}>

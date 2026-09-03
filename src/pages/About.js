@@ -17,7 +17,7 @@ const About = () => {
             <h1 className="text-4xl md:text-5xl font-bold mb-6">
               Accelerating cancer research through better data
             </h1>
-            <p className="text-lg text-white/40">
+            <p className="text-lg text-white/60">
               Every patient's journey holds insights for future patients. 
               We build the infrastructure to unlock that potential—ethically and securely.
             </p>
@@ -30,11 +30,11 @@ const About = () => {
         <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-12">
           <div>
             <h2 className="text-2xl font-bold mb-6">Mission</h2>
-            <p className="text-white/40 mb-4">
+            <p className="text-white/60 mb-4">
               Cancer research is held back by fragmented data and regulatory complexity. 
               A researcher with a promising hypothesis might wait 6+ months for data access.
             </p>
-            <p className="text-white/40">
+            <p className="text-white/60">
               We're building a different model: patients contribute voluntarily, 
               institutions share under agreements they control, researchers 
               move from idea to insight in weeks.
@@ -43,7 +43,7 @@ const About = () => {
           <div className="p-6 border border-white/10">
             <div className="mb-6">
               <h3 className="text-sm text-red-400/70 uppercase tracking-wider mb-4">Problem</h3>
-              <ul className="space-y-2 text-sm text-white/40">
+              <ul className="space-y-2 text-sm text-white/60">
                 <li>6+ months for approvals</li>
                 <li>Data siloed in EMRs</li>
                 <li>No patient visibility</li>
@@ -51,7 +51,7 @@ const About = () => {
             </div>
             <div>
               <h3 className="text-sm text-emerald-400/70 uppercase tracking-wider mb-4">Solution</h3>
-              <ul className="space-y-2 text-sm text-white/40">
+              <ul className="space-y-2 text-sm text-white/60">
                 <li>Patient-consented contribution</li>
                 <li>Safe Harbor de-identification</li>
                 <li>Patient-visible access logs</li>
@@ -74,7 +74,7 @@ const About = () => {
             ].map((item) => (
               <div key={item.title} className="p-6 border border-white/10">
                 <h3 className="font-medium mb-2">{item.title}</h3>
-                <p className="text-sm text-white/40">{item.desc}</p>
+                <p className="text-sm text-white/60">{item.desc}</p>
               </div>
             ))}
           </div>
@@ -109,7 +109,7 @@ const About = () => {
       <section className="py-20 px-6 border-t border-white/5">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-2xl font-bold mb-4">Partners</h2>
-          <p className="text-white/40 mb-6">
+          <p className="text-white/60 mb-6">
             HealthDB is pre-partnership. We have no institutional agreements in place
             and name no partner sites.
           </p>
@@ -123,7 +123,7 @@ const About = () => {
       <section className="py-20 px-6 border-t border-white/5">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-2xl font-bold mb-4">Team</h2>
-          <p className="text-white/40 mb-8">
+          <p className="text-white/60 mb-8">
             Built by researchers, clinicians, and technologists who've experienced fragmented data firsthand.
           </p>
         </div>
@@ -133,7 +133,7 @@ const About = () => {
       <section className="py-20 px-6 border-t border-white/5">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-2xl font-bold mb-4">Join us</h2>
-          <p className="text-white/40 mb-8">Patient, researcher, or institution—there's a place for you</p>
+          <p className="text-white/60 mb-8">Patient, researcher, or institution—there's a place for you</p>
           <div className="flex gap-4 justify-center">
             <Link to="/register" className="px-8 py-3 bg-white text-black font-medium hover:bg-gray-100 transition-colors">
               Get Started

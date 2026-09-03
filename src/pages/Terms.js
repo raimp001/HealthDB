@@ -14,7 +14,7 @@ const Terms = () => (
       <div className="max-w-3xl mx-auto">
         <p className="text-sm text-emerald-400 uppercase tracking-wider mb-4">Terms</p>
         <h1 className="text-4xl md:text-5xl font-bold mb-4">Terms of Use</h1>
-        <p className="text-white/30 text-sm mb-12">
+        <p className="text-white/50 text-sm mb-12">
           By creating an account you agree to the terms below.
         </p>
 

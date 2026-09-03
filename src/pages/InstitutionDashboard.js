@@ -80,7 +80,7 @@ const InstitutionDashboard = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-white/40">Loading...</div>
+        <div className="text-white/60">Loading...</div>
       </div>
     );
   }
@@ -91,7 +91,7 @@ const InstitutionDashboard = () => {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Institution Dashboard</h1>
-          <p className="text-white/40">{institution?.name || 'Manage regulatory compliance and collaborations'}</p>
+          <p className="text-white/60">{institution?.name || 'Manage regulatory compliance and collaborations'}</p>
         </div>
 
         {/* Stats */}
@@ -104,7 +104,7 @@ const InstitutionDashboard = () => {
           ].map((stat, i) => (
             <div key={i} className="p-4 border border-white/10 bg-white/[0.02]">
               <div className={`text-2xl font-bold ${stat.color}`}>{stat.value}</div>
-              <div className="text-xs text-white/40">{stat.label}</div>
+              <div className="text-xs text-white/60">{stat.label}</div>
             </div>
           ))}
         </div>
@@ -118,7 +118,7 @@ const InstitutionDashboard = () => {
               className={`px-4 py-3 text-sm whitespace-nowrap transition-colors ${
                 activeTab === tab.id
                   ? 'text-white border-b-2 border-white -mb-px'
-                  : 'text-white/40 hover:text-white/60'
+                  : 'text-white/60 hover:text-white/60'
               }`}
             >
               {tab.label}
@@ -164,14 +164,14 @@ const OverviewTab = ({ agreements, irbProtocols, collaborations, emrConnections,
       <div className="p-6 border border-white/10">
         <h3 className="font-medium mb-4">Action Required</h3>
         {pendingActions.length === 0 ? (
-          <p className="text-white/40 text-sm">No pending actions</p>
+          <p className="text-white/60 text-sm">No pending actions</p>
         ) : (
           <div className="space-y-3">
             {pendingActions.map((item, i) => (
               <div key={i} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
                 <div>
                   <div className="text-sm">{item.protocol_number || item.document_type}</div>
-                  <div className="text-xs text-white/40">{item.status}</div>
+                  <div className="text-xs text-white/60">{item.status}</div>
                 </div>
                 <button
                   onClick={() => onNavigateTab(item.protocol_number ? 'irb' : 'agreements')}
@@ -224,7 +224,7 @@ const OverviewTab = ({ agreements, irbProtocols, collaborations, emrConnections,
             </div>
           ))}
         {[...agreements, ...irbProtocols].filter(item => item.expires_at).length === 0 && (
-          <p className="text-white/40 text-sm">No items expiring soon</p>
+          <p className="text-white/60 text-sm">No items expiring soon</p>
         )}
       </div>
 
@@ -232,7 +232,7 @@ const OverviewTab = ({ agreements, irbProtocols, collaborations, emrConnections,
       <div className="p-6 border border-white/10">
         <h3 className="font-medium mb-4">Recent Activity</h3>
         {recentActivity.length === 0 ? (
-          <p className="text-white/40 text-sm">No recent activity</p>
+          <p className="text-white/60 text-sm">No recent activity</p>
         ) : (
           <div className="space-y-3">
             {recentActivity.map((activity, i) => (
@@ -242,7 +242,7 @@ const OverviewTab = ({ agreements, irbProtocols, collaborations, emrConnections,
                 }`} />
                 <div className="flex-1">
                   <div className="text-sm">{activity.item.protocol_number || activity.item.document_type}</div>
-                  <div className="text-xs text-white/40">{activity.item.status}</div>
+                  <div className="text-xs text-white/60">{activity.item.status}</div>
                 </div>
               </div>
             ))}
@@ -292,7 +292,7 @@ const IRBTab = ({ protocols }) => {
 
       {/* Protocols Table */}
       <div className="border border-white/10">
-        <div className="grid grid-cols-12 gap-4 p-4 bg-white/[0.02] text-xs text-white/40 uppercase tracking-wider">
+        <div className="grid grid-cols-12 gap-4 p-4 bg-white/[0.02] text-xs text-white/60 uppercase tracking-wider">
           <div className="col-span-2">Protocol #</div>
           <div className="col-span-4">Study Name</div>
           <div className="col-span-2">Status</div>
@@ -300,7 +300,7 @@ const IRBTab = ({ protocols }) => {
           <div className="col-span-2">Expires</div>
         </div>
         {institutionProtocols.length === 0 && (
-          <div className="p-8 text-center text-white/40 text-sm border-t border-white/5">
+          <div className="p-8 text-center text-white/60 text-sm border-t border-white/5">
             No IRB protocols yet. Protocols submitted for your institution's studies appear here.
           </div>
         )}
@@ -369,7 +369,7 @@ const AgreementsTab = ({ agreements }) => {
             <div key={type.type} className="p-4 border border-white/10 hover:border-white/20 cursor-pointer transition-colors">
               <div className="text-2xl font-bold mb-1">{count}</div>
               <div className="text-sm font-medium">{type.label}</div>
-              <div className="text-xs text-white/40 mt-1">{type.desc}</div>
+              <div className="text-xs text-white/60 mt-1">{type.desc}</div>
             </div>
           );
         })}
@@ -382,7 +382,7 @@ const AgreementsTab = ({ agreements }) => {
           <Link to="/contact" className="text-xs text-blue-400 hover:underline">New Agreement</Link>
         </div>
         {institutionAgreements.length === 0 && (
-          <div className="p-8 text-center text-white/40 text-sm border-t border-white/5">
+          <div className="p-8 text-center text-white/60 text-sm border-t border-white/5">
             No agreements yet. DUAs, BAAs, and reliance agreements for your institution appear here.
           </div>
         )}
@@ -394,13 +394,13 @@ const AgreementsTab = ({ agreements }) => {
             <div className="flex justify-between items-start">
               <div>
                 <div className="font-medium text-sm">{agreement.name}</div>
-                <div className="text-xs text-white/40 mt-1">{agreement.counterparty}</div>
+                <div className="text-xs text-white/60 mt-1">{agreement.counterparty}</div>
               </div>
               <span className={`text-xs px-2 py-1 ${statusColors[agreement.status]}`}>
                 {agreement.status}
               </span>
             </div>
-            <div className="flex gap-6 mt-3 text-xs text-white/40">
+            <div className="flex gap-6 mt-3 text-xs text-white/60">
               <span>Type: {agreement.document_type?.toUpperCase()}</span>
               {agreement.signed_at && <span>Signed: {new Date(agreement.signed_at).toLocaleDateString()}</span>}
               {agreement.expires_at && <span>Expires: {new Date(agreement.expires_at).toLocaleDateString()}</span>}
@@ -428,7 +428,7 @@ const EMRTab = ({ connections }) => {
     pending_baa: 'bg-yellow-400/10 text-yellow-400',
     setup: 'bg-blue-400/10 text-blue-400',
     error: 'bg-red-400/10 text-red-400',
-    inactive: 'bg-white/10 text-white/40'
+    inactive: 'bg-white/10 text-white/60'
   };
 
   return (
@@ -438,7 +438,7 @@ const EMRTab = ({ connections }) => {
         <h3 className="font-medium mb-4">Active Connections</h3>
         {institutionConnections.length === 0 ? (
           <div className="p-8 border border-white/10 text-center">
-            <p className="text-white/40 mb-4">No EMR connections configured</p>
+            <p className="text-white/60 mb-4">No EMR connections configured</p>
             <Link
               to="/contact"
               className="px-4 py-2 bg-white text-black text-sm hover:bg-gray-100 transition-colors"
@@ -457,7 +457,7 @@ const EMRTab = ({ connections }) => {
                     </div>
                     <div>
                       <div className="font-medium">{conn.emr_vendor}</div>
-                      <div className="text-xs text-white/40">{conn.connection_type?.toUpperCase()}</div>
+                      <div className="text-xs text-white/60">{conn.connection_type?.toUpperCase()}</div>
                     </div>
                   </div>
                   <span className={`text-xs px-2 py-1 ${statusColors[conn.status]}`}>
@@ -466,15 +466,15 @@ const EMRTab = ({ connections }) => {
                 </div>
                 <div className="grid grid-cols-3 gap-4 text-sm">
                   <div>
-                    <div className="text-white/40 text-xs">Last Sync</div>
+                    <div className="text-white/60 text-xs">Last Sync</div>
                     <div>{conn.last_sync ? new Date(conn.last_sync).toLocaleString() : 'Never'}</div>
                   </div>
                   <div>
-                    <div className="text-white/40 text-xs">Patients</div>
+                    <div className="text-white/60 text-xs">Patients</div>
                     <div>{conn.patient_count?.toLocaleString() || 0}</div>
                   </div>
                   <div>
-                    <div className="text-white/40 text-xs">Connection Type</div>
+                    <div className="text-white/60 text-xs">Connection Type</div>
                     <div>{conn.connection_type}</div>
                   </div>
                 </div>
@@ -506,15 +506,15 @@ const EMRTab = ({ connections }) => {
         <div className="grid md:grid-cols-3 gap-6">
           <div>
             <div className="font-medium text-sm mb-2">FHIR R4</div>
-            <p className="text-xs text-white/40">Real-time API access with OAuth 2.0 authentication</p>
+            <p className="text-xs text-white/60">Real-time API access with OAuth 2.0 authentication</p>
           </div>
           <div>
             <div className="font-medium text-sm mb-2">Bulk FHIR</div>
-            <p className="text-xs text-white/40">Scheduled batch exports for large datasets</p>
+            <p className="text-xs text-white/60">Scheduled batch exports for large datasets</p>
           </div>
           <div>
             <div className="font-medium text-sm mb-2">SFTP</div>
-            <p className="text-xs text-white/40">Secure file transfer for flat file imports</p>
+            <p className="text-xs text-white/60">Secure file transfer for flat file imports</p>
           </div>
         </div>
       </div>
@@ -539,10 +539,10 @@ const CollaborationsTab = ({ collaborations }) => {
       <div className="border border-white/10">
         <div className="p-4 bg-white/[0.02] flex justify-between items-center">
           <h3 className="font-medium">Study Collaborations</h3>
-          <span className="text-xs text-white/40">{institutionCollaborations.length} total</span>
+          <span className="text-xs text-white/60">{institutionCollaborations.length} total</span>
         </div>
         {institutionCollaborations.length === 0 && (
-          <div className="p-8 text-center text-white/40 text-sm border-t border-white/5">
+          <div className="p-8 text-center text-white/60 text-sm border-t border-white/5">
             No collaborations yet. Studies you join as a participating site appear here.
           </div>
         )}
@@ -554,7 +554,7 @@ const CollaborationsTab = ({ collaborations }) => {
             <div className="flex justify-between items-start mb-2">
               <div>
                 <div className="font-medium text-sm">{collab.study_name}</div>
-                <div className="text-xs text-white/40 mt-1">PI: {collab.pi}</div>
+                <div className="text-xs text-white/60 mt-1">PI: {collab.pi}</div>
               </div>
               <span className={`text-xs px-2 py-1 ${statusColors[collab.status]}`}>
                 {collab.status}
@@ -572,7 +572,7 @@ const CollaborationsTab = ({ collaborations }) => {
       <div className="mt-8">
         <h3 className="font-medium mb-4">Pending Invitations</h3>
         <div className="p-6 border border-white/10 text-center">
-          <p className="text-white/40 text-sm">No pending invitations</p>
+          <p className="text-white/60 text-sm">No pending invitations</p>
         </div>
       </div>
 

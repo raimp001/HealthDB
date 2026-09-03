@@ -54,12 +54,12 @@ const Footer = () => {
         <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
           <div className="col-span-2 md:col-span-1">
             <div className="font-medium mb-4 text-white">HealthDB</div>
-            <p className="text-white/30 text-sm">Cancer research data infrastructure</p>
+            <p className="text-white/50 text-sm">Cancer research data infrastructure</p>
           </div>
 
           {footerSections.map((section) => (
             <div key={section.title}>
-              <p className="text-xs text-white/30 uppercase tracking-wider mb-4">{section.title}</p>
+              <p className="text-xs text-white/50 uppercase tracking-wider mb-4">{section.title}</p>
               <ul className="space-y-2 text-sm">
                 {section.links.map((link) => (
                   <li key={link.to}>
@@ -73,7 +73,7 @@ const Footer = () => {
           ))}
         </div>
 
-        <div className="pt-8 border-t border-white/5 flex flex-col sm:flex-row justify-between gap-2 text-xs text-white/30">
+        <div className="pt-8 border-t border-white/5 flex flex-col sm:flex-row justify-between gap-2 text-xs text-white/50">
           <p>© {new Date().getFullYear()} HealthDB</p>
           <p>Closed pilot · Not for clinical use</p>
         </div>
