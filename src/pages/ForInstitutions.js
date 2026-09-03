@@ -21,7 +21,7 @@ const ForInstitutions = () => {
               <span className="text-white/50">Compliance</span>
             </h1>
             <p className="text-lg text-white/40 max-w-xl mb-10">
-              Centralized IRB management. Pre-negotiated DUAs. Automated reliance agreements. 
+              Record-keeping for IRB protocols, agreements and site collaborations. 
               Join the network that removes regulatory friction.
             </p>
             <div className="flex gap-4">
@@ -44,14 +44,14 @@ const ForInstitutions = () => {
             {[
               {
                 title: 'Single IRB',
-                desc: 'Use our central sIRB for all multi-site studies. Eliminate duplicate reviews.',
-                stat: '3 weeks',
+                desc: 'Track IRB protocols and their status in one place. A central sIRB and reliance model are planned, not in place.',
+                stat: 'Planned',
                 statLabel: 'avg approval'
               },
               {
-                title: 'Pre-Negotiated DUAs',
-                desc: 'Standard data use agreements ready to sign. Legal reviewed and HIPAA compliant.',
-                stat: '24 hours',
+                title: 'DUA Templates',
+                desc: 'Draft data use agreement templates. Not legally reviewed, and no agreement has been executed.',
+                stat: 'Planned',
                 statLabel: 'to execute'
               },
               {
@@ -139,7 +139,8 @@ const ForInstitutions = () => {
                 We support all major vendors with FHIR R4 and bulk data APIs.
               </p>
               <ul className="space-y-3 text-sm text-white/60">
-                <li>Epic, Cerner, Meditech, athenahealth</li>
+                <li>Manual FHIR R4 bundle upload (live)</li>
+                <li>Direct EHR connections including Epic and Cerner (planned)</li>
                 <li>FHIR R4 and Bulk FHIR support</li>
                 <li>SFTP for flat file transfers</li>
                 <li>Real-time sync or scheduled batches</li>

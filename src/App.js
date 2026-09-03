@@ -25,17 +25,20 @@ import SecurityPostureMap from './pages/SecurityPostureMap';
 import DataFlowDiagram from './pages/DataFlowDiagram';
 import RepoAnalyzer from './pages/RepoAnalyzer';
 import NotFound from './pages/NotFound';
+import PlatformStatus from './pages/PlatformStatus';
 import ResetPassword from './pages/ResetPassword';
 import VerifyEmail from './pages/VerifyEmail';
 
 // Components
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import PageMeta from './components/PageMeta';
 
 function App() {
   return (
     <Router>
       <div className="min-h-screen bg-slate-50 flex flex-col">
+        <PageMeta />
         <Navbar />
         <main className="flex-grow">
           <Routes>
@@ -51,6 +54,7 @@ function App() {
             <Route path="/cohort-builder" element={<CohortBuilder />} />
             {/* Platform pages */}
             <Route path="/platform" element={<PlatformFocusAreas />} />
+            <Route path="/status" element={<PlatformStatus />} />
             <Route path="/security-posture" element={<SecurityPostureMap />} />
             <Route path="/data-flow" element={<DataFlowDiagram />} />
             <Route path="/repo-analyzer" element={<RepoAnalyzer />} />

@@ -180,7 +180,7 @@ const PlatformFocusAreas = () => {
                     ))}
                   </ul>
 
-                  <h3 className="text-sm text-white/30 uppercase tracking-wider mb-3">Metrics</h3>
+                  <h3 className="text-sm text-white/30 uppercase tracking-wider mb-3">Design targets (not measured)</h3>
                   <div className="space-y-2">
                     {Object.entries(active.metrics).map(([k, v]) => (
                       <div key={k} className="flex justify-between text-sm">

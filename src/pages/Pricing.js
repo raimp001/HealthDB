@@ -43,7 +43,7 @@ const Pricing = () => {
                 price: 'Custom',
                 note: 'Based on scope',
                 desc: 'IRB-approved studies',
-                features: ['Patient-level de-identified', 'Cohort builder', 'IRB generator', 'DUA templates', 'sIRB submission', 'Export (CSV, REDCap)', 'Email support'],
+                features: ['Patient-level de-identified', 'Cohort builder', 'IRB generator', 'DUA templates', 'Export (CSV)', 'Email support'],
                 cta: 'Request Access',
                 link: '/register',
                 featured: true,
@@ -112,7 +112,7 @@ const Pricing = () => {
             {[
               { title: 'Network Access', desc: 'Multi-center studies without DUA negotiations' },
               { title: 'Credits', desc: 'Data contribution earns research access' },
-              { title: 'Collaboration', desc: 'Pre-negotiated reliance agreements' },
+              { title: 'Collaboration', desc: 'Study team and site records. Reliance agreements are planned.' },
               { title: 'Compliance', desc: 'We handle IRB, DUA, HIPAA' },
             ].map((item) => (
               <div key={item.title} className="p-4 border border-white/10">
@@ -135,8 +135,8 @@ const Pricing = () => {
           <h2 className="text-2xl font-bold mb-8">FAQ</h2>
           <div className="space-y-4">
             {[
-              { q: 'Data access levels?', a: 'Aggregate stats, de-identified patient-level (Safe Harbor), and limited datasets with dates.' },
-              { q: 'How long for IRB?', a: '2-3 weeks with central sIRB. Sites with reliance can be added in days.' },
+              { q: 'Data access levels?', a: 'Aggregate counts with small-cell suppression, and de-identified patient-level rows with dates reduced to the year. Limited datasets retaining full dates are not offered.' },
+              { q: 'How long for IRB?', a: 'HealthDB does not run an IRB and has no reliance agreements, so timelines are whatever your own IRB requires. The platform drafts a protocol from your cohort and tracks its status.' },
               { q: 'Academic pricing?', a: 'Yes, significant discounts for academic and non-profit.' },
               { q: 'EMR support?', a: 'Epic (Cosmos, FHIR), Cerner, and secure file transfer.' },
               { q: 'Security?', a: 'HealthDB holds no third-party certifications yet. Implemented today: Safe Harbor de-identification, server-side role checks, consent gating, small-cell suppression and access audit logging. SOC 2, BAAs and penetration testing are planned, not complete.' },

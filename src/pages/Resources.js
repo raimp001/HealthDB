@@ -200,7 +200,7 @@ Researchers get the longitudinal data they need. Patients get mathematical guara
       excerpt: 'Best practices for researchers seeking institutional review board approval.',
       date: 'November 2025',
       readTime: '9 min read',
-      content: `IRB approval is often the longest part of research timelines. Understanding the process and using HealthDB's pre-negotiated agreements can reduce approval from 6 months to 3 weeks.
+      content: `IRB approval is often the longest part of research timelines. This article describes the reliance model HealthDB intends to support. No sIRB arrangement or executed reliance agreement exists today, so nothing here shortens a real approval yet.
 
 **Understanding IRB Requirements**
 
@@ -221,14 +221,14 @@ Multi-site studies face compounded delays:
 - Legal review happens sequentially
 - Amendments restart the clock
 
-**HealthDB's Single IRB (sIRB) Model**
+**A Single IRB (sIRB) Model — planned, not in place**
 
 We've established a central IRB that serves as the IRB of record for all participating institutions. Benefits include:
 
 - **One submission**: Submit once, cover all sites
-- **Pre-negotiated reliance agreements**: 50+ institutions already signed
+- **Reliance agreements**: none executed. HealthDB has no institutional agreements.
 - **Standardized DUAs**: Legal-reviewed templates ready to sign
-- **Fast turnaround**: Average 21 days to approval
+- **Turnaround**: depends entirely on the reviewing IRB; HealthDB does not run one
 
 **Preparing Your Submission**
 
@@ -260,7 +260,7 @@ Once approved, you can:
 
 - Run feasibility queries immediately
 - Begin data extraction within 48 hours
-- Add sites with reliance agreements in 24 hours
+- Add sites once reliance agreements are executed (none are)
 
 The regulatory burden shouldn't stop important research. We've built the infrastructure to make compliance efficient.`
     },
@@ -333,7 +333,7 @@ Your data could help save lives. Your choice makes it possible.`
       id: 6,
       category: 'Industry',
       title: 'Multi-Center Collaboration: Breaking Down Data Silos',
-      excerpt: 'How federated data networks enable large-scale oncology studies across institutions.',
+      excerpt: 'How federated data networks could enable large-scale oncology studies. HealthDB does not operate one.',
       date: 'December 2025',
       readTime: '7 min read',
       content: `Cancer research requires scale. Rare cancers, specific mutations, and novel treatments all demand large patient populations that no single institution can provide. HealthDB enables multi-center collaboration without the traditional barriers.
@@ -351,7 +351,7 @@ Getting data from multiple centers traditionally meant months of negotiations, c
 
 **The HealthDB Network**
 
-We've built pre-existing relationships with 50+ institutions:
+HealthDB has no institutional relationships. The model below is what a network would look like:
 
 - **Technical integration**: EMR connectors in place
 - **Legal framework**: Master DUAs already signed
@@ -362,7 +362,7 @@ We've built pre-existing relationships with 50+ institutions:
 
 1. **Define cohort**: Specify your inclusion/exclusion criteria
 2. **Run feasibility**: See aggregate patient counts by site
-3. **Submit to sIRB**: One application covers all sites
+3. **Submit to your IRB**: a single application per site today; a reliance model is planned
 4. **Activate sites**: Once reliance agreements are executed
 5. **Extract data**: Normalized data from all sites in one dataset
 
@@ -391,7 +391,7 @@ Researchers get clean, analysis-ready data regardless of source.
 
 **The Future: Federated Analytics**
 
-For sensitive analyses, we're piloting federated approaches where:
+Federated analysis is a planned direction, not something HealthDB runs. It would work as:
 
 - Queries go to the data, not data to the query
 - Only aggregate results leave institutions
@@ -420,11 +420,11 @@ This enables even broader collaboration while strengthening privacy.`
     },
     {
       id: 2,
-      title: 'Technical Architecture for HIPAA-Compliant Data Platforms',
+      title: 'Technical Architecture for Privacy-Preserving Data Platforms',
       description: 'How we built a secure, scalable infrastructure for sensitive health data.',
       pages: '18 pages',
       sections: [
-        { title: 'Executive Summary', content: 'Building a HIPAA-compliant data platform requires security at every layer. This document details our architecture decisions and implementation.' },
+        { title: 'Executive Summary', content: 'Building a privacy-preserving data platform requires security at every layer. This document details our architecture decisions and implementation.' },
         { title: '1. Threat Model', content: 'We consider: external attackers, insider threats, third-party risks, and regulatory exposure. Each requires specific mitigations.' },
         { title: '2. Data Architecture', content: 'PHI is stored in encrypted form using AES-256. Keys are managed in AWS KMS with hardware security modules. Data at rest and in transit is always encrypted.' },
         { title: '3. Access Control', content: 'Role-based access control (RBAC) with principle of least privilege. Researchers can only access data matching their approved protocols. All access is logged.' },
@@ -473,7 +473,7 @@ This enables even broader collaboration while strengthening privacy.`
       steps: [
         'Sign up at healthdb.ai/register',
         'Verify your identity securely',
-        'Connect your medical records (Epic, Cerner, etc.)',
+        'Upload a FHIR bundle exported from your patient portal',
         'Review and select consent levels',
         'Sign digital consent form',
         'Track your contributions and impact'

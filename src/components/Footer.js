@@ -14,6 +14,7 @@ const footerSections = [
   {
     title: 'Roadmap',
     links: [
+      { to: '/status', label: 'Platform status' },
       { to: '/platform', label: 'Roadmap' },
       { to: '/security-posture', label: 'Target Security' },
       { to: '/data-flow', label: 'Target Data Flow' },

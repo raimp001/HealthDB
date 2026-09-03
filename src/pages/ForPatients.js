@@ -141,7 +141,7 @@ const ForPatients = () => {
               <li>Gift cards (Amazon, Visa)</li>
               <li>Charity donations</li>
               <li>Direct payment</li>
-              <li>Medical bill credits</li>
+              <li>Recognition in study acknowledgements</li>
             </ul>
           </div>
         </div>

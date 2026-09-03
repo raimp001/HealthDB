@@ -84,7 +84,7 @@ PBKDF2_ITERATIONS = 600_000
 from sqlalchemy.orm import Session
 
 from sqlalchemy import text, func, or_, inspect
-from .database import get_db, init_db, engine
+from .database import get_db, init_db, engine, SessionLocal
 from .models import (
     Base, User, PatientProfile, Consent, ConsentTemplate,
     CancerDiagnosis, Treatment, DataProduct, DataAccessLog, ResearchCohort,
@@ -167,6 +167,24 @@ JWT_ALGORITHM = "HS256"
 # HHS-style small-cell suppression; groups with fewer distinct patients are
 # hidden to prevent re-identification. Lower via env for demos/small datasets.
 MIN_AGGREGATE_CELL_SIZE = int(os.environ.get("MIN_AGGREGATE_CELL_SIZE", "11"))
+
+
+def suppress_small_cell(count: Optional[int]) -> Optional[int]:
+    """Return the count, or None when it is small enough to identify someone.
+
+    Applied to every publicly or researcher-visible aggregate. A count of 1-4
+    over a rare cancer type and a small geography can single out an
+    individual, so anything below the threshold is withheld rather than
+    rounded: a rounded value still narrows the range.
+
+    Zero is returned as-is. "Nobody" reveals nothing about anybody, and
+    suppressing it would misrepresent an empty pilot as a populated one.
+    """
+    if count is None:
+        return None
+    if count == 0:
+        return 0
+    return count if count >= MIN_AGGREGATE_CELL_SIZE else None
 
 # Validate JWT secret at import time - must be set in production
 if not JWT_SECRET:
@@ -3582,28 +3600,56 @@ async def get_platform_stats(db: Session = Depends(get_db)):
     clinical_repo = ClinicalDataRepository(db)
     stats = clinical_repo.get_platform_stats()
 
+    # Patient-derived counts pass through small-cell suppression; a null means
+    # "fewer than the threshold", never zero. Study, institution and country
+    # counts describe the platform, not people, so they are reported directly.
     return {
-        "total_patients": stats["total_patients"],
-        "total_data_points": stats["total_data_points"],
+        "total_patients": suppress_small_cell(stats["total_patients"]),
+        "total_data_points": suppress_small_cell(stats["total_data_points"]),
+        "cancer_types_covered": suppress_small_cell(stats["cancer_types_covered"]),
         "active_studies": stats["active_studies"],
         "partner_institutions": stats["partner_institutions"],
-        "cancer_types_covered": stats["cancer_types_covered"],
         "countries": stats.get(
             "countries",
             db.query(Institution.country)
               .filter(Institution.country.isnot(None))
               .distinct().count(),
         ),
+        "min_cell_size": MIN_AGGREGATE_CELL_SIZE,
+        "suppression_note": (
+            f"Patient-derived counts below {MIN_AGGREGATE_CELL_SIZE} are reported "
+            "as null rather than an exact figure."
+        ),
     }
 
 
 @app.get("/api/stats/cancer-types")
 async def get_cancer_type_stats(db: Session = Depends(get_db)):
-    """Get statistics by cancer type"""
+    """Patient counts by cancer type, with small cells withheld entirely.
+
+    This is the most re-identifying aggregate the platform publishes: a rare
+    cancer type with a count of one or two can single out an individual. Rows
+    below the threshold are dropped rather than shown as null, because naming
+    the type at all confirms that someone in the pilot has it. The number of
+    withheld rows is reported so the omission is visible.
+    """
     clinical_repo = ClinicalDataRepository(db)
     stats = clinical_repo.get_cancer_type_stats()
 
-    return stats
+    reportable = [row for row in stats
+                  if (row.get("patients") or 0) >= MIN_AGGREGATE_CELL_SIZE]
+    withheld = len(stats) - len(reportable)
+
+    return {
+        "cancer_types": reportable,
+        "withheld_categories": withheld,
+        "min_cell_size": MIN_AGGREGATE_CELL_SIZE,
+        "suppression_note": (
+            f"Cancer types with fewer than {MIN_AGGREGATE_CELL_SIZE} patients are "
+            "omitted entirely, because naming the type would itself disclose that "
+            "someone in the pilot has it."
+        ),
+    }
 
 
 # ============== Contact & Support Endpoints ==============
@@ -3870,20 +3916,42 @@ async def create_irb_protocol(
 # ============== Health Check ==============
 
 @app.get("/api/health")
-async def health_check(db: Session = Depends(get_db)):
-    """Health check endpoint"""
-    # Test database connection
+async def health_check(response: Response):
+    """Liveness and dependency check.
+
+    The database is a required dependency: without it every meaningful route
+    fails, so a failure here returns 503 rather than 200. Returning 200 with a
+    "degraded" body meant load balancers and uptime monitors treated a fully
+    broken deployment as healthy.
+
+    The response body carries only "connected" or "unavailable". The previous
+    version interpolated the driver exception, which can contain the database
+    host, port, user and occasionally the connection string. The detail goes
+    to the server log, which is not publicly readable.
+
+    Deliberately does not use Depends(get_db): that dependency raises before
+    the handler runs when the database is unreachable, producing a 500 with a
+    traceback instead of a clean 503.
+    """
+    database_ok = True
     try:
-        db.execute(text("SELECT 1"))
-        db_status = "connected"
-    except Exception as e:
-        db_status = f"error: {str(e)}"
+        session = SessionLocal()
+        try:
+            session.execute(text("SELECT 1"))
+        finally:
+            session.close()
+    except Exception:
+        database_ok = False
+        audit_logger.exception("HEALTHCHECK database dependency failed")
+
+    if not database_ok:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
 
     return {
-        "status": "healthy" if db_status == "connected" else "degraded",
+        "status": "healthy" if database_ok else "unavailable",
         "timestamp": datetime.utcnow().isoformat(),
         "version": "1.0.0",
-        "database": db_status,
+        "database": "connected" if database_ok else "unavailable",
     }
 
 

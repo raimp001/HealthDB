@@ -84,7 +84,7 @@ const ForResearchers = () => {
           <div className="grid md:grid-cols-3 gap-6">
             {[
               { title: 'Protocol Templates', features: ['Chart review', 'RWE', 'Registry'] },
-              { title: 'Fast-Track', features: ['Minimal risk', 'HIPAA Safe Harbor', 'Pre-negotiated DUAs'] },
+              { title: 'Fast-Track', features: ['Minimal-risk study design', 'Automated identifier removal and date truncation', 'DUA templates (no executed agreements yet)'] },
               { title: 'IRB protocol drafting', features: ['Protocol draft from your cohort', 'Reliance model planned', 'No sIRB in place yet'] },
             ].map((item) => (
               <div key={item.title} className="p-6 border border-white/10">

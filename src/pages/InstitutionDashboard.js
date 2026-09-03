@@ -344,7 +344,7 @@ const AgreementsTab = ({ agreements }) => {
   const agreementTypes = [
     { type: 'dua', label: 'Data Use Agreements (DUA)', desc: 'Governs how data can be used' },
     { type: 'baa', label: 'Business Associate Agreements (BAA)', desc: 'HIPAA compliance requirement' },
-    { type: 'reliance', label: 'Reliance Agreements', desc: 'sIRB reliance with partner sites' },
+    { type: 'reliance', label: 'Reliance Agreements', desc: 'Record of reliance agreements. None are executed.' },
     { type: 'contract', label: 'Contracts & SOWs', desc: 'Sub-contracts and scopes of work' }
   ];
 

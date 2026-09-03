@@ -75,7 +75,7 @@ const DataMarketplace = () => {
           <div className="grid md:grid-cols-4 gap-4">
             {[
               { title: 'Consent-Based', desc: 'Voluntary contributions' },
-              { title: 'De-identified', desc: 'HIPAA compliant' },
+              { title: 'De-identified', desc: 'Identifiers removed, dates reduced to year' },
               { title: 'IRB Required', desc: 'Ethical governance' },
               { title: 'Transparent', desc: 'Full access logs' },
             ].map((item) => (
