@@ -62,6 +62,8 @@ const RULES = [
     why: 'No k is computed or enforced on any output.' },
   { id: 'differential-privacy', pattern: /\bdifferential privacy\b(?![^.\n]{0,60}\b(?:planned|not|no |would|could)\b)/i,
     why: 'No noise is added to aggregate queries.' },
+  { id: 'network-exists', pattern: /\b(?:join|joining|our|the)\s+(?:the\s+)?network\b/i,
+    why: 'There is no partner network. HealthDB has no institutional agreements.' },
   { id: 'rewards-money', pattern: /\b(gift\s*cards?|cash\s*(?:out|value|payment)s?|medical\s*bills?|paid\s+in\s+(?:cash|dollars))\b/i,
     why: 'Rewards have no monetary value and no fulfilment provider exists.' },
 ];

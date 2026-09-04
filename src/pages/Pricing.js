@@ -105,7 +105,7 @@ const Pricing = () => {
           <div className="text-center mb-12">
             <h2 className="text-2xl font-bold mb-4">For Institutions</h2>
             <p className="text-white/60 max-w-xl mx-auto">
-              Partner to join our network. No upfront costs—contribute data and enable your researchers.
+              No network exists yet and there are no upfront costs. We are looking for the first pilot institutions.
             </p>
           </div>
           <div className="grid md:grid-cols-4 gap-6">

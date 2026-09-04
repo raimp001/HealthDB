@@ -22,11 +22,11 @@ const ForInstitutions = () => {
             </h1>
             <p className="text-lg text-white/60 max-w-xl mb-10">
               Record-keeping for IRB protocols, agreements and site collaborations. 
-              Join the network that removes regulatory friction.
+              HealthDB is a closed pilot with no partner institutions yet. We are looking for the first.
             </p>
             <div className="flex gap-4">
               <Link to="/register" className="px-6 py-3 bg-white text-black font-medium hover:bg-gray-100 transition-colors">
-                Join Network
+                Talk to us about a pilot
               </Link>
               <a href="mailto:institutions@healthdb.ai" className="px-6 py-3 border border-white/20 hover:bg-white/5 transition-colors">
                 Contact Us
@@ -227,7 +227,7 @@ const ForInstitutions = () => {
       {/* CTA */}
       <section className="py-20 px-6 border-t border-white/5">
         <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-3xl font-bold mb-4">Join the Network</h2>
+          <h2 className="text-3xl font-bold mb-4">Become a pilot site</h2>
           <p className="text-white/60 mb-8">
             Partner with 50+ academic medical centers and research institutions
           </p>

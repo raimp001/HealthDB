@@ -23,6 +23,7 @@ jobs:
         # rather than pass silently, so the count is asserted afterwards.
         run: |
           pytest tests/ -v --strict-markers --junitxml=pytest.xml
+          python scripts/functional_check.py
           python - <<'PY'
           import xml.etree.ElementTree as ET
           total = int(ET.parse('pytest.xml').getroot().attrib.get('tests', 0))

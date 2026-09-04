@@ -106,7 +106,7 @@ const DataMarketplace = () => {
             </a>
             <a href="mailto:partnerships@healthdb.ai" className="p-4 border border-white/10 hover:border-white/30 transition-colors">
               <h3 className="font-medium mb-1">Institutions</h3>
-              <p className="text-xs text-white/60">Join the network</p>
+              <p className="text-xs text-white/60">Contribute to research</p>
             </a>
           </div>
         </div>
@@ -145,7 +145,7 @@ const DataMarketplace = () => {
 
           {filteredProducts.length === 0 ? (
             <div className="text-center py-16 border border-white/10">
-              <h2 className="text-xl font-medium mb-4">Building Our Network</h2>
+              <h2 className="text-xl font-medium mb-4">No datasets available yet</h2>
               <p className="text-white/60 max-w-md mx-auto mb-6">
                 We're partnering with cancer centers and recruiting patient contributors. 
                 Every record comes from a patient who chose to contribute.
