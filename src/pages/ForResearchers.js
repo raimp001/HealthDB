@@ -127,7 +127,7 @@ const ForResearchers = () => {
                 <div key={type} className="p-3 bg-white/5 text-center text-sm text-white/50">{type}</div>
               ))}
             </div>
-            <a href="mailto:partnerships@healthdb.ai" className="text-blue-400 text-sm hover:underline">
+            <a href="mailto:partnerships@healthdb.ai" className="text-blue-400 text-sm underline">
               Become a partner →
             </a>
           </div>
@@ -197,7 +197,7 @@ const ForResearchers = () => {
             </a>
           </div>
           <p className="text-white/50 text-sm mt-6">
-            Already have access? <Link to="/login" className="text-blue-400 hover:underline">Sign in</Link>
+            Already have access? <Link to="/login" className="text-blue-400 underline">Sign in</Link>
           </p>
         </div>
       </section>

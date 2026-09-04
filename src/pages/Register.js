@@ -241,7 +241,7 @@ const Register = () => {
           <div className="mt-8 pt-8 border-t border-white/10">
             <p className="text-center text-white/60 text-sm">
               Already have an account?{' '}
-              <Link to="/login" className="text-white hover:text-[#00d4aa] transition-colors">
+              <Link to="/login" className="text-white underline hover:text-[#00d4aa] transition-colors">
                 Sign in
               </Link>
             </p>

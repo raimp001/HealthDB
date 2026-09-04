@@ -193,7 +193,7 @@ const ForPatients = () => {
             Create Account
           </Link>
           <p className="text-white/50 text-sm mt-4">
-            Already have an account? <Link to="/login" className="text-emerald-400 hover:underline">Sign in</Link>
+            Already have an account? <Link to="/login" className="text-emerald-400 underline">Sign in</Link>
           </p>
         </div>
       </section>

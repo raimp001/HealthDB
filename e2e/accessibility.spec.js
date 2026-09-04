@@ -20,10 +20,32 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
+/**
+ * Wait for entrance animations to finish before measuring.
+ *
+ * Pages animate in with framer-motion from opacity 0. Running axe mid-flight
+ * measures semi-transparent text: white/60 composited at ~0.69 opacity reads
+ * as #696969 (3.82:1) rather than its resting #999999 (7.37:1), so every page
+ * reported a contrast violation that does not exist once the page settles.
+ */
+async function settle(page) {
+  await page.waitForFunction(
+    () => document.getAnimations().every((a) => a.playState === 'finished'),
+    null,
+    { timeout: 5000 },
+  ).catch(() => {});
+  // Belt and braces for animations driven by rAF rather than the Web Animations API.
+  await page.waitForFunction(() => {
+    const el = document.querySelector('main [class*="max-w"]') || document.body;
+    return getComputedStyle(el).opacity === '1';
+  }, null, { timeout: 5000 }).catch(() => {});
+}
+
 test.describe('axe', () => {
   for (const path of PUBLIC_PAGES) {
     test(`${path} has no serious or critical violations`, async ({ page }) => {
       await page.goto(path, { waitUntil: 'domcontentloaded' });
+      await settle(page);
       const { violations } = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
         .analyze();
@@ -42,6 +64,7 @@ test.describe('axe', () => {
 test.describe('Colour contrast', () => {
   test('body text meets WCAG AA against the page background', async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await settle(page);
     const { violations } = await new AxeBuilder({ page })
       .withRules(['color-contrast'])
       .analyze();

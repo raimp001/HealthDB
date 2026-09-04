@@ -85,7 +85,12 @@ jobs:
           CI: true
         run: npm run build
       - name: Playwright (desktop + mobile, includes axe)
-        run: npx playwright test
+        # JSON report plus an explicit check: a truncated console report and a
+        # pipeline exit code from the wrong command once made a run with 23
+        # failures look clean, so the structured result is what gates CI.
+        run: |
+          npx playwright test --reporter=json > pw.json || true
+          node scripts/check_e2e_results.js pw.json
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

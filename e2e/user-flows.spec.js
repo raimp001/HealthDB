@@ -42,7 +42,7 @@ test.describe('Navigation', () => {
     test.skip(testInfo.project.name !== 'mobile', 'mobile viewport only');
     await page.setViewportSize({ width: 390, height: 800 });
     await page.goto('/');
-    const banner = page.getByText(/closed pilot/i).first();
+    const banner = page.getByText(/closed pilot/i);
     await expect(banner).toBeVisible();
 
     // The wordmark must not be hidden behind the notice.
