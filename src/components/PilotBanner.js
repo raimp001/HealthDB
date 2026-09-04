@@ -12,7 +12,10 @@ import React from 'react';
  * land on the hidden one. Only the trailing detail varies by width now.
  */
 const PilotBanner = () => (
-  <div className="bg-amber-400/10 border-b border-amber-400/20 px-4 py-1.5 text-center">
+  <div
+    data-testid="pilot-banner"
+    className="bg-amber-400/10 border-b border-amber-400/20 px-4 py-1.5 text-center"
+  >
     <p className="text-[11px] sm:text-xs leading-tight text-amber-400/90">
       Closed pilot — not for clinical use.
       <span className="hidden sm:inline">

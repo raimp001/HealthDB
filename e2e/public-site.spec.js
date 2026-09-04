@@ -32,7 +32,7 @@ test.describe('Truthful public claims', () => {
     for (const path of ['/', '/researchers', '/patients', '/institutions', '/pricing']) {
       await page.goto(path, { waitUntil: 'domcontentloaded' });
       await expect(
-        page.getByText(/closed pilot/i),
+        page.getByTestId('pilot-banner'),
         `no pilot banner on ${path}`
       ).toBeVisible();
     }

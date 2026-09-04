@@ -29,16 +29,31 @@ test.beforeEach(async ({ page }) => {
  * reported a contrast violation that does not exist once the page settles.
  */
 async function settle(page) {
-  await page.waitForFunction(
-    () => document.getAnimations().every((a) => a.playState === 'finished'),
-    null,
-    { timeout: 5000 },
-  ).catch(() => {});
-  // Belt and braces for animations driven by rAF rather than the Web Animations API.
+  // framer-motion drives opacity through inline styles rather than CSS
+  // transitions, so waiting on getAnimations() alone is not enough. Wait until
+  // nothing is left partially transparent.
+  //
+  // This deliberately does not swallow its timeout. An earlier version caught
+  // and continued, which meant that under parallel load it measured a page
+  // that was still fading in and reported contrast failures that vanish once
+  // the page settles. Failing here points at the real problem instead.
   await page.waitForFunction(() => {
-    const el = document.querySelector('main [class*="max-w"]') || document.body;
-    return getComputedStyle(el).opacity === '1';
-  }, null, { timeout: 5000 }).catch(() => {});
+    // index.css runs decorative keyframes forever (gradientShift, lineMove),
+    // so "nothing is running" is never true. Only entrance animations, which
+    // have a finite iteration count, are worth waiting for.
+    const pendingEntrance = document.getAnimations().some((a) => {
+      if (a.playState !== 'running') return false;
+      const iterations = a.effect?.getTiming?.().iterations;
+      return iterations !== Infinity;
+    });
+    if (pendingEntrance) return false;
+    const midFade = [...document.querySelectorAll('[style*="opacity"]')]
+      .some((el) => {
+        const o = parseFloat(getComputedStyle(el).opacity);
+        return !Number.isNaN(o) && o > 0 && o < 1;
+      });
+    return !midFade;
+  }, null, { timeout: 15000 });
 }
 
 test.describe('axe', () => {

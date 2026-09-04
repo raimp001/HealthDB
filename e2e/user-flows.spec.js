@@ -42,15 +42,14 @@ test.describe('Navigation', () => {
     test.skip(testInfo.project.name !== 'mobile', 'mobile viewport only');
     await page.setViewportSize({ width: 390, height: 800 });
     await page.goto('/');
-    const banner = page.getByText(/closed pilot/i);
+    const banner = page.getByTestId('pilot-banner');
     await expect(banner).toBeVisible();
 
     // The wordmark must not be hidden behind the notice.
     const overlap = await page.evaluate(() => {
       const brand = [...document.querySelectorAll('a')]
         .find((a) => a.textContent.trim() === 'HealthDB');
-      const notice = [...document.querySelectorAll('p')]
-        .find((p) => /closed pilot/i.test(p.textContent));
+      const notice = document.querySelector('[data-testid="pilot-banner"]');
       if (!brand || !notice) return false;
       const a = brand.getBoundingClientRect();
       const b = notice.getBoundingClientRect();
