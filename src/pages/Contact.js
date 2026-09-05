@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 
-const API_URL = process.env.REACT_APP_API_URL || '';
+import { API_URL } from '../lib/api';
 
 const INTEREST_TYPES = [
   { value: 'researcher', label: 'I am a researcher looking for data' },
@@ -177,3 +177,4 @@ const Contact = () => {
 };
 
 export default Contact;
+

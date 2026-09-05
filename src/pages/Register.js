@@ -2,12 +2,11 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
-// Use relative URL in production (same origin), fallback to localhost in dev
-const API_URL = process.env.NODE_ENV === 'production' ? '' : (process.env.REACT_APP_API_URL || 'http://localhost:8000');
+import { apiRequest } from '../lib/api';
 
 const Register = () => {
   const [searchParams] = useSearchParams();
-  const initialType = searchParams.get('type') || 'researcher';
+  const initialType = searchParams.get('type') === 'patient' ? 'patient' : 'researcher';
   
   const [userType, setUserType] = useState(initialType);
   const [name, setName] = useState('');
@@ -24,7 +23,7 @@ const Register = () => {
     setError('');
 
     try {
-      const response = await fetch(`${API_URL}/api/auth/register`, {
+      await apiRequest('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -36,12 +35,7 @@ const Register = () => {
         }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Registration failed');
-      }
-
-      navigate('/login');
+      navigate('/login', { state: { registered: true } });
     } catch (err) {
       setError(err.message || 'Registration failed. Please try again.');
     } finally {
@@ -50,7 +44,7 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center py-20 px-6">
+    <div className="relative min-h-screen bg-black flex items-center justify-center py-20 px-6">
       <div className="absolute inset-0 gradient-bg opacity-50" />
       <div className="absolute inset-0 grid-pattern" />
       
@@ -66,7 +60,7 @@ const Register = () => {
             HealthDB
           </Link>
           <h1 className="heading-display text-3xl text-white mb-2">Create account</h1>
-          <p className="text-white/40">Join the platform</p>
+          <p className="text-white/40">Create a pilot account using synthetic data only</p>
         </div>
 
         {/* Form */}
@@ -103,17 +97,17 @@ const Register = () => {
           </div>
 
           {error && (
-            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+            <div role="alert" className="mb-6 p-4 bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form aria-busy={isLoading} onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block text-xs uppercase tracking-wider text-white/40 mb-2">
+              <label htmlFor="register-name" className="block text-xs uppercase tracking-wider text-white/40 mb-2">
                 Full Name
               </label>
-              <input
+              <input id="register-name" autoComplete="name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -124,10 +118,10 @@ const Register = () => {
             </div>
 
             <div>
-              <label className="block text-xs uppercase tracking-wider text-white/40 mb-2">
+              <label htmlFor="register-email" className="block text-xs uppercase tracking-wider text-white/40 mb-2">
                 Email
               </label>
-              <input
+              <input id="register-email" autoComplete="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -139,10 +133,10 @@ const Register = () => {
 
             {userType === 'researcher' && (
               <div>
-                <label className="block text-xs uppercase tracking-wider text-white/40 mb-2">
+                <label htmlFor="register-institution" className="block text-xs uppercase tracking-wider text-white/40 mb-2">
                   Institution
                 </label>
-                <input
+                <input id="register-institution" autoComplete="organization"
                   type="text"
                   value={institution}
                   onChange={(e) => setInstitution(e.target.value)}
@@ -153,10 +147,10 @@ const Register = () => {
             )}
 
             <div>
-              <label className="block text-xs uppercase tracking-wider text-white/40 mb-2">
+              <label htmlFor="register-password" className="block text-xs uppercase tracking-wider text-white/40 mb-2">
                 Password
               </label>
-              <input
+              <input id="register-password" autoComplete="new-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -172,11 +166,12 @@ const Register = () => {
 
             <div className="flex items-start gap-3">
               <input
+                id="register-terms"
                 type="checkbox"
                 required
                 className="mt-1 w-4 h-4 bg-white/5 border border-white/20 rounded-none"
               />
-              <label className="text-sm text-white/40">
+              <label htmlFor="register-terms" className="text-sm text-white/60">
                 I agree to the{' '}
                 <Link to="/terms" className="text-white/60 hover:text-white">Terms</Link>
                 {' '}and{' '}
@@ -249,3 +244,4 @@ const Register = () => {
 };
 
 export default Register;
+

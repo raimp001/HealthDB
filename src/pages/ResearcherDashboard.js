@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
-const API_URL = process.env.NODE_ENV === 'production' ? '' : (process.env.REACT_APP_API_URL || 'http://localhost:8000');
+import { API_URL } from '../lib/api';
 
 const AnalyticsBars = ({ items, emptyMessage }) => {
   const maxValue = Math.max(...items.map(item => item.value), 0);
@@ -1465,3 +1465,4 @@ const ResearcherDashboard = () => {
 };
 
 export default ResearcherDashboard;
+

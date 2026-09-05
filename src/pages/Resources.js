@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const API_URL = process.env.NODE_ENV === 'production' ? '' : (process.env.REACT_APP_API_URL || 'http://localhost:8000');
+import { API_URL } from '../lib/api';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 
@@ -767,3 +767,4 @@ This enables even broader collaboration while strengthening privacy.`
 };
 
 export default Resources;
+

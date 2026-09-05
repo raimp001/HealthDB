@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
-// Use relative URL in production (same origin), fallback to localhost in dev
-const API_URL = process.env.NODE_ENV === 'production' ? '' : (process.env.REACT_APP_API_URL || 'http://localhost:8000');
+import { apiRequest } from '../lib/api';
+import { destinationFor, saveUser } from '../lib/session';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -11,6 +11,7 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -18,33 +19,15 @@ const Login = () => {
     setError('');
 
     try {
-      const response = await fetch(`${API_URL}/api/auth/login`, {
+      const data = await apiRequest('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
 
-      if (!response.ok) {
-        throw new Error('Invalid credentials');
-      }
-
-      const data = await response.json();
-      // Use sessionStorage (cleared on tab close) to reduce XSS token theft window
       sessionStorage.setItem('token', data.access_token);
-      // Only store non-sensitive user info needed for UI routing
-      sessionStorage.setItem('user', JSON.stringify({
-        id: data.user.id,
-        name: data.user.name,
-        user_type: data.user.user_type,
-      }));
-
-      if (data.user.user_type === 'patient') {
-        navigate('/patient');
-      } else if (data.user.user_type === 'institution') {
-        navigate('/institution');
-      } else {
-        navigate('/research');
-      }
+      saveUser(data.user);
+      navigate(destinationFor(data.user, location.state?.from), { replace: true });
     } catch (err) {
       setError(err.message || 'Login failed. Please try again.');
     } finally {
@@ -53,7 +36,7 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center py-20 px-6">
+    <div className="relative min-h-screen bg-black flex items-center justify-center py-20 px-6">
       <div className="absolute inset-0 gradient-bg opacity-50" />
       <div className="absolute inset-0 grid-pattern" />
       
@@ -74,18 +57,22 @@ const Login = () => {
 
         {/* Form */}
         <div className="border border-white/10 p-8">
+          {location.state?.registered && <p role="status" className="mb-6 text-emerald-400">Account created. Sign in to open your pilot workspace.</p>}
+          {location.state?.expired && <p role="status" className="mb-6 text-amber-400">Your session has expired. Please sign in again.</p>}
           {error && (
-            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+            <div role="alert" className="mb-6 p-4 bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form aria-busy={isLoading} onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block text-xs uppercase tracking-wider text-white/40 mb-2">
+              <label htmlFor="login-email" className="block text-xs uppercase tracking-wider text-white/60 mb-2">
                 Email
               </label>
               <input
+                id="login-email"
+                autoComplete="username"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -97,7 +84,7 @@ const Login = () => {
 
             <div>
               <div className="flex justify-between items-center mb-2">
-                <label className="block text-xs uppercase tracking-wider text-white/40">
+                <label htmlFor="login-password" className="block text-xs uppercase tracking-wider text-white/60">
                   Password
                 </label>
                 {/* No self-service reset exists yet; this is a manual request. */}
@@ -106,6 +93,8 @@ const Login = () => {
                 </Link>
               </div>
               <input
+                id="login-password"
+                autoComplete="current-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -139,3 +128,4 @@ const Login = () => {
 };
 
 export default Login;
+

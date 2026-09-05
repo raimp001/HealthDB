@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
-const API_URL = process.env.NODE_ENV === 'production' ? '' : (process.env.REACT_APP_API_URL || 'http://localhost:8000');
+import { API_URL } from '../lib/api';
 
 const DataMarketplace = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -305,3 +305,4 @@ const DataMarketplace = () => {
 };
 
 export default DataMarketplace;
+

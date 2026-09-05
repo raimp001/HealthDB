@@ -1,21 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 
-// Where each role lands after signing in.
-const DASHBOARD_BY_ROLE = {
-  patient: '/patient',
-  institution: '/institution',
-  researcher: '/research',
-};
-
-const readStoredUser = () => {
-  try {
-    const raw = sessionStorage.getItem('user');
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-};
+import { DASHBOARD_BY_ROLE, readStoredUser, clearSession } from '../lib/session';
 
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
@@ -38,9 +24,14 @@ const Navbar = () => {
     setUser(readStoredUser());
   }, [location]);
 
+  useEffect(() => {
+    const syncUser = () => setUser(readStoredUser());
+    window.addEventListener('healthdb-session', syncUser);
+    return () => window.removeEventListener('healthdb-session', syncUser);
+  }, []);
+
   const handleSignOut = () => {
-    sessionStorage.removeItem('token');
-    sessionStorage.removeItem('user');
+    clearSession();
     setUser(null);
     navigate('/');
   };
@@ -49,10 +40,12 @@ const Navbar = () => {
 
   return (
     <nav
+      aria-label="Main navigation"
+      onKeyDown={event => { if (event.key === 'Escape') setMenuOpen(false); }}
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         scrolled
           ? 'bg-black/80 backdrop-blur-xl border-b border-white/5'
-          : 'bg-transparent'
+          : 'bg-black'
       }`}
     >
       <div className="max-w-7xl mx-auto px-6">
@@ -112,7 +105,9 @@ const Navbar = () => {
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             className="md:hidden p-2 text-white"
-            aria-label="Toggle menu"
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={menuOpen}
+            aria-controls="mobile-navigation"
           >
             <div className="w-6 h-5 flex flex-col justify-between">
               <span
@@ -137,6 +132,8 @@ const Navbar = () => {
 
       {/* Mobile Menu */}
       <div
+        id="mobile-navigation"
+        hidden={!menuOpen}
         className={`md:hidden transition-all duration-300 overflow-hidden ${
           menuOpen ? 'max-h-screen bg-black/95 backdrop-blur-xl' : 'max-h-0'
         }`}
@@ -188,6 +185,7 @@ const NavLink = ({ to, children }) => {
   return (
     <Link
       to={to}
+      aria-current={isActive ? 'page' : undefined}
       className={`px-4 py-2 text-sm transition-colors ${
         isActive
           ? 'text-white'
@@ -206,6 +204,7 @@ const MobileNavLink = ({ to, children }) => {
   return (
     <Link
       to={to}
+      aria-current={isActive ? 'page' : undefined}
       className={`block text-2xl font-light ${
         isActive ? 'text-white' : 'text-white/50'
       }`}
@@ -216,3 +215,4 @@ const MobileNavLink = ({ to, children }) => {
 };
 
 export default Navbar;
+

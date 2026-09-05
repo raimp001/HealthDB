@@ -6,7 +6,7 @@ const LandingPage = () => {
   return (
     <div className="bg-black text-white">
       {/* Hero */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+      <section className="relative min-h-[70vh] py-20 flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 gradient-bg" />
         <div className="absolute inset-0 grid-pattern" />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#00d4aa]/5 rounded-full blur-[120px]" />
@@ -23,9 +23,9 @@ const LandingPage = () => {
               <span className="text-white/50">oncology research cohorts</span>
             </h1>
             
-            <p className="text-lg text-white/40 max-w-xl mx-auto mb-10">
-              Patients contribute their own records. HealthDB de-identifies them. Approved
-              researchers run aggregate cohort feasibility.
+            <p className="text-lg text-white/70 max-w-xl mx-auto mb-10">
+              Plan cohorts, organize studies, and explore consent workflows in an
+              oncology research pilot. Use synthetic records while we prepare for institutional onboarding.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
@@ -43,7 +43,7 @@ const LandingPage = () => {
             <div className="inline-flex items-center gap-3 px-4 py-2 border border-amber-400/30 bg-amber-400/5">
               <span className="text-amber-400 text-xs uppercase tracking-wider">Closed pilot</span>
               <span className="text-white/40 text-sm">
-                Onboarding research partners — not yet open for self-service use
+                Pilot accounts available · Synthetic data only
               </span>
             </div>
           </motion.div>
@@ -85,7 +85,7 @@ const LandingPage = () => {
                   <span className="text-emerald-400">2</span>
                   <div>
                     <div className="text-white">Run feasibility</div>
-                    <div className="text-white/40">Instant N counts</div>
+                    <div className="text-white/60">Aggregate counts from available pilot records</div>
                   </div>
                 </div>
                 <div className="flex gap-4">
@@ -98,8 +98,8 @@ const LandingPage = () => {
                 <div className="flex gap-4">
                   <span className="text-emerald-400">4</span>
                   <div>
-                    <div className="text-white">Receive dataset</div>
-                    <div className="text-white/40">After approval</div>
+                    <div className="text-white">Review access requirements</div>
+                    <div className="text-white/60">Dataset access depends on permissions and approvals</div>
                   </div>
                 </div>
               </div>
@@ -114,8 +114,8 @@ const LandingPage = () => {
                 <div className="flex gap-4">
                   <span className="text-blue-400">1</span>
                   <div>
-                    <div className="text-white">Connect records</div>
-                    <div className="text-white/40">Epic MyChart or manual</div>
+                    <div className="text-white">Explore record import</div>
+                    <div className="text-white/60">Synthetic FHIR records; direct MyChart connection planned</div>
                   </div>
                 </div>
                 <div className="flex gap-4">
@@ -128,8 +128,8 @@ const LandingPage = () => {
                 <div className="flex gap-4">
                   <span className="text-blue-400">3</span>
                   <div>
-                    <div className="text-white">Contribute data</div>
-                    <div className="text-white/40">Help future patients</div>
+                    <div className="text-white">Test contribution workflows</div>
+                    <div className="text-white/60">No real patient records during the pilot</div>
                   </div>
                 </div>
                 <div className="flex gap-4">
@@ -216,9 +216,9 @@ const LandingPage = () => {
       {/* CTA */}
       <section className="py-24 px-6 border-t border-white/5">
         <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-3xl font-bold mb-4">Start your research</h2>
-          <p className="text-white/40 mb-8">Get from hypothesis to data in weeks</p>
-          <div className="flex gap-4 justify-center">
+          <h2 className="text-3xl font-bold mb-4">Explore your research workflow</h2>
+          <p className="text-white/70 mb-8">Create a pilot workspace or discuss an institutional pilot with us.</p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/contact" className="px-8 py-3 bg-white text-black font-medium hover:bg-gray-100 transition-colors">
               Talk to Us
             </Link>
