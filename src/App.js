@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 
 // Pages
@@ -30,14 +30,23 @@ import NotFound from './pages/NotFound';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import PilotBanner from './components/PilotBanner';
+import RequireSession from './components/RequireSession';
+
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  return null;
+}
 
 function App() {
   return (
     <Router>
-      <div className="min-h-screen bg-slate-50 flex flex-col">
+      <ScrollToTop />
+      <div className="min-h-screen bg-black flex flex-col pt-20">
+        <a href="#main-content" className="skip-link">Skip to content</a>
         <Navbar />
         <PilotBanner />
-        <main className="flex-grow">
+        <main id="main-content" tabIndex={-1} className="flex-grow">
           <Routes>
             <Route path="/" element={<LandingPage />} />
             {/* Public info pages */}
@@ -45,10 +54,10 @@ function App() {
             <Route path="/researchers" element={<ForResearchers />} />
             <Route path="/institutions" element={<ForInstitutions />} />
             {/* Authenticated dashboards */}
-            <Route path="/patient" element={<PatientPortal />} />
-            <Route path="/research" element={<ResearcherDashboard />} />
-            <Route path="/institution" element={<InstitutionDashboard />} />
-            <Route path="/cohort-builder" element={<CohortBuilder />} />
+            <Route path="/patient" element={<RequireSession roles={['patient']}><PatientPortal /></RequireSession>} />
+            <Route path="/research" element={<RequireSession roles={['researcher', 'admin']}><ResearcherDashboard /></RequireSession>} />
+            <Route path="/institution" element={<RequireSession roles={['institution', 'admin']}><InstitutionDashboard /></RequireSession>} />
+            <Route path="/cohort-builder" element={<RequireSession roles={['researcher', 'admin']}><CohortBuilder /></RequireSession>} />
             {/* Platform pages */}
             <Route path="/platform" element={<PlatformFocusAreas />} />
             <Route path="/security-posture" element={<SecurityPostureMap />} />
@@ -76,3 +85,4 @@ function App() {
 }
 
 export default App;
+

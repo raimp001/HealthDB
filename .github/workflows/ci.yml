@@ -33,6 +33,10 @@ jobs:
         with:
           node-version: '20'
       - run: npm ci
+      - name: Frontend regression tests
+        env:
+          CI: true
+        run: npm test -- --watchAll=false --runInBand
       - name: Build (warnings are errors)
         env:
           CI: true

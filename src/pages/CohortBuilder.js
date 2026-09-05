@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const API_URL = process.env.NODE_ENV === 'production' ? '' : (process.env.REACT_APP_API_URL || 'http://localhost:8000');
+import { API_URL } from '../lib/api';
 
 const CohortBuilder = () => {
   const [step, setStep] = useState(1);
@@ -1234,3 +1234,4 @@ const CohortBuilder = () => {
 };
 
 export default CohortBuilder;
+

@@ -836,7 +836,7 @@ async def login(credentials: UserLogin, db: Session = Depends(get_db)):
     user_repo = UserRepository(db)
     user = user_repo.get_by_email(credentials.email)
 
-    if not user or not verify_password(credentials.password, user.password_hash):
+    if not user or not user.is_active or not verify_password(credentials.password, user.password_hash):
         audit_logger.warning(f"Failed login attempt for email: {credentials.email}")
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
@@ -873,8 +873,8 @@ async def get_current_user(
     user_repo = UserRepository(db)
     user = user_repo.get_by_id(UUID(token_data["sub"]))
 
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="User not found or inactive")
 
     return UserResponse(
         id=str(user.id),
@@ -3441,19 +3441,23 @@ async def create_irb_protocol(
 # ============== Health Check ==============
 
 @app.get("/api/health")
-async def health_check(db: Session = Depends(get_db)):
+async def health_check(response: Response, db: Session = Depends(get_db)):
     """Health check endpoint"""
     # Test database connection
     try:
         db.execute(text("SELECT 1"))
         db_status = "connected"
-    except Exception as e:
-        db_status = f"error: {str(e)}"
+    except Exception:
+        db_status = "unavailable"
+        response.status_code = 503
+
+    response.headers["Cache-Control"] = "no-store"
 
     return {
         "status": "healthy" if db_status == "connected" else "degraded",
         "timestamp": datetime.utcnow().isoformat(),
         "version": "1.0.0",
+        "revision": os.environ.get("VERCEL_GIT_COMMIT_SHA", "unknown"),
         "database": db_status,
     }
 
