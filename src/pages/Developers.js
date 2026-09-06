@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 
 export default function Developers() {
-  const command = `curl --fail-with-body https://www.healthdb.ai/api/demo/cohort/build \\\n+  -H 'Content-Type: application/json' \\\n+  --data '{"cancer_types":["Multiple Myeloma"],"age_min":50}'`;
+  const command = `curl --fail-with-body https://www.healthdb.ai/api/demo/cohort/build \\\n  -H 'Content-Type: application/json' \\\n  --data '{"cancer_types":["Multiple Myeloma"],"age_min":50}'`;
   return <article className="max-w-4xl mx-auto px-6 py-16 text-white space-y-8">
     <header><p className="text-emerald-300 text-sm">For developers and AI agents</p><h1 className="text-4xl mt-4 mb-5">From a question to a testable cohort.</h1><p className="text-lg text-white/70">Start with the public synthetic demo. No signup, credentials, or patient data required.</p></header>
     <section><h2 className="text-2xl mb-4">1. Run a query</h2><pre className="bg-white/5 p-5 rounded overflow-x-auto text-sm">{command}</pre><p className="text-white/70 mt-4">Fixture version 1 returns 4 matching fictional profiles and 16 records for this query. Results are deterministic and do not measure real-world data availability.</p></section>

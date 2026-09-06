@@ -29,3 +29,6 @@ Only CSV pilot exports are implemented. No production EHR integration or MCP ser
 
 ## Partnerships
 https://www.healthdb.ai/contact
+
+## Patient education
+- /care-guide: General US screening education with source dates, official directories, and a local checklist. Not personalized clinical advice, ordering, booking, or result interpretation. Do not use it as clinical decision support.

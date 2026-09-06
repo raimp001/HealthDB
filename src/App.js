@@ -33,6 +33,7 @@ import PilotBanner from './components/PilotBanner';
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import Demo from './pages/Demo';
+import CareGuide from './pages/CareGuide';
 import Developers from './pages/Developers';
 
 function ScrollToTop() {
@@ -53,6 +54,7 @@ function App() {
           <ErrorBoundary>
           <Routes>
             <Route path="/" element={<LandingPage />} />
+            <Route path="/care-guide" element={<CareGuide />} />
             <Route path="/demo" element={<Demo />} />
             <Route path="/developers" element={<Developers />} />
             {/* Public info pages */}

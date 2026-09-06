@@ -64,12 +64,12 @@ const LandingPage = () => (
             HealthDB is a working technical prototype for consent, de-identification, cohort
             feasibility, and research governance. Pilot evaluations use synthetic data only.
           </p>
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-col sm:flex-row flex-wrap gap-3">
             <Link to="/demo" className="px-7 py-3.5 bg-white text-black text-center font-medium hover:bg-gray-100 transition-colors">
-              Try the synthetic demo
+              Try the research demo
             </Link>
-            <Link to="/developers" className="px-7 py-3.5 border border-white/20 text-center hover:bg-white/5 transition-colors">
-              Build with the API
+            <Link to="/care-guide" className="px-7 py-3.5 border border-white/20 text-center hover:bg-white/5 transition-colors">
+              Explore the care guide
             </Link>
           </div>
         </motion.div>

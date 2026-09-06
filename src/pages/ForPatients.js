@@ -12,15 +12,15 @@ const ForPatients = () => (
           transition={{ duration: 0.55 }}
           className="max-w-3xl"
         >
-          <p className="text-xs text-emerald-300 uppercase tracking-[0.2em] mb-5">For patients and caregivers · design stage</p>
-          <h1 className="text-4xl md:text-6xl font-medium mb-7">Research data sharing should be understandable and controllable.</h1>
+          <p className="text-xs text-emerald-300 uppercase tracking-[0.2em] mb-5">For patients and caregivers</p>
+          <h1 className="text-4xl md:text-6xl font-medium mb-7">A clearer path from screening questions to care.</h1>
           <p className="text-lg text-white/50 max-w-2xl mb-9 leading-relaxed">
-            HealthDB is testing how consent, privacy choices, and access history could work in one place.
+            Explore general screening guidance, find official care directories, and prepare for clinician follow-up.
             We are not enrolling patients or accepting medical records.
           </p>
           <div className="flex flex-col sm:flex-row gap-3">
-            <Link to="/contact?interest=patient" className="px-7 py-3.5 bg-white text-black text-center font-medium hover:bg-gray-100 transition-colors">
-              Join patient-design conversations
+            <Link to="/care-guide" className="px-7 py-3.5 bg-white text-black text-center font-medium hover:bg-gray-100 transition-colors">
+              Open the screening & care guide
             </Link>
             <a href="#principles" className="px-7 py-3.5 border border-white/20 text-center hover:bg-white/5 transition-colors">
               See the design principles
