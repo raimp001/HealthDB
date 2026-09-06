@@ -1,8 +1,10 @@
+import toast from 'react-hot-toast';
+import { API_URL, apiFetch as fetch, readSessionUser } from '../lib/api';
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
-import { API_URL } from '../lib/api';
+const PATIENT_STUDY_ENROLLMENT_ENABLED = process.env.REACT_APP_ENABLE_PATIENT_STUDY_ENROLLMENT === 'true';
 
 const AnalyticsBars = ({ items, emptyMessage }) => {
   const maxValue = Math.max(...items.map(item => item.value), 0);
@@ -51,6 +53,7 @@ const ResearcherDashboard = () => {
   const [analytics, setAnalytics] = useState(null);
   const [analyticsScope, setAnalyticsScope] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [showVariableSelector, setShowVariableSelector] = useState(false);
   const [isCreatingStudy, setIsCreatingStudy] = useState(false);
   const [recruitingActionId, setRecruitingActionId] = useState(null);
@@ -93,7 +96,7 @@ const ResearcherDashboard = () => {
   // contributed, loaded from the API. Nothing here is assumed.
   const [variableInventory, setVariableInventory] = useState(null);
   const variableCategories = (variableInventory?.categories || []).reduce((acc, c) => {
-    acc[c.category] = c.variables.map(v => v.label);
+    acc[c.category] = c.variables;
     return acc;
   }, {});
 
@@ -105,6 +108,8 @@ const ResearcherDashboard = () => {
   ];
 
   const fetchData = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
     const token = sessionStorage.getItem('token');
     try {
       const [cohortsRes, analyticsRes, studiesRes, collabsRes, instRes] = await Promise.all([
@@ -122,6 +127,7 @@ const ResearcherDashboard = () => {
       if (instRes.ok) setInstitutions(await instRes.json());
     } catch (err) {
       console.error('Failed to fetch data:', err);
+      setLoadError(err.message);
     } finally {
       setLoading(false);
     }
@@ -149,7 +155,7 @@ const ResearcherDashboard = () => {
 
   useEffect(() => {
     const token = sessionStorage.getItem('token');
-    const user = JSON.parse(sessionStorage.getItem('user') || '{}');
+    const user = (readSessionUser() || {});
 
     if (!token) {
       navigate('/login');
@@ -202,6 +208,17 @@ const ResearcherDashboard = () => {
   const handleBuildCohort = async () => {
     setIsBuilding(true);
     const token = sessionStorage.getItem('token');
+    const criteria = {
+      cancer_types: cohortCriteria.cancerTypes,
+      icd_codes: cohortCriteria.icdCodes,
+      stages: cohortCriteria.diseaseStages,
+      age_min: cohortCriteria.ageMin !== '' ? Number(cohortCriteria.ageMin) : null,
+      age_max: cohortCriteria.ageMax !== '' ? Number(cohortCriteria.ageMax) : null,
+      treatment_types: cohortCriteria.treatmentTypes,
+      min_follow_up_months: cohortCriteria.minFollowup !== '' ? Number(cohortCriteria.minFollowup) : null,
+      diagnosis_date_start: cohortCriteria.dateRange.start || null,
+      diagnosis_date_end: cohortCriteria.dateRange.end || null,
+    };
 
     try {
       const response = await fetch(`${API_URL}/api/cohort/build`, {
@@ -210,15 +227,7 @@ const ResearcherDashboard = () => {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          cancer_types: cohortCriteria.cancerTypes.length > 0 ? cohortCriteria.cancerTypes : null,
-          icd_codes: cohortCriteria.icdCodes.length > 0 ? cohortCriteria.icdCodes : null,
-          stages: cohortCriteria.diseaseStages.length > 0 ? cohortCriteria.diseaseStages : null,
-          age_min: cohortCriteria.ageMin ? parseInt(cohortCriteria.ageMin) : null,
-          age_max: cohortCriteria.ageMax ? parseInt(cohortCriteria.ageMax) : null,
-          treatment_types: cohortCriteria.treatmentTypes.length > 0 ? cohortCriteria.treatmentTypes : null,
-          min_follow_up_months: cohortCriteria.minFollowup ? parseInt(cohortCriteria.minFollowup) : null,
-        }),
+        body: JSON.stringify(criteria),
       });
 
       if (response.ok) {
@@ -233,19 +242,21 @@ const ResearcherDashboard = () => {
           data_completeness: data.data_completeness ?? 0,
           suppressed: data.suppressed,
           min_cell_size: data.min_cell_size,
-          criteria: cohortCriteria,
+          criteria,
         });
       } else {
         const errorData = await response.json();
-        alert(`Failed to build cohort: ${errorData.detail || 'Unknown error'}`);
+        toast(`Failed to build cohort: ${errorData.detail || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Failed to build cohort:', error);
-      alert('Failed to build cohort. Please try again.');
+      toast.error(error.message);
     } finally {
       setIsBuilding(false);
     }
   };
+
+  useEffect(() => { setCohortResult(null); }, [cohortCriteria]);
 
   const handleSaveCohort = async () => {
     if (!cohortResult) return;
@@ -264,17 +275,18 @@ const ResearcherDashboard = () => {
         body: JSON.stringify({
           name,
           description: `Cancer types: ${cohortCriteria.cancerTypes.join(', ') || 'Any'}`,
-          criteria: cohortCriteria,
+          criteria: cohortResult.criteria,
         }),
       });
 
       if (response.ok) {
         const data = await response.json();
         setSavedCohorts(prev => [data, ...prev]);
-        alert('Cohort saved successfully!');
+        toast('Cohort saved successfully!');
       }
     } catch (error) {
       console.error('Failed to save cohort:', error);
+      toast.error(error.message);
     }
   };
 
@@ -329,6 +341,7 @@ const ResearcherDashboard = () => {
           name,
           description,
           principal_investigator: principalInvestigator,
+          cohort_id: cohort?.id || null,
         }),
       });
 
@@ -336,11 +349,11 @@ const ResearcherDashboard = () => {
         await fetchData();
       } else {
         const data = await response.json();
-        alert(data.detail || 'Failed to create study');
+        toast(data.detail || 'Failed to create study');
       }
     } catch (err) {
       console.error('Failed to create study:', err);
-      alert('Failed to create study. Please try again.');
+      toast('Failed to create study. Please try again.');
     } finally {
       setIsCreatingStudy(false);
     }
@@ -372,7 +385,7 @@ const ResearcherDashboard = () => {
         await fetchData();
       } else {
         const data = await response.json();
-        alert(data.detail || 'Failed to update recruiting status');
+        toast(data.detail || 'Failed to update recruiting status');
       }
     } catch (err) {
       console.error('Failed to update recruiting status:', err);
@@ -424,7 +437,7 @@ const ResearcherDashboard = () => {
         setShowAddSite(false);
         await fetchRegulatory(selectedStudyId);
       } else {
-        alert(data.detail || 'Failed to add site');
+        toast(data.detail || 'Failed to add site');
       }
     } catch (err) {
       console.error('Failed to add site:', err);
@@ -445,7 +458,7 @@ const ResearcherDashboard = () => {
       if (response.ok) {
         await fetchRegulatory(selectedStudyId);
       } else {
-        alert(data.detail || 'Failed to submit document');
+        toast(data.detail || 'Failed to submit document');
       }
     } catch (err) {
       console.error('Failed to submit document:', err);
@@ -469,9 +482,9 @@ const ResearcherDashboard = () => {
       const data = await response.json();
       if (response.ok) {
         await fetchRegulatory(selectedStudyId);
-        alert(data.message);
+        toast(data.message);
       } else {
-        alert(data.detail || 'Failed to invite collaborator');
+        toast(data.detail || 'Failed to invite collaborator');
       }
     } catch (err) {
       console.error('Failed to invite collaborator:', err);
@@ -480,6 +493,11 @@ const ResearcherDashboard = () => {
 
   const handleRequestExtract = async () => {
     if (!selectedStudyId) return;
+    if (!selectedVariables.length) {
+      setShowVariableSelector(true);
+      toast('Select variables, then request the extract again.');
+      return;
+    }
     setExtractActionId('create');
     const token = sessionStorage.getItem('token');
     try {
@@ -491,7 +509,7 @@ const ResearcherDashboard = () => {
         },
         body: JSON.stringify({
           study_id: selectedStudyId,
-          variables: [],
+          variables: selectedVariables,
           output_format: 'csv',
           deidentification_level: 'limited_dataset',
         }),
@@ -500,11 +518,11 @@ const ResearcherDashboard = () => {
       if (response.ok) {
         await fetchRegulatory(selectedStudyId);
       } else {
-        alert(data.detail || 'Failed to request extract');
+        toast(data.detail || 'Failed to request extract');
       }
     } catch (err) {
       console.error('Failed to request extract:', err);
-      alert('Failed to request extract');
+      toast.error(err.message);
     } finally {
       setExtractActionId(null);
     }
@@ -519,7 +537,7 @@ const ResearcherDashboard = () => {
       });
       if (!response.ok) {
         const data = await response.json();
-        alert(data.detail || 'Failed to download extract');
+        toast(data.detail || 'Failed to download extract');
         return;
       }
       const blob = await response.blob();
@@ -533,7 +551,7 @@ const ResearcherDashboard = () => {
       window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Failed to download extract:', err);
-      alert('Failed to download extract');
+      toast('Failed to download extract');
     } finally {
       setExtractActionId(null);
     }
@@ -558,6 +576,10 @@ const ResearcherDashboard = () => {
     if (status === 'failed') return 'bg-red-500/20 text-red-400';
     return 'bg-white/10 text-white/40';
   };
+
+  if (loadError) {
+    return <div role="alert" className="max-w-3xl mx-auto px-6 py-20 text-white"><h1 className="text-2xl mb-4">Unable to load your workspace</h1><p>{loadError}</p><button onClick={fetchData} className="mt-5 underline">Try again</button></div>;
+  }
 
   return (
     <div className="min-h-screen bg-black pt-20">
@@ -623,7 +645,7 @@ const ResearcherDashboard = () => {
                     <div>
                       <h2 className="text-lg font-medium text-white mb-2">Build Your Cohort</h2>
                       <p className="text-white/40 text-sm">
-                        Define inclusion/exclusion criteria. Results show actual de-identified patient counts.
+                        Define inclusion/exclusion criteria against stored synthetic test profiles.
                       </p>
                     </div>
 
@@ -784,16 +806,16 @@ const ResearcherDashboard = () => {
                       {cohortResult ? (
                         <div className="space-y-6">
                           <div>
-                            <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Eligible Patients</p>
+                            <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Matching Test Profiles</p>
                             <p className="text-4xl font-light text-white font-mono">
                               {cohortResult.patient_count.toLocaleString()}
                             </p>
                             <p className="text-white/30 text-sm mt-1">
-                              consented and matching your criteria
+                              synthetic profiles matching your criteria
                             </p>
                             {cohortResult.suppressed && (
                               <p className="text-amber-400 text-xs mt-2">
-                                A cohort exists but is smaller than the {cohortResult.min_cell_size}-patient
+                                A test cohort exists but is smaller than the {cohortResult.min_cell_size}-profile
                                 reporting floor, so the exact count is withheld. Broaden your criteria.
                               </p>
                             )}
@@ -817,7 +839,7 @@ const ResearcherDashboard = () => {
                           {cohortResult.available_institutions.length > 0 && (
                             <div>
                               <p className="text-white/40 text-xs uppercase tracking-wider mb-2">
-                                Sites you can file this study with
+                                Synthetic institution fixtures
                               </p>
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 {cohortResult.available_institutions.map((inst) => (
@@ -827,8 +849,7 @@ const ResearcherDashboard = () => {
                                 ))}
                               </div>
                               <p className="text-white/30 text-xs mt-2">
-                                Records are contributed by patients directly, so a cohort is not
-                                attributed to a source institution.
+                                Pilot records are synthetic and are not attributable to a real source institution.
                               </p>
                             </div>
                           )}
@@ -859,7 +880,7 @@ const ResearcherDashboard = () => {
                               <button 
                                 className="w-full py-3 border border-white/20 text-white text-xs uppercase tracking-wider hover:bg-white/5 transition-colors"
                               >
-                                Submit for IRB
+                                Open governance simulation
                               </button>
                             </div>
                           )}
@@ -882,7 +903,7 @@ const ResearcherDashboard = () => {
               <motion.div key="analytics" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 <div className="mb-8">
                   <h2 className="text-lg font-medium text-white mb-2">Research Analytics</h2>
-                  <p className="text-white/40 text-sm">Aggregate insights across consented, de-identified contributions.</p>
+                  <p className="text-white/40 text-sm">Aggregate pilot insights across synthetic records with a recorded test acknowledgement.</p>
                 </div>
 
                 <div className="flex flex-wrap gap-2 mb-8">
@@ -915,14 +936,14 @@ const ResearcherDashboard = () => {
                   <div className="card-glass p-8 text-center">
                     <p className="text-white/40">No consented data yet.</p>
                     <p className="text-white/30 text-sm mt-2">
-                      Aggregate analytics appear once patients contribute de-identified data under active consent.
+                      Aggregate analytics appear once synthetic records exist under a recorded test acknowledgement.
                     </p>
                   </div>
                 ) : (
                   <div className="space-y-6">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                       {[
-                        ['Contributing Patients', analytics.total_patients],
+                        ['Synthetic Profiles', analytics.total_patients],
                         ['Data Records', analytics.total_records],
                         ['Diagnosis Types', analytics.diagnoses.length],
                       ].map(([label, value]) => (
@@ -932,7 +953,7 @@ const ResearcherDashboard = () => {
                         </div>
                       ))}
                       <div className="card-glass p-6 flex items-center">
-                        <p className="text-white/30 text-sm">Counts reflect distinct consented patients, not clinical event volume.</p>
+                        <p className="text-white/30 text-sm">Counts reflect distinct synthetic test profiles, not real patients or clinical event volume.</p>
                       </div>
                     </div>
 
@@ -1044,11 +1065,11 @@ const ResearcherDashboard = () => {
                               <span className="px-2 py-0.5 text-xs bg-blue-500/20 text-blue-400 uppercase">
                                 {study.status.replace('_', ' ')}
                               </span>
-                              <span className={`px-2 py-0.5 text-xs uppercase ${study.is_recruiting ? 'bg-[#00d4aa]/20 text-[#00d4aa]' : 'bg-white/10 text-white/40'}`}>
-                                {study.is_recruiting ? 'Recruiting' : 'Not Recruiting'}
+                              <span className={`px-2 py-0.5 text-xs uppercase ${PATIENT_STUDY_ENROLLMENT_ENABLED && study.is_recruiting ? 'bg-[#00d4aa]/20 text-[#00d4aa]' : 'bg-white/10 text-white/40'}`}>
+                                {PATIENT_STUDY_ENROLLMENT_ENABLED ? (study.is_recruiting ? 'Simulation open' : 'Simulation closed') : 'Enrollment unavailable'}
                               </span>
                             </div>
-                            <p className="text-white/40 text-sm">{study.enrolled_count} patient{study.enrolled_count === 1 ? '' : 's'} enrolled</p>
+                            <p className="text-white/40 text-sm">{study.enrolled_count} pilot participant record{study.enrolled_count === 1 ? '' : 's'}</p>
                             {study.eligibility_summary && (
                               <p className="text-white/30 text-xs mt-2 max-w-xl">{study.eligibility_summary}</p>
                             )}
@@ -1056,23 +1077,25 @@ const ResearcherDashboard = () => {
                           <div className="flex flex-wrap gap-2 shrink-0">
                             <button
                               onClick={() => handleToggleRecruiting(study)}
-                              disabled={recruitingActionId === study.id}
+                              disabled={!PATIENT_STUDY_ENROLLMENT_ENABLED || recruitingActionId === study.id}
                               className="px-4 py-2 border border-white/20 text-white text-xs uppercase tracking-wider hover:bg-white hover:text-black transition-all disabled:opacity-50"
                             >
-                              {study.is_recruiting ? 'Close Recruiting' : 'Open Recruiting'}
+                              {!PATIENT_STUDY_ENROLLMENT_ENABLED ? 'Enrollment unavailable' : study.is_recruiting ? 'Close simulation' : 'Open simulation'}
                             </button>
-                            <button
-                              onClick={() => handleToggleParticipants(study.id)}
-                              className="px-4 py-2 border border-white/20 text-white text-xs uppercase tracking-wider hover:bg-white hover:text-black transition-all"
-                            >
-                              {expandedParticipants === study.id ? 'Hide Participants' : 'View Participants'}
-                            </button>
+                            {PATIENT_STUDY_ENROLLMENT_ENABLED && (
+                              <button
+                                onClick={() => handleToggleParticipants(study.id)}
+                                className="px-4 py-2 border border-white/20 text-white text-xs uppercase tracking-wider hover:bg-white hover:text-black transition-all"
+                              >
+                                {expandedParticipants === study.id ? 'Hide Test Participants' : 'View Test Participants'}
+                              </button>
+                            )}
                           </div>
                         </div>
 
                         {expandedParticipants === study.id && (
                           <div className="pt-4 border-t border-white/10">
-                            <p className="text-white/40 text-xs uppercase tracking-wider mb-3">Enrolled Participants</p>
+                            <p className="text-white/40 text-xs uppercase tracking-wider mb-3">Pilot Participant Records</p>
                             {loadingParticipants ? (
                               <p className="text-white/30 text-sm">Loading...</p>
                             ) : participants.length > 0 ? (
@@ -1090,7 +1113,7 @@ const ResearcherDashboard = () => {
                                 ))}
                               </div>
                             ) : (
-                              <p className="text-white/30 text-sm">No patients have joined this study yet.</p>
+                              <p className="text-white/30 text-sm">No pilot participant records exist.</p>
                             )}
                           </div>
                         )}
@@ -1098,7 +1121,7 @@ const ResearcherDashboard = () => {
                     )) : (
                       <div className="card-glass p-8 text-center">
                         <p className="text-white/40">No studies yet</p>
-                        <p className="text-white/30 text-sm mt-2">Create a study and open it for recruiting to connect with consented patients.</p>
+                        <p className="text-white/30 text-sm mt-2">Create a synthetic study record to evaluate planning and governance workflows.</p>
                       </div>
                     )}
 
@@ -1139,8 +1162,8 @@ const ResearcherDashboard = () => {
             {activeTab === 'regulatory' && (
               <motion.div key="regulatory" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 <div className="mb-8">
-                  <h2 className="text-lg font-medium text-white mb-2">Multicenter Studies</h2>
-                  <p className="text-white/40 text-sm">Manage participating sites, IRB approvals, DUAs, and your study team across institutions</p>
+                  <h2 className="text-lg font-medium text-white mb-2">Multicenter Workflow Simulation</h2>
+                  <p className="text-white/40 text-sm">Exercise test site, review-state, agreement, and collaborator records. These are not real approvals or agreements.</p>
                 </div>
 
                 {regulatoryStudies.length === 0 ? (
@@ -1198,7 +1221,7 @@ const ResearcherDashboard = () => {
                                 </button>
                               ))}
                           </div>
-                          <p className="text-white/30 text-xs mt-3">Adding a site creates its reliance agreement and DUA, plus a central IRB protocol for the study if one doesn't exist yet.</p>
+                          <p className="text-white/30 text-xs mt-3">Adding a synthetic site creates test reliance, DUA, and central-review records for interface evaluation only.</p>
                         </div>
                       )}
 
@@ -1301,13 +1324,13 @@ const ResearcherDashboard = () => {
                     {regulatoryStudies.find(s => s.id === selectedStudyId)?.mine && (
                       <div className="card-glass p-6 mb-6">
                         <div className="flex items-center justify-between mb-4">
-                          <h3 className="text-sm uppercase tracking-wider text-white/40">DATA EXTRACTION</h3>
+                          <h3 className="text-sm uppercase tracking-wider text-white/40">SYNTHETIC EXTRACTION</h3>
                           <button
                             onClick={handleRequestExtract}
                             disabled={extractActionId === 'create'}
                             className="px-4 py-2 border border-white/20 text-white text-xs uppercase tracking-wider hover:bg-white hover:text-black transition-all disabled:opacity-50"
                           >
-                            Request Extract
+                            Request Test Extract
                           </button>
                         </div>
                         {extractionJobs.length > 0 ? (
@@ -1317,7 +1340,7 @@ const ResearcherDashboard = () => {
                                 <div className="min-w-0">
                                   <p className="text-white/80 text-sm break-all">{job.job_name}</p>
                                   <p className="text-white/30 text-xs">
-                                    {job.patient_count || 0} patient{job.patient_count === 1 ? '' : 's'} • {new Date(job.created_at).toLocaleDateString()}
+                                    {job.patient_count || 0} test profile{job.patient_count === 1 ? '' : 's'} • {new Date(job.created_at).toLocaleDateString()}
                                   </p>
                                 </div>
                                 <div className="flex flex-wrap items-center gap-3">
@@ -1336,7 +1359,7 @@ const ResearcherDashboard = () => {
                             ))}
                           </div>
                         ) : (
-                          <p className="text-white/40 text-sm">No extracts yet. Extraction requires an approved IRB protocol and signed DUA.</p>
+                          <p className="text-white/40 text-sm">No test extracts yet. The simulation requires approved pilot gate states before generating synthetic output.</p>
                         )}
                       </div>
                     )}
@@ -1415,17 +1438,17 @@ const ResearcherDashboard = () => {
                       <div className="space-y-2">
                         {variables.map((variable) => (
                           <label 
-                            key={variable} 
+                            key={variable.id}
                             className="flex items-center gap-3 cursor-pointer group"
                           >
                             <input
                               type="checkbox"
-                              checked={selectedVariables.includes(variable)}
-                              onChange={() => toggleVariable(variable)}
+                              checked={selectedVariables.includes(variable.id)}
+                              onChange={() => toggleVariable(variable.id)}
                               className="w-4 h-4 rounded border-white/20 bg-white/5 text-[#00d4aa] focus:ring-[#00d4aa] focus:ring-offset-0"
                             />
                             <span className="text-white/60 text-sm group-hover:text-white transition-colors">
-                              {variable}
+                              {variable.label}
                             </span>
                           </label>
                         ))}
@@ -1436,7 +1459,7 @@ const ResearcherDashboard = () => {
               </div>
               <div className="p-6 border-t border-white/10 flex justify-between">
                 <button
-                  onClick={() => setSelectedVariables(Object.values(variableCategories).flat())}
+                  onClick={() => setSelectedVariables(Object.values(variableCategories).flat().map(v => v.id))}
                   className="text-white/40 text-sm hover:text-white transition-colors"
                 >
                   Select All
@@ -1465,4 +1488,3 @@ const ResearcherDashboard = () => {
 };
 
 export default ResearcherDashboard;
-

@@ -1,0 +1,51 @@
+{
+  "version": "2026-09-06",
+  "scope": "US general screening education; not individualized recommendations, diagnosis, ordering, booking, or interpretation.",
+  "guides": [
+    {
+      "id": "breast",
+      "title": "Breast cancer screening",
+      "summary": "USPSTF recommends a mammogram every two years for average-risk women ages 40–74. This guidance also applies to other people assigned female at birth in this age range.",
+      "limits": "A history of breast cancer, high-risk breast lesions, certain genetic syndromes, or chest radiation at a young age needs a separate clinical plan. At 75 or older, evidence is insufficient for a general recommendation. A new lump, nipple discharge, or other breast change needs clinical assessment, even after a recent normal screen.",
+      "source": "https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/breast-cancer-screening",
+      "published": "2024-04-30",
+      "questions": ["Does my history change when or how I should be screened?", "What are the benefits, false-positive risks, and limitations of screening?", "Do I need an order, and who will receive and explain my results?"],
+      "steps": ["Discuss eligibility and timing with a primary care clinician; confirm whether an order is required.", "Contact a certified mammography facility. Confirm insurance, cost, accessibility, and availability directly.", "Ask the facility how to prepare and arrange transfer of previous breast images if available.", "Attend the appointment. A radiologist interprets the images; HealthDB does not interpret them.", "Obtain the report and patient summary. Ask the facility when to expect them and call if they do not arrive.", "Review the report with your primary care clinician. Complete any additional imaging or specialist follow-up on the timeframe your care team gives you."],
+      "directory": {"label": "Find FDA-certified mammography facilities", "url": "https://www.fda.gov/findmammography"},
+      "assistance": {"label": "Explore CDC free or low-cost screening programs", "url": "https://www.cdc.gov/breast-cervical-cancer-screening/about/screenings.html"}
+    },
+    {
+      "id": "colorectal",
+      "title": "Colorectal cancer screening",
+      "summary": "USPSTF recommends screening average-risk adults ages 45–75. For ages 76–85, the decision depends on health, previous screening, and preferences.",
+      "limits": "This is for adults without symptoms or a history of colorectal cancer, adenomatous polyps, inflammatory bowel disease, or a known high-risk inherited syndrome. Family history may change the plan. Rectal bleeding or other new symptoms require assessment rather than waiting for routine screening.",
+      "source": "https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/colorectal-cancer-screening",
+      "published": "2021-05-18",
+      "questions": ["Which stool-based or direct-visualization test fits my history and preferences?", "How often should I repeat my chosen test?", "If a stool test is abnormal, who will arrange the follow-up colonoscopy?"],
+      "steps": ["Discuss risk, previous testing, and screening options with a primary care clinician.", "Confirm the test order, laboratory or gastroenterology service, insurance, and any out-of-pocket costs.", "Follow the selected test's preparation and collection instructions; ask whether transport or an escort is needed.", "Complete the test and confirm when and how results will arrive.", "Review results with your clinician. An abnormal stool-based screening test requires follow-up colonoscopy.", "Agree on any further evaluation and the next screening interval with your care team."],
+      "directory": {"label": "Find a primary care health center", "url": "https://findahealthcenter.hrsa.gov/"}
+    },
+    {
+      "id": "blood-pressure",
+      "title": "Blood pressure screening",
+      "summary": "USPSTF recommends blood pressure screening for adults 18 and older without known hypertension. Measurements outside the clinic should confirm the diagnosis before treatment starts.",
+      "limits": "This is screening guidance, not an interpretation of a blood pressure reading. People already diagnosed with hypertension need a management plan. The screening interval depends on age, risk, and previous readings.",
+      "source": "https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/hypertension-in-adults-screening",
+      "published": "2021-04-27",
+      "questions": ["How often should my blood pressure be checked?", "If confirmation is needed, should I use home or ambulatory monitoring?", "Which validated monitor and cuff size should I use, and how should I measure correctly?"],
+      "steps": ["Arrange a blood pressure check with a primary care service.", "Ask about correct measurement technique and whether repeat measurements are needed.", "If your clinician recommends it, arrange home or ambulatory confirmation.", "Share readings directly with your clinician, not through this public guide.", "Agree on follow-up with your clinician; do not start or change medicines based on this page."],
+      "directory": {"label": "Find a primary care health center", "url": "https://findahealthcenter.hrsa.gov/"}
+    },
+    {
+      "id": "diabetes",
+      "title": "Prediabetes and type 2 diabetes screening",
+      "summary": "USPSTF recommends screening adults ages 35–70 who have overweight or obesity, are not pregnant, and have no diabetes symptoms.",
+      "limits": "Earlier screening may be appropriate for some people based on risk. Pregnancy, symptoms, and previously diagnosed diabetes need separate clinical care. This guide does not calculate risk or interpret glucose or HbA1c results.",
+      "source": "https://www.uspreventiveservicestaskforce.org/uspstf/recommendation/screening-for-prediabetes-and-type-2-diabetes",
+      "published": "2021-08-24",
+      "questions": ["Do my risk factors mean I should be screened earlier?", "Which test should I have, and does it require fasting?", "If prediabetes is found, can you refer me to an effective prevention program?"],
+      "steps": ["Discuss eligibility and the appropriate blood test with your primary care clinician.", "Use the laboratory specified by your care team; confirm the order, insurance, cost, and preparation.", "Complete the test using the laboratory's instructions.", "Arrange clinician review of the results and any confirmatory testing.", "If indicated, discuss referral to a diabetes prevention program and a follow-up schedule."],
+      "directory": {"label": "Find a primary care health center", "url": "https://findahealthcenter.hrsa.gov/"}
+    }
+  ]
+}

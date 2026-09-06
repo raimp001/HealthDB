@@ -1,12 +1,13 @@
+import { API_URL, apiFetch as fetch } from '../lib/api';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
-import { API_URL } from '../lib/api';
 
 const InstitutionDashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [institution, setInstitution] = useState(null);
   const [agreements, setAgreements] = useState([]);
   const [irbProtocols, setIrbProtocols] = useState([]);
@@ -17,6 +18,8 @@ const InstitutionDashboard = () => {
   const token = sessionStorage.getItem('token');
 
   const fetchData = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
     if (!token) {
       navigate('/login');
       return;
@@ -59,14 +62,15 @@ const InstitutionDashboard = () => {
       });
     } catch (err) {
       console.error('Error fetching institution data:', err);
+      setLoadError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [token, navigate, agreements, irbProtocols, collaborations]);
+  }, [token, navigate]);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const tabs = [
     { id: 'overview', label: 'Overview' },
@@ -77,6 +81,9 @@ const InstitutionDashboard = () => {
     { id: 'compliance', label: 'Compliance' }
   ];
 
+  if (loadError) {
+    return <div role="alert" className="max-w-3xl mx-auto px-6 py-20 text-white"><h1 className="text-2xl mb-4">Unable to load your workspace</h1><p>{loadError}</p><button onClick={fetchData} className="mt-5 underline">Try again</button></div>;
+  }
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -343,8 +350,8 @@ const IRBTab = ({ protocols }) => {
 const AgreementsTab = ({ agreements }) => {
   const agreementTypes = [
     { type: 'dua', label: 'Data Use Agreements (DUA)', desc: 'Governs how data can be used' },
-    { type: 'baa', label: 'Business Associate Agreements (BAA)', desc: 'HIPAA compliance requirement' },
-    { type: 'reliance', label: 'Reliance Agreements', desc: 'sIRB reliance with partner sites' },
+    { type: 'baa', label: 'Business Associate Agreements (BAA)', desc: 'Production agreement concept — none executed' },
+    { type: 'reliance', label: 'Reliance Agreements', desc: 'Review-state prototype — none executed' },
     { type: 'contract', label: 'Contracts & SOWs', desc: 'Sub-contracts and scopes of work' }
   ];
 
@@ -576,9 +583,10 @@ const CollaborationsTab = ({ collaborations }) => {
         </div>
       </div>
 
-      {/* Partner Sites */}
+      {/* Synthetic review fixtures */}
       <div className="mt-8">
-        <h3 className="font-medium mb-4">Partner Sites in Network</h3>
+        <h3 className="font-medium mb-2">Synthetic Site Fixtures</h3>
+        <p className="text-white/40 text-sm mb-4">Interface examples only. HealthDB has no partner-site network.</p>
         <div className="grid md:grid-cols-4 gap-4">
           {['Sample Site A', 'Sample Site B', 'Sample Site C', 'Sample Site D'].map((site, i) => (
             <div key={site} className="p-3 border border-white/10 text-sm text-center">
@@ -609,10 +617,10 @@ const ComplianceTab = () => {
     {
       category: 'Data protection',
       items: [
-        'HIPAA Safe Harbor identifier removal before research access',
+        'Identifier-removal prototype for supported structured test fields',
         'Small-cell suppression on aggregate results',
         'Consent checked at query time, revocable by the patient',
-        'Append-only access log, visible to the patient',
+        'Application access records visible in the patient workflow',
       ],
     },
   ];
@@ -671,4 +679,3 @@ const ComplianceTab = () => {
 };
 
 export default InstitutionDashboard;
-

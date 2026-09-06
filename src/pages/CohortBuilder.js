@@ -1,8 +1,8 @@
+import { API_URL, apiFetch as fetch, readSessionUser } from '../lib/api';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { API_URL } from '../lib/api';
 
 const CohortBuilder = () => {
   const [step, setStep] = useState(1);
@@ -59,11 +59,11 @@ const CohortBuilder = () => {
     line_of_therapy: {
       label: 'Line of Therapy',
       operators: ['=', '>=', '<=', '>'],
-      values: ['1', '2', '3', '4', '5+']
+      values: ['1', '2', '3', '4', '5']
     },
     age: {
       label: 'Age at Diagnosis',
-      operators: ['>=', '<=', '>', '<', 'BETWEEN'],
+      operators: ['>=', '<=', '>', '<'],
       values: ['18', '40', '50', '60', '65', '70', '75', '80']
     },
     sex: {
@@ -93,7 +93,7 @@ const CohortBuilder = () => {
     },
     response: {
       label: 'Best Response',
-      operators: ['IS', 'IN', 'AT LEAST'],
+      operators: ['IS', 'IN'],
       values: ['sCR', 'CR', 'VGPR', 'PR', 'MR', 'SD', 'PD']
     },
     mrd: {
@@ -237,19 +237,25 @@ const CohortBuilder = () => {
     if (step === 3 || step === 4) loadSiteData(activeStudyId);
   }, [step, activeStudyId, loadSiteData]);
 
+  const queryCriteria = () => ({
+    inclusions: inclusions.map(({ id, ...rule }) => rule),
+    exclusions: exclusions.map(({ id, ...rule }) => rule),
+  });
+
+  useEffect(() => {
+    setCohortResult(null);
+    setFeasibilityRun(false);
+  }, [inclusions, exclusions]);
+
   // Run feasibility against the live cohort API
   const runFeasibility = async () => {
     setIsRunning(true);
     setQueryError(null);
-    const cancerTypes = inclusions
-      .filter(r => r.field === 'diagnosis')
-      .map(r => String(r.value).replace(/\s*\([^)]*\)\s*$/, '').trim())
-      .filter(Boolean);
     try {
       const response = await fetch(`${API_URL}/api/cohort/build`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ cancer_types: cancerTypes.length > 0 ? cancerTypes : null }),
+        body: JSON.stringify(queryCriteria()),
       });
       const data = await response.json();
       if (response.ok) {
@@ -263,7 +269,7 @@ const CohortBuilder = () => {
         );
       }
     } catch (err) {
-      setQueryError('Failed to reach the server. Please sign in and try again.');
+      setQueryError(err.message);
     } finally {
       setIsRunning(false);
     }
@@ -274,14 +280,21 @@ const CohortBuilder = () => {
     if (!studyName.trim()) { setRegError('Give the study a name first.'); return; }
     setRegBusy(true); setRegError(null);
     try {
+      const savedResponse = await fetch(`${API_URL}/api/cohort/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ name: studyName.trim(), criteria: queryCriteria() }),
+      });
+      const savedCohort = await savedResponse.json();
       const res = await fetch(`${API_URL}/api/researcher/studies`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({
           name: studyName.trim(),
+          cohort_id: savedCohort.id,
           description: `Inclusions: ${inclusions.map(r => `${r.field} ${r.operator} ${r.value}`).join('; ') || 'none'}. `
             + `Exclusions: ${exclusions.map(r => `${r.field} ${r.operator} ${r.value}`).join('; ') || 'none'}.`,
-          principal_investigator: JSON.parse(sessionStorage.getItem('user') || '{}').name || 'Principal Investigator',
+          principal_investigator: (readSessionUser() || {}).name || 'Principal Investigator',
         }),
       });
       const data = await res.json();
@@ -318,6 +331,7 @@ const CohortBuilder = () => {
   // Queue a real extraction job
   const startExtraction = async () => {
     if (!activeStudyId) { setExtractError('Select or create a study first.'); return; }
+    if (!selectedVariableIds.length) { setExtractError('Select at least one variable first.'); return; }
     setExtracting(true); setExtractError(null); setExtractJob(null);
     try {
       const res = await fetch(`${API_URL}/api/extraction/create`, {
@@ -332,6 +346,7 @@ const CohortBuilder = () => {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Extraction failed.');
+      if (data.status === 'failed' || data.success === false) throw new Error(data.error_message || data.message || 'The extract failed validation. Review the selected data before retrying.');
       setExtractJob(data);
     } catch (err) {
       setExtractError(err.message);
@@ -560,7 +575,7 @@ const CohortBuilder = () => {
                       <div className="text-4xl font-bold text-emerald-400">
                         {(cohortResult?.patient_count ?? 0).toLocaleString()}
                       </div>
-                      <div className="text-white/40 text-sm">eligible patients</div>
+                      <div className="text-white/40 text-sm">matching test profiles</div>
                     </div>
 
                     <div className="space-y-2 mb-4">
@@ -692,7 +707,7 @@ const CohortBuilder = () => {
                               />
                               <span className="text-white/50 flex-1">{v.label}</span>
                               <span
-                                title={`${v.patients_with_data} of ${variableInventory.total_patients} contributing patients have this field`}
+                                title={`${v.patients_with_data} of ${variableInventory.total_patients} synthetic test profiles have this field`}
                                 className={`text-xs ${
                                   v.completeness >= 90 ? 'text-emerald-400' :
                                   v.completeness >= 70 ? 'text-amber-400' : 'text-red-400'
@@ -879,26 +894,26 @@ const CohortBuilder = () => {
                     disabled={regBusy || !activeStudyId}
                     className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 px-4 py-2 text-sm transition-colors disabled:opacity-40"
                   >
-                    Submit IRB protocol
+                    Create test IRB record
                   </button>
                   <button
                     onClick={() => submitRegulatory('dua')}
                     disabled={regBusy || !activeStudyId}
                     className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 px-4 py-2 text-sm transition-colors disabled:opacity-40"
                   >
-                    Submit data use agreement
+                    Create test DUA record
                   </button>
                   <button
                     onClick={() => submitRegulatory('reliance_agreement')}
                     disabled={regBusy || !activeStudyId}
                     className="bg-white/10 hover:bg-white/20 px-4 py-2 text-sm transition-colors disabled:opacity-40"
                   >
-                    Submit reliance agreement
+                    Create test reliance record
                   </button>
                 </div>
                 <p className="text-white/30 text-xs mt-3">
-                  Submissions are reviewed by an institutional reviewer. You cannot approve your own
-                  submission, and extraction stays blocked until the IRB protocol and DUA are both approved.
+                  These records simulate separation-of-duty and approval gates inside the pilot. They are
+                  not external IRB decisions or executed agreements.
                 </p>
               </div>
             </div>
@@ -920,11 +935,11 @@ const CohortBuilder = () => {
                     <span>{siteCount}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-white/40">IRB approved</span>
+                    <span className="text-white/40">Pilot IRB gate</span>
                     <span className={hasIrb ? 'text-emerald-400' : 'text-white/40'}>{hasIrb ? 'Yes' : 'No'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-white/40">DUA approved</span>
+                    <span className="text-white/40">Pilot DUA gate</span>
                     <span className={hasDua ? 'text-emerald-400' : 'text-white/40'}>{hasDua ? 'Yes' : 'No'}</span>
                   </div>
                 </div>
@@ -954,16 +969,15 @@ const CohortBuilder = () => {
           <div className="max-w-2xl mx-auto">
             {!extractJob ? (
               <div className="bg-white/5 border border-white/10 p-8">
-                <h2 className="text-xl font-semibold mb-6">Configure Extraction</h2>
+                <h2 className="text-xl font-semibold mb-2">Configure Synthetic Extraction</h2>
+                <p className="text-white/40 text-sm mb-6">Pilot output only. This is not a governed production dataset release.</p>
 
                 <div className="space-y-6 mb-8">
                   <div>
                     <label className="block text-sm text-white/60 mb-2">Output Format</label>
                     <div className="flex flex-wrap gap-3">
                       {[
-                        { id: 'csv', label: 'CSV', desc: 'REDCap-ready' },
-                        { id: 'parquet', label: 'Parquet', desc: 'For Python/R' },
-                        { id: 'fhir', label: 'FHIR', desc: 'Interoperability' }
+                        { id: 'csv', label: 'CSV', desc: 'Selected fields as JSON in CSV rows' }
                       ].map(opt => (
                         <button
                           key={opt.id}
@@ -985,9 +999,7 @@ const CohortBuilder = () => {
                     <label className="block text-sm text-white/60 mb-2">De-identification Level</label>
                     <div className="space-y-2">
                       {[
-                        { id: 'limited_dataset', label: 'Limited Dataset', desc: 'Year-level dates, no geography below state' },
-                        { id: 'safe_harbor', label: 'Safe Harbor', desc: 'All 18 HIPAA identifiers removed' },
-                        { id: 'expert', label: 'Expert Determination', desc: 'Requires a documented statistical determination' }
+                        { id: 'limited_dataset', label: 'Limited-field simulation', desc: 'Prototype output with year-level dates; synthetic data only' }
                       ].map(opt => (
                         <button
                           key={opt.id}
@@ -1043,7 +1055,7 @@ const CohortBuilder = () => {
                   </button>
                   <button
                     onClick={startExtraction}
-                    disabled={extracting || !activeStudyId}
+                    disabled={extracting || !activeStudyId || !totalVars || !hasIrb || !hasDua}
                     className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-black font-medium py-3 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {extracting ? 'Running…' : 'Start Extraction'}
@@ -1234,4 +1246,3 @@ const CohortBuilder = () => {
 };
 
 export default CohortBuilder;
-

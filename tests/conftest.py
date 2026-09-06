@@ -8,8 +8,15 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "api"))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+_test_database_dir = tempfile.TemporaryDirectory(prefix="healthdb-tests-")
+os.environ["DATABASE_URL"] = f"sqlite:///{_test_database_dir.name}/bootstrap.db"
+
 os.environ["JWT_SECRET"] = "test-only-secret-not-used-anywhere-else"
 os.environ["ENVIRONMENT"] = "test"
+os.environ["ENABLE_SELF_SERVICE_REGISTRATION"] = "true"
+os.environ["ENABLE_SYNTHETIC_FHIR_UPLOADS"] = "true"
+os.environ["ENABLE_DATA_MARKETPLACE"] = "false"
+os.environ["ENABLE_PATIENT_STUDY_ENROLLMENT"] = "false"
 
 
 @pytest.fixture()

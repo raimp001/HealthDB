@@ -2,171 +2,58 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
-const Pricing = () => {
-  return (
-    <div className="min-h-screen bg-black text-white">
-      {/* Hero */}
-      <section className="py-32 px-6">
-        <div className="max-w-4xl mx-auto text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-          >
-            <p className="text-sm text-emerald-400 uppercase tracking-wider mb-4">Pricing</p>
-            <h1 className="text-4xl md:text-5xl font-bold mb-6">
-              Simple, transparent
-            </h1>
-            <p className="text-lg text-white/40">
-              Pay for what you need. Academic discounts available.
-            </p>
-          </motion.div>
-        </div>
-      </section>
+const Pricing = () => (
+  <div className="min-h-screen bg-black text-white">
+    <section className="py-28 px-6">
+      <div className="max-w-4xl mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.55 }}
+          className="max-w-3xl"
+        >
+          <p className="text-xs text-emerald-300 uppercase tracking-[0.2em] mb-5">Pilot access</p>
+          <h1 className="text-4xl md:text-6xl font-medium mb-7">There is no public pricing yet.</h1>
+          <p className="text-lg text-white/50 max-w-2xl leading-relaxed">
+            HealthDB is validating the product with invited evaluators using synthetic data. We are
+            not selling datasets, subscriptions, exports, or institutional integrations.
+          </p>
+        </motion.div>
+      </div>
+    </section>
 
-      {/* Tiers */}
-      <section className="pb-20 px-6">
-        <div className="max-w-5xl mx-auto">
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              {
-                name: 'Explorer',
-                price: 'Free',
-                desc: 'Feasibility assessment',
-                features: ['Aggregate statistics', 'Cohort estimates', 'Data dictionary', 'Community support'],
-                limitations: ['No patient-level data', 'No export'],
-                cta: 'Get Started',
-                link: '/register',
-              },
-              {
-                name: 'Researcher',
-                price: 'Custom',
-                note: 'Based on scope',
-                desc: 'IRB-approved studies',
-                features: ['Patient-level de-identified', 'Cohort builder', 'IRB generator', 'DUA templates', 'sIRB submission', 'Export (CSV, REDCap)', 'Email support'],
-                cta: 'Request Access',
-                link: '/register',
-                featured: true,
-              },
-              {
-                name: 'Enterprise',
-                price: 'Custom',
-                note: 'Annual',
-                desc: 'Pharma & research networks',
-                features: ['Everything in Researcher', 'Unlimited queries', 'API access', 'Multi-site tools', 'Dedicated manager', 'Custom pipelines', 'SLA'],
-                cta: 'Contact Sales',
-                link: 'mailto:sales@healthdb.ai',
-              },
-            ].map((tier) => (
-              <div key={tier.name} className={`p-6 border ${tier.featured ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-white/10'} relative`}>
-                {tier.featured && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-emerald-500 text-black text-xs font-medium">
-                    Popular
-                  </span>
-                )}
-                <h3 className="font-medium text-lg">{tier.name}</h3>
-                <div className="my-3">
-                  <span className="text-2xl font-bold">{tier.price}</span>
-                  {tier.note && <span className="text-sm text-white/40 ml-2">{tier.note}</span>}
-                </div>
-                <p className="text-sm text-white/40 mb-4">{tier.desc}</p>
-                <ul className="space-y-2 mb-4">
-                  {tier.features.map((f) => (
-                    <li key={f} className="text-sm flex gap-2">
-                      <span className="text-emerald-400">✓</span>
-                      <span className="text-white/60">{f}</span>
-                    </li>
-                  ))}
-                  {tier.limitations?.map((f) => (
-                    <li key={f} className="text-sm flex gap-2">
-                      <span className="text-white/20">×</span>
-                      <span className="text-white/30">{f}</span>
-                    </li>
-                  ))}
-                </ul>
-                {tier.link.startsWith('mailto') ? (
-                  <a href={tier.link} className={`block text-center py-2 text-sm transition-colors ${tier.featured ? 'bg-emerald-500 text-black hover:bg-emerald-400' : 'bg-white/10 hover:bg-white/20'}`}>
-                    {tier.cta}
-                  </a>
-                ) : (
-                  <Link to={tier.link} className={`block text-center py-2 text-sm transition-colors ${tier.featured ? 'bg-emerald-500 text-black hover:bg-emerald-400' : 'bg-white/10 hover:bg-white/20'}`}>
-                    {tier.cta}
-                  </Link>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+    <section className="py-20 px-6 border-t border-white/5">
+      <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-5">
+        <article className="p-7 border border-emerald-400/20">
+          <p className="text-xs uppercase tracking-[0.2em] text-emerald-300 mb-4">Current access</p>
+          <h2 className="text-2xl font-medium mb-4">Guided pilot evaluation</h2>
+          <p className="text-sm text-white/45 leading-relaxed mb-7">
+            A focused walkthrough of one workflow with synthetic data, followed by structured product,
+            safety, and governance feedback.
+          </p>
+          <Link to="/contact" className="inline-block px-6 py-3 bg-white text-black text-sm font-medium hover:bg-gray-100 transition-colors">
+            Request a conversation
+          </Link>
+        </article>
+        <article className="p-7 border border-white/10">
+          <p className="text-xs uppercase tracking-[0.2em] text-white/35 mb-4">Future commercial model</p>
+          <h2 className="text-2xl font-medium mb-4">To be validated</h2>
+          <p className="text-sm text-white/45 leading-relaxed">
+            Pricing, service levels, academic access, and data-partnership terms will be defined only
+            after the workflows, controls, operating costs, and legal model have been validated.
+          </p>
+        </article>
+      </div>
+    </section>
 
-      {/* Institutions */}
-      <section className="py-20 px-6 border-t border-white/5">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-2xl font-bold mb-4">For Institutions</h2>
-            <p className="text-white/40 max-w-xl mx-auto">
-              Partner to join our network. No upfront costs—contribute data and enable your researchers.
-            </p>
-          </div>
-          <div className="grid md:grid-cols-4 gap-6">
-            {[
-              { title: 'Network Access', desc: 'Multi-center studies without DUA negotiations' },
-              { title: 'Credits', desc: 'Data contribution earns research access' },
-              { title: 'Collaboration', desc: 'Pre-negotiated reliance agreements' },
-              { title: 'Compliance', desc: 'We handle IRB, DUA, HIPAA' },
-            ].map((item) => (
-              <div key={item.title} className="p-4 border border-white/10">
-                <h3 className="font-medium mb-2">{item.title}</h3>
-                <p className="text-sm text-white/40">{item.desc}</p>
-              </div>
-            ))}
-          </div>
-          <div className="text-center mt-8">
-            <a href="mailto:partnerships@healthdb.ai" className="px-8 py-3 bg-white text-black font-medium hover:bg-gray-100 transition-colors inline-block">
-              Become a Partner
-            </a>
-          </div>
-        </div>
-      </section>
-
-      {/* FAQ */}
-      <section className="py-20 px-6 border-t border-white/5">
-        <div className="max-w-3xl mx-auto">
-          <h2 className="text-2xl font-bold mb-8">FAQ</h2>
-          <div className="space-y-4">
-            {[
-              { q: 'Data access levels?', a: 'Aggregate stats, de-identified patient-level (Safe Harbor), and limited datasets with dates.' },
-              { q: 'How long for IRB?', a: '2-3 weeks with central sIRB. Sites with reliance can be added in days.' },
-              { q: 'Academic pricing?', a: 'Yes, significant discounts for academic and non-profit.' },
-              { q: 'EMR support?', a: 'Epic (Cosmos, FHIR), Cerner, and secure file transfer.' },
-              { q: 'Security?', a: 'HealthDB holds no third-party certifications yet. Implemented today: Safe Harbor de-identification, server-side role checks, consent gating, small-cell suppression and access audit logging. SOC 2, BAAs and penetration testing are planned, not complete.' },
-            ].map((item, i) => (
-              <div key={i} className="p-4 border border-white/10">
-                <h3 className="font-medium mb-2">{item.q}</h3>
-                <p className="text-sm text-white/40">{item.a}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="py-20 px-6 border-t border-white/5">
-        <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-2xl font-bold mb-4">Get started</h2>
-          <p className="text-white/40 mb-8">Schedule a demo to see HealthDB in action</p>
-          <div className="flex gap-4 justify-center">
-            <Link to="/contact" className="px-8 py-3 bg-emerald-500 text-black font-medium hover:bg-emerald-400 transition-colors">
-              Talk to Us
-            </Link>
-            <a href="mailto:contact@healthdb.ai" className="px-8 py-3 border border-white/20 hover:bg-white/5 transition-colors">
-              Contact
-            </a>
-          </div>
-        </div>
-      </section>
-    </div>
-  );
-};
+    <section className="py-20 px-6 border-t border-white/5 text-center">
+      <div className="max-w-2xl mx-auto">
+        <h2 className="text-3xl font-medium mb-4">Interested in shaping the pilot?</h2>
+        <p className="text-white/45 mb-8">Tell us which research or governance workflow you want to evaluate.</p>
+        <Link to="/contact" className="text-emerald-300 hover:underline">Contact HealthDB →</Link>
+      </div>
+    </section>
+  </div>
+);
 
 export default Pricing;

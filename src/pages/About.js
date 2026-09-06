@@ -15,11 +15,12 @@ const About = () => {
           >
             <p className="text-sm text-emerald-400 uppercase tracking-wider mb-4">About</p>
             <h1 className="text-4xl md:text-5xl font-bold mb-6">
-              Accelerating cancer research through better data
+              Building a more trustworthy path to oncology research data
             </h1>
             <p className="text-lg text-white/40">
               Every patient's journey holds insights for future patients. 
-              We build the infrastructure to unlock that potential—ethically and securely.
+              HealthDB is prototyping the consent, privacy, and governance infrastructure needed
+              to use those insights responsibly.
             </p>
           </motion.div>
         </div>
@@ -35,9 +36,8 @@ const About = () => {
               A researcher with a promising hypothesis might wait 6+ months for data access.
             </p>
             <p className="text-white/40">
-              We're building a different model: patients contribute voluntarily, 
-              institutions share under agreements they control, researchers 
-              move from idea to insight in weeks.
+              We're testing a different model: explicit patient choice, institution-controlled
+              governance, and research workflows that expose their approvals and limitations.
             </p>
           </div>
           <div className="p-6 border border-white/10">
@@ -67,10 +67,10 @@ const About = () => {
           <h2 className="text-2xl font-bold mb-8">Values</h2>
           <div className="grid md:grid-cols-4 gap-6">
             {[
-              { title: 'Patient-First', desc: 'Voluntary, transparent, compensated' },
-              { title: 'Speed', desc: 'Weeks, not months' },
-              { title: 'Privacy', desc: 'HIPAA, de-identification, audits' },
-              { title: 'Collaborative', desc: 'Multi-center studies' },
+              { title: 'Patient-First', desc: 'Understandable choice and visible control' },
+              { title: 'Evidence', desc: 'Claims follow validation, not ambition' },
+              { title: 'Privacy', desc: 'Minimize data and test every boundary' },
+              { title: 'Collaborative', desc: 'Design with researchers and institutions' },
             ].map((item) => (
               <div key={item.title} className="p-6 border border-white/10">
                 <h3 className="font-medium mb-2">{item.title}</h3>
@@ -124,7 +124,8 @@ const About = () => {
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-2xl font-bold mb-4">Team</h2>
           <p className="text-white/40 mb-8">
-            Built by researchers, clinicians, and technologists who've experienced fragmented data firsthand.
+            HealthDB is being shaped from a clinical-research perspective and is seeking independent
+            patient, privacy, security, informatics, and institutional review.
           </p>
         </div>
       </section>
@@ -132,11 +133,11 @@ const About = () => {
       {/* CTA */}
       <section className="py-20 px-6 border-t border-white/5">
         <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-2xl font-bold mb-4">Join us</h2>
-          <p className="text-white/40 mb-8">Patient, researcher, or institution—there's a place for you</p>
+          <h2 className="text-2xl font-bold mb-4">Help test the assumptions</h2>
+          <p className="text-white/40 mb-8">Bring a patient, researcher, institutional, privacy, or security perspective.</p>
           <div className="flex gap-4 justify-center">
-            <Link to="/register" className="px-8 py-3 bg-white text-black font-medium hover:bg-gray-100 transition-colors">
-              Get Started
+            <Link to="/contact" className="px-8 py-3 bg-white text-black font-medium hover:bg-gray-100 transition-colors">
+              Request a Conversation
             </Link>
             <a href="mailto:contact@healthdb.ai" className="px-8 py-3 border border-white/20 hover:bg-white/5 transition-colors">
               Contact

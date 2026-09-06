@@ -52,8 +52,8 @@ const TargetArchitectureBanner = ({ implemented = [], planned = [] }) => (
 
     <p className="text-xs text-white/30 mt-6">
       For what is actually implemented, see{' '}
-      <Link to="/institutions" className="text-white/50 hover:text-white underline">
-        Security &amp; Compliance
+      <Link to="/security-posture" className="text-white/50 hover:text-white underline">
+        Security status
       </Link>.
     </p>
   </div>

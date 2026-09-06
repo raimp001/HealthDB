@@ -1,0 +1,91 @@
+"""Regression coverage for the closed-by-default pilot boundaries."""
+
+
+def auth(token):
+    return {"Authorization": f"Bearer {token}"}
+
+
+def test_self_service_registration_can_be_closed(client, monkeypatch):
+    import api.main as main
+
+    monkeypatch.setattr(main, "SELF_SERVICE_REGISTRATION_ENABLED", False)
+    response = client.post(
+        "/api/auth/register",
+        json={
+            "email": "closed@example.com",
+            "password": "Str0ng!Passw0rd#2026",
+            "name": "Closed Pilot",
+            "user_type": "researcher",
+        },
+    )
+
+    assert response.status_code == 403
+    assert "registration is closed" in response.json()["detail"].lower()
+
+
+def test_consent_templates_are_hidden_when_synthetic_workflow_is_closed(client, monkeypatch):
+    import api.main as main
+
+    monkeypatch.setattr(main, "SYNTHETIC_FHIR_UPLOADS_ENABLED", False)
+    response = client.get("/api/consent/templates")
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_fhir_upload_is_rejected_before_processing_when_closed(client, register, monkeypatch):
+    import api.main as main
+
+    patient = register("upload-gate@example.com", user_type="patient").json()
+    monkeypatch.setattr(main, "SYNTHETIC_FHIR_UPLOADS_ENABLED", False)
+    response = client.post(
+        "/api/patient/connections/fhir",
+        headers=auth(patient["access_token"]),
+        json={"source_name": "should-not-process.json", "bundle": {"resourceType": "Bundle"}},
+    )
+
+    assert response.status_code == 403
+    assert "uploads are disabled" in response.json()["detail"].lower()
+
+
+def test_activity_points_have_no_cash_value(client, register):
+    patient = register("points-boundary@example.com", user_type="patient").json()
+    response = client.get(
+        "/api/patient/rewards",
+        headers=auth(patient["access_token"]),
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["has_monetary_value"] is False
+    assert "cash_value" not in body
+
+
+def test_marketplace_is_empty_when_release_workflow_is_closed(client):
+    response = client.get("/api/marketplace/products")
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_patient_study_enrollment_is_closed(client, register):
+    patient = register("study-gate@example.com", user_type="patient").json()
+    response = client.post(
+        "/api/studies/00000000-0000-0000-0000-000000000000/join",
+        headers=auth(patient["access_token"]),
+    )
+
+    assert response.status_code == 403
+    assert "enrollment is not available" in response.json()["detail"].lower()
+
+
+def test_researcher_cannot_open_recruitment_when_enrollment_is_closed(client, register):
+    researcher = register("recruitment-gate@example.com", user_type="researcher").json()
+    response = client.put(
+        "/api/researcher/studies/00000000-0000-0000-0000-000000000000/recruiting",
+        headers=auth(researcher["access_token"]),
+        json={"is_recruiting": True, "eligibility_summary": "Synthetic test only"},
+    )
+
+    assert response.status_code == 403
+    assert "enrollment is not available" in response.json()["detail"].lower()

@@ -12,13 +12,22 @@ Sitemap: https://www.healthdb.ai/sitemap.xml
 
 # Block specific paths that shouldn't be indexed
 Disallow: /api/
+Allow: /api/openapi.json
+Allow: /api/capabilities
 Disallow: /patient
 Disallow: /research
+Disallow: /institution
+Disallow: /cohort-builder
+Disallow: /marketplace
+Disallow: /repo-analyzer
 
 # Allow main public pages
 Allow: /
 Allow: /patients
 Allow: /researchers
-Allow: /marketplace
+Allow: /institutions
+Allow: /demo
+Allow: /developers
+Allow: /llms.txt
 Allow: /login
 Allow: /register

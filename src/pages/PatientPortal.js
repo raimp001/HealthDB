@@ -1,8 +1,11 @@
+import toast from 'react-hot-toast';
+import { API_URL, apiFetch as fetch, readSessionUser } from '../lib/api';
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
-import { API_URL } from '../lib/api';
+const SYNTHETIC_FHIR_UPLOADS_ENABLED = process.env.REACT_APP_ENABLE_SYNTHETIC_FHIR_UPLOADS === 'true';
+const PATIENT_STUDY_ENROLLMENT_ENABLED = process.env.REACT_APP_ENABLE_PATIENT_STUDY_ENROLLMENT === 'true';
 
 // State machine states
 const STATES = {
@@ -45,7 +48,7 @@ const PatientPortal = () => {
       return;
     }
 
-    const user = JSON.parse(sessionStorage.getItem('user') || '{}');
+    const user = (readSessionUser() || {});
     if (user.user_type !== 'patient') {
       navigate('/research');
       return;
@@ -81,7 +84,7 @@ const PatientPortal = () => {
       setPageState(STATES.READY);
     } catch (err) {
       console.error('Failed to fetch patient data:', err);
-      setError('Failed to load your data. Please try again.');
+      setError(err.message);
       setPageState(STATES.ERROR);
     }
   }, [token, navigate]);
@@ -111,12 +114,12 @@ const PatientPortal = () => {
         setShowConsentModal(false);
         setSelectedTemplate(null);
         await fetchData(); // Refresh all data
-        alert(data.message);
+        toast(data.message);
       } else {
-        alert(data.detail || 'Failed to sign consent');
+        toast(data.detail || 'Failed to sign consent');
       }
     } catch (err) {
-      alert('Error signing consent. Please try again.');
+      toast('Error signing consent. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -135,14 +138,19 @@ const PatientPortal = () => {
 
       if (response.ok) {
         await fetchData();
-        alert('Consent revoked successfully.');
+        toast('Consent revoked successfully.');
       }
     } catch (err) {
-      alert('Error revoking consent.');
+      toast('Error revoking consent.');
     }
   };
 
   const handleFHIRUpload = async (event) => {
+    if (!SYNTHETIC_FHIR_UPLOADS_ENABLED) {
+      toast('FHIR uploads are disabled in this deployment. Do not submit real health information.');
+      return;
+    }
+
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
@@ -151,7 +159,7 @@ const PatientPortal = () => {
     try {
       bundle = JSON.parse(await file.text());
     } catch (err) {
-      alert('That file is not valid JSON.');
+      toast('That file is not valid JSON.');
       return;
     }
 
@@ -168,13 +176,13 @@ const PatientPortal = () => {
       const data = await response.json();
       if (response.ok) {
         setShowConnectionModal(false);
-        alert(data.message);
+        toast(data.message);
         await fetchData();
       } else {
-        alert(data.detail || 'Failed to upload FHIR records');
+        toast(data.detail || 'Failed to upload FHIR records');
       }
     } catch (err) {
-      alert('Error uploading FHIR records. Please try again.');
+      toast('Error uploading FHIR records. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -191,10 +199,10 @@ const PatientPortal = () => {
       if (response.ok) {
         await fetchData();
       } else {
-        alert(data.detail || 'Failed to join study');
+        toast(data.detail || 'Failed to join study');
       }
     } catch (err) {
-      alert('Error joining study. Please try again.');
+      toast('Error joining study. Please try again.');
     } finally {
       setStudyActionId(null);
     }
@@ -212,10 +220,10 @@ const PatientPortal = () => {
         await fetchData();
       } else {
         const data = await response.json();
-        alert(data.detail || 'Failed to leave study');
+        toast(data.detail || 'Failed to leave study');
       }
     } catch (err) {
-      alert('Error leaving study. Please try again.');
+      toast('Error leaving study. Please try again.');
     } finally {
       setStudyActionId(null);
     }
@@ -223,10 +231,10 @@ const PatientPortal = () => {
 
   const tabs = [
     { id: 'overview', label: 'Overview' },
-    { id: 'consent', label: 'Consent' },
-    { id: 'studies', label: 'Studies' },
-    { id: 'data', label: 'My Data' },
-    { id: 'rewards', label: 'Rewards' },
+    { id: 'consent', label: 'Acknowledgement' },
+    { id: 'studies', label: 'Study concept' },
+    { id: 'data', label: 'Test Data' },
+    { id: 'rewards', label: 'Pilot activity' },
   ];
 
   const hasActiveResearchConsent = consents.some(c => c.consent_type === 'research_data_sharing' && c.status === 'active');
@@ -268,22 +276,22 @@ const PatientPortal = () => {
             className="flex flex-col md:flex-row md:items-end justify-between gap-6"
           >
             <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-white/40 mb-4">Patient Portal</p>
+              <p className="text-xs uppercase tracking-[0.3em] text-white/40 mb-4">Patient Workflow Pilot</p>
               <h1 className="heading-display text-4xl md:text-5xl text-white/90">Your Dashboard</h1>
             </div>
             <div className="flex items-center gap-6">
               <div className="text-right">
-                <p className="text-white/40 text-xs mb-1">Consent Status</p>
+                <p className="text-white/40 text-xs mb-1">Test Acknowledgement</p>
                 <div className="flex items-center gap-2">
                   <span className={`w-2 h-2 rounded-full ${hasActiveResearchConsent ? 'bg-[#00d4aa]' : 'bg-amber-500'}`}></span>
                   <span className={`uppercase text-sm tracking-wider ${hasActiveResearchConsent ? 'text-[#00d4aa]' : 'text-amber-500'}`}>
-                    {hasActiveResearchConsent ? 'Active' : 'Action Required'}
+                    {hasActiveResearchConsent ? 'Recorded' : 'Optional Review'}
                   </span>
                 </div>
               </div>
               <div className="h-8 w-px bg-white/10"></div>
               <div className="text-right">
-                <p className="text-white/40 text-xs mb-1">Rewards</p>
+                <p className="text-white/40 text-xs mb-1">Pilot Points</p>
                 <p className="text-white font-mono text-lg">{profile?.points_balance || 0} pts</p>
               </div>
             </div>
@@ -298,14 +306,14 @@ const PatientPortal = () => {
             <div className="flex items-center gap-3">
               <span className="text-amber-500">⚠️</span>
               <p className="text-amber-400 text-sm">
-                <strong>Action Required:</strong> Sign a research consent to start contributing to cancer research and earn rewards.
+                <strong>Pilot step:</strong> Review the consent workflow using synthetic test information only.
               </p>
             </div>
             <button
               onClick={() => setActiveTab('consent')}
               className="px-4 py-2 bg-amber-500 text-black text-xs uppercase tracking-wider font-medium hover:bg-amber-400 transition-colors"
             >
-              Sign Now
+              Review
             </button>
           </div>
         </section>
@@ -340,15 +348,15 @@ const PatientPortal = () => {
                 {/* Stats Grid */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/5 mb-12">
                   <div className="card-glass p-6">
-                    <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Points Balance</p>
+                    <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Pilot Points</p>
                     <p className="text-2xl font-light text-white font-mono">{profile?.points_balance || 0}</p>
                   </div>
                   <div className="card-glass p-6">
-                    <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Active Consents</p>
+                    <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Test Acknowledgements</p>
                     <p className="text-2xl font-light text-white font-mono">{consents.filter(c => c.status === 'active').length}</p>
                   </div>
                   <div className="card-glass p-6">
-                    <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Data Records</p>
+                    <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Synthetic Records</p>
                     <p className="text-2xl font-light text-white font-mono">{dataSummary?.total_records || 0}</p>
                   </div>
                   <div className="card-glass p-6">
@@ -366,16 +374,16 @@ const PatientPortal = () => {
                         <span className={`w-8 h-8 rounded-full flex items-center justify-center ${hasActiveResearchConsent ? 'bg-[#00d4aa]/20 text-[#00d4aa]' : 'bg-amber-500/20 text-amber-500'}`}>
                           {hasActiveResearchConsent ? '✓' : '1'}
                         </span>
-                        <span className="text-white font-medium">Sign Consent</span>
+                        <span className="text-white font-medium">Review Acknowledgement</span>
                       </div>
                       <p className="text-white/40 text-sm mb-4">
                         {hasActiveResearchConsent 
-                          ? 'You have signed the research data sharing consent.'
-                          : 'Sign a consent to allow your de-identified data to be used for research.'}
+                          ? 'You recorded the synthetic workflow acknowledgement.'
+                          : 'Review how a future consent interaction could be presented.'}
                       </p>
                       {!hasActiveResearchConsent && (
                         <button onClick={() => setActiveTab('consent')} className="text-[#00d4aa] text-sm hover:underline">
-                          Sign consent →
+                          Review acknowledgement →
                         </button>
                       )}
                     </div>
@@ -385,16 +393,18 @@ const PatientPortal = () => {
                         <span className={`w-8 h-8 rounded-full flex items-center justify-center ${connections.length > 0 ? 'bg-[#00d4aa]/20 text-[#00d4aa]' : 'bg-white/10 text-white/40'}`}>
                           {connections.length > 0 ? '✓' : '2'}
                         </span>
-                        <span className="text-white font-medium">Connect Records</span>
+                        <span className="text-white font-medium">Test FHIR Import</span>
                       </div>
                       <p className="text-white/40 text-sm mb-4">
-                        {connections.length > 0
+                        {!SYNTHETIC_FHIR_UPLOADS_ENABLED
+                          ? 'Disabled in this deployment. No real health records are accepted.'
+                          : connections.length > 0
                           ? `Connected to ${connections.length} source(s).`
-                          : 'Connect your medical records to contribute data.'}
+                          : 'Import a synthetic FHIR bundle to test this workflow.'}
                       </p>
-                      {hasActiveResearchConsent && connections.length === 0 && (
+                      {SYNTHETIC_FHIR_UPLOADS_ENABLED && hasActiveResearchConsent && connections.length === 0 && (
                         <button onClick={() => setActiveTab('data')} className="text-[#00d4aa] text-sm hover:underline">
-                          Connect records →
+                          Open test import →
                         </button>
                       )}
                     </div>
@@ -404,12 +414,12 @@ const PatientPortal = () => {
                         <span className={`w-8 h-8 rounded-full flex items-center justify-center ${extractedData.length > 0 ? 'bg-[#00d4aa]/20 text-[#00d4aa]' : 'bg-white/10 text-white/40'}`}>
                           {extractedData.length > 0 ? '✓' : '3'}
                         </span>
-                        <span className="text-white font-medium">Earn Rewards</span>
+                        <span className="text-white font-medium">Review Activity</span>
                       </div>
                       <p className="text-white/40 text-sm mb-4">
                         {extractedData.length > 0
-                          ? `Contributing ${extractedData.length} data record(s) to research.`
-                          : 'Earn points for each data contribution.'}
+                          ? `${extractedData.length} synthetic record(s) are available for pilot testing.`
+                          : 'Pilot points mark completed test events and have no cash value.'}
                       </p>
                     </div>
                   </div>
@@ -433,7 +443,7 @@ const PatientPortal = () => {
                   ) : (
                     <div className="card-glass p-8 text-center">
                       <p className="text-white/40">No data access activity yet</p>
-                      <p className="text-white/30 text-sm mt-2">When researchers access your de-identified data, it will appear here.</p>
+                      <p className="text-white/30 text-sm mt-2">When a pilot query exercises your synthetic test data, the event will appear here.</p>
                     </div>
                   )}
                 </div>
@@ -444,20 +454,20 @@ const PatientPortal = () => {
             {activeTab === 'consent' && (
               <motion.div key="consent" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 <div className="max-w-4xl">
-                  <h2 className="text-lg font-medium text-white mb-2">Consent Management</h2>
-                  <p className="text-white/40 mb-8">Control how your de-identified data is shared with researchers.</p>
+                  <h2 className="text-lg font-medium text-white mb-2">Acknowledgement Prototype</h2>
+                  <p className="text-white/40 mb-8">Evaluate consent language and state changes with synthetic examples. This is not research consent.</p>
 
                   {/* Active Consents */}
                   {consents.filter(c => c.status === 'active').length > 0 && (
                     <div className="mb-12">
-                      <h3 className="text-sm uppercase tracking-wider text-white/40 mb-4">Active Consents</h3>
+                      <h3 className="text-sm uppercase tracking-wider text-white/40 mb-4">Recorded Acknowledgements</h3>
                       <div className="space-y-3">
                         {consents.filter(c => c.status === 'active').map((consent) => (
                           <div key={consent.id} className="card-glass p-6 border-l-2 border-[#00d4aa]">
                             <div className="flex items-start justify-between">
                               <div>
                                 <h4 className="text-white font-medium mb-1">{consent.consent_type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</h4>
-                                <p className="text-white/40 text-sm">Signed {new Date(consent.signed_date).toLocaleDateString()}</p>
+                                <p className="text-white/40 text-sm">Recorded {new Date(consent.signed_date).toLocaleDateString()}</p>
                                 {consent.expires_at && (
                                   <p className="text-white/30 text-xs mt-1">Expires {new Date(consent.expires_at).toLocaleDateString()}</p>
                                 )}
@@ -477,7 +487,7 @@ const PatientPortal = () => {
 
                   {/* Available Consents */}
                   <div>
-                    <h3 className="text-sm uppercase tracking-wider text-white/40 mb-4">Available Consents</h3>
+                    <h3 className="text-sm uppercase tracking-wider text-white/40 mb-4">Available Test Acknowledgements</h3>
                     <div className="space-y-3">
                       {consentTemplates.map((template) => {
                         const isSigned = consents.some(c => c.consent_type === template.consent_type && c.status === 'active');
@@ -517,7 +527,7 @@ const PatientPortal = () => {
                   {/* Revoked/Expired */}
                   {consents.filter(c => c.status !== 'active').length > 0 && (
                     <div className="mt-12">
-                      <h3 className="text-sm uppercase tracking-wider text-white/40 mb-4">Past Consents</h3>
+                      <h3 className="text-sm uppercase tracking-wider text-white/40 mb-4">Archived Test Events</h3>
                       <div className="space-y-2">
                         {consents.filter(c => c.status !== 'active').map((consent) => (
                           <div key={consent.id} className="card-glass p-4 opacity-50">
@@ -538,19 +548,25 @@ const PatientPortal = () => {
             {activeTab === 'studies' && (
               <motion.div key="studies" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 <div className="max-w-4xl">
-                  <h2 className="text-lg font-medium text-white mb-2">Research Studies</h2>
-                  <p className="text-white/40 mb-8">Browse studies recruiting participants and manage the studies you've joined.</p>
+                  <h2 className="text-lg font-medium text-white mb-2">Study Matching Concept</h2>
+                  <p className="text-white/40 mb-8">A future workflow concept for discovery and opt-in. HealthDB is not enrolling participants.</p>
 
-                  {!hasActiveTrialMatchingConsent ? (
+                  {!PATIENT_STUDY_ENROLLMENT_ENABLED ? (
+                    <div className="card-glass p-8 text-center border border-amber-500/20">
+                      <span className="text-4xl mb-4 block">⏸</span>
+                      <h3 className="text-white font-medium mb-2">Enrollment is not available</h3>
+                      <p className="text-white/40 max-w-xl mx-auto">No studies on HealthDB are recruiting real participants. This area is retained for guided interface review only.</p>
+                    </div>
+                  ) : !hasActiveTrialMatchingConsent ? (
                     <div className="card-glass p-8 text-center border border-amber-500/20">
                       <span className="text-4xl mb-4 block">🔒</span>
                       <h3 className="text-white font-medium mb-2">Consent Required</h3>
-                      <p className="text-white/40 mb-6">Sign the Clinical Trial Matching consent to browse and join research studies.</p>
+                      <p className="text-white/40 mb-6">Review the test matching acknowledgement to exercise this synthetic workflow.</p>
                       <button
                         onClick={() => setActiveTab('consent')}
                         className="px-6 py-3 bg-amber-500 text-black text-xs uppercase tracking-wider font-medium"
                       >
-                        Sign Consent First
+                        Review Acknowledgement
                       </button>
                     </div>
                   ) : (
@@ -633,15 +649,23 @@ const PatientPortal = () => {
             {activeTab === 'data' && (
               <motion.div key="data" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 <div className="max-w-4xl">
-                  <h2 className="text-lg font-medium text-white mb-2">Your Contributed Data</h2>
-                  <p className="text-white/40 mb-8">View and manage the de-identified data you've contributed to the platform.</p>
+                  <h2 className="text-lg font-medium text-white mb-2">Synthetic Test Data</h2>
+                  <p className="text-white/40 mb-8">This pilot workspace is for fictional or generated records only.</p>
 
                   {/* Requirement check */}
-                  {!hasActiveResearchConsent ? (
+                  {!SYNTHETIC_FHIR_UPLOADS_ENABLED ? (
+                    <div className="card-glass p-8 text-center border border-amber-500/20">
+                      <span className="text-4xl mb-4 block">⏸</span>
+                      <h3 className="text-white font-medium mb-2">Record intake is closed</h3>
+                      <p className="text-white/40 max-w-xl mx-auto">
+                        This deployment does not accept FHIR uploads or real health information. A controlled pilot can enable synthetic imports explicitly.
+                      </p>
+                    </div>
+                  ) : !hasActiveResearchConsent ? (
                     <div className="card-glass p-8 text-center border border-amber-500/20">
                       <span className="text-4xl mb-4 block">🔒</span>
                       <h3 className="text-white font-medium mb-2">Consent Required</h3>
-                      <p className="text-white/40 mb-6">You must sign the Research Data Sharing consent before connecting your medical records.</p>
+                      <p className="text-white/40 mb-6">Review the synthetic workflow acknowledgement before importing test records.</p>
                       <button
                         onClick={() => setActiveTab('consent')}
                         className="px-6 py-3 bg-amber-500 text-black text-xs uppercase tracking-wider font-medium"
@@ -654,12 +678,12 @@ const PatientPortal = () => {
                       {/* Connected Sources */}
                       <div className="mb-8">
                         <div className="flex items-center justify-between mb-4">
-                          <h3 className="text-sm uppercase tracking-wider text-white/40">Connected Sources</h3>
+                          <h3 className="text-sm uppercase tracking-wider text-white/40">Synthetic Sources</h3>
                           <button
                             onClick={() => setShowConnectionModal(true)}
                             className="px-4 py-2 bg-white text-black text-xs uppercase tracking-wider font-medium hover:bg-gray-100 transition-colors"
                           >
-                            + Connect Records
+                            + Import Test Bundle
                           </button>
                         </div>
                         
@@ -688,13 +712,13 @@ const PatientPortal = () => {
                         ) : (
                           <div className="card-glass p-8 text-center">
                             <span className="text-4xl mb-4 block">📋</span>
-                            <h3 className="text-white font-medium mb-2">No Records Connected</h3>
-                            <p className="text-white/40 mb-6">Connect your medical records to start contributing to cancer research.</p>
+                            <h3 className="text-white font-medium mb-2">No Synthetic Records Imported</h3>
+                            <p className="text-white/40 mb-6">Use a fictional FHIR R4 bundle to evaluate the workflow. Never upload real patient data.</p>
                             <button
                               onClick={() => setShowConnectionModal(true)}
                               className="px-6 py-3 bg-white text-black text-xs uppercase tracking-wider font-medium"
                             >
-                              Connect Records
+                              Import Test Bundle
                             </button>
                           </div>
                         )}
@@ -742,38 +766,29 @@ const PatientPortal = () => {
               <motion.div key="rewards" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 <div className="grid md:grid-cols-2 gap-8">
                   <div>
-                    <h2 className="text-lg font-medium text-white mb-6">Your Rewards</h2>
+                    <h2 className="text-lg font-medium text-white mb-6">Pilot Activity</h2>
                     <div className="card-glass p-8 mb-8">
-                      <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Available Balance</p>
+                      <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Prototype Activity Score</p>
                       <p className="text-5xl font-light text-white font-mono mb-2">{profile?.points_balance || 0}</p>
-                      <p className="text-white/40 text-sm mb-4">≈ ${((profile?.points_balance || 0) / 100).toFixed(2)} value</p>
-                      <div className="pt-4 border-t border-white/10 grid grid-cols-2 gap-4 text-sm">
+                      <p className="text-white/40 text-sm mb-4">Test metric only · no monetary value</p>
+                      <div className="pt-4 border-t border-white/10 text-sm">
                         <div>
-                          <p className="text-white/30">Total Earned</p>
+                          <p className="text-white/30">Total activity points</p>
                           <p className="text-white font-mono">{rewards?.total_earned || 0} pts</p>
-                        </div>
-                        <div>
-                          <p className="text-white/30">Redeemed</p>
-                          <p className="text-white font-mono">{rewards?.total_redeemed || 0} pts</p>
                         </div>
                       </div>
                     </div>
-                    <button
-                      disabled={!profile?.points_balance || profile.points_balance < 500}
-                      className="w-full py-3 bg-white text-black text-xs uppercase tracking-wider font-medium hover:bg-gray-100 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                    >
-                      Redeem Points (min 500)
-                    </button>
+                    <p className="text-white/35 text-sm">HealthDB does not currently offer rewards, gift cards, payments, or redemption.</p>
                   </div>
 
                   <div>
-                    <h2 className="text-lg font-medium text-white mb-6">How to Earn</h2>
+                    <h2 className="text-lg font-medium text-white mb-6">How events are recorded</h2>
                     <div className="space-y-3 mb-8">
                       {[
-                        { action: 'Sign a consent', points: 50, icon: '📝' },
-                        { action: 'Connect medical records', points: 100, icon: '🏥' },
-                        { action: 'Complete your profile', points: 25, icon: '👤' },
-                        { action: 'Data used in research', points: 10, icon: '🔬', note: 'per access' },
+                        { action: 'Review a test consent', points: 50, icon: '📝' },
+                        { action: 'Import a synthetic bundle', points: 100, icon: '🧪' },
+                        { action: 'Complete a test profile', points: 25, icon: '👤' },
+                        { action: 'Simulate a research event', points: 10, icon: '🔬', note: 'per event' },
                       ].map((item) => (
                         <div key={item.action} className="card-glass p-4 flex items-center justify-between">
                           <div className="flex items-center gap-3">
@@ -788,7 +803,7 @@ const PatientPortal = () => {
                       ))}
                     </div>
 
-                    <h2 className="text-lg font-medium text-white mb-4">Recent Activity</h2>
+                    <h2 className="text-lg font-medium text-white mb-4">Recent pilot activity</h2>
                     {rewards?.history && rewards.history.length > 0 ? (
                       <div className="space-y-2">
                         {rewards.history.slice(0, 5).map((item, index) => (
@@ -803,7 +818,7 @@ const PatientPortal = () => {
                       </div>
                     ) : (
                       <div className="card-glass p-6 text-center">
-                        <p className="text-white/40 text-sm">No rewards activity yet</p>
+                        <p className="text-white/40 text-sm">No pilot activity yet</p>
                       </div>
                     )}
                   </div>
@@ -848,7 +863,7 @@ const PatientPortal = () => {
               </div>
               <div className="p-6 border-t border-white/10">
                 <p className="text-white/40 text-sm mb-4">
-                  By clicking "I Agree", you confirm that you have read and understood this consent.
+                  By clicking “Record test acknowledgement,” you confirm only that you reviewed this prototype screen. This is not research consent.
                 </p>
                 <div className="flex gap-4">
                   <button
@@ -862,7 +877,7 @@ const PatientPortal = () => {
                     disabled={isSubmitting}
                     className="flex-1 py-3 bg-[#00d4aa] text-black text-xs uppercase tracking-wider font-medium hover:bg-[#00d4aa]/90 transition-colors disabled:opacity-50"
                   >
-                    {isSubmitting ? 'Signing...' : 'I Agree & Sign'}
+                    {isSubmitting ? 'Recording...' : 'Record test acknowledgement'}
                   </button>
                 </div>
               </div>
@@ -873,7 +888,7 @@ const PatientPortal = () => {
 
       {/* Connection Modal */}
       <AnimatePresence>
-        {showConnectionModal && (
+        {showConnectionModal && SYNTHETIC_FHIR_UPLOADS_ENABLED && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -889,7 +904,7 @@ const PatientPortal = () => {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="p-6 border-b border-white/10 flex items-center justify-between">
-                <h2 className="text-xl text-white">Connect Medical Records</h2>
+                <h2 className="text-xl text-white">Import Synthetic FHIR Data</h2>
                 <button onClick={() => setShowConnectionModal(false)} className="p-2 hover:bg-white/10">
                   <svg className="w-5 h-5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
@@ -898,17 +913,17 @@ const PatientPortal = () => {
               </div>
               <div className="p-6 space-y-4">
                 <p className="text-white/40 text-sm mb-6">
-                  Upload a FHIR export of your own records. Under your HIPAA right of access, your
-                  provider must give you a machine-readable copy on request.
+                  Upload a fictional or generated FHIR R4 Bundle to exercise the pilot workflow.
+                  Do not upload real patient records, identifiers, or protected health information.
                 </p>
 
                 <label className={`w-full card-glass card-hover p-4 text-left flex items-center gap-4 cursor-pointer ${isSubmitting ? 'opacity-50 pointer-events-none' : ''}`}>
                   <span className="text-2xl">⬆️</span>
                   <div>
                     <p className="text-white font-medium">
-                      {isSubmitting ? 'Importing…' : 'Upload health records (FHIR export)'}
+                      {isSubmitting ? 'Importing…' : 'Upload synthetic FHIR bundle'}
                     </p>
-                    <p className="text-white/40 text-sm">Choose a JSON file exported by your patient portal</p>
+                    <p className="text-white/40 text-sm">Choose a test JSON file with resourceType “Bundle”</p>
                   </div>
                   <input
                     type="file"
@@ -919,19 +934,9 @@ const PatientPortal = () => {
                   />
                 </label>
 
-                <div className="border border-white/10 p-4 space-y-2">
-                  <p className="text-white/60 text-xs uppercase tracking-wider">How to get your file</p>
-                  <ol className="text-white/40 text-xs leading-relaxed space-y-1 list-decimal list-inside">
-                    <li>Epic MyChart: Menu → Sharing → Download My Record → Download (FHIR JSON).</li>
-                    <li>Apple Health (iOS): Profile → Export All Health Data, then use the FHIR clinical records file.</li>
-                    <li>Any portal: request your records in "USCDI / FHIR JSON" format.</li>
-                  </ol>
-                </div>
-
                 <p className="text-white/40 text-xs leading-relaxed">
-                  Your file is de-identified in transit: names, addresses, contact details, record
-                  numbers and exact dates are stripped before anything is stored. Only coded clinical
-                  facts (conditions, medications, procedures, labs), age bands and years are kept.
+                  The prototype runs identifier-removal checks, but those controls have not been
+                  independently validated for real-world health data. Synthetic input is required.
                 </p>
               </div>
             </motion.div>
@@ -943,4 +948,3 @@ const PatientPortal = () => {
 };
 
 export default PatientPortal;
-

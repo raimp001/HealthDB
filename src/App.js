@@ -30,7 +30,11 @@ import NotFound from './pages/NotFound';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import PilotBanner from './components/PilotBanner';
-import RequireSession from './components/RequireSession';
+import ProtectedRoute from './components/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
+import Demo from './pages/Demo';
+import CareGuide from './pages/CareGuide';
+import Developers from './pages/Developers';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -42,29 +46,33 @@ function App() {
   return (
     <Router>
       <ScrollToTop />
-      <div className="min-h-screen bg-black flex flex-col pt-20">
+      <div className="min-h-screen bg-black flex flex-col">
         <a href="#main-content" className="skip-link">Skip to content</a>
         <Navbar />
         <PilotBanner />
-        <main id="main-content" tabIndex={-1} className="flex-grow">
+        <main id="main-content" tabIndex={-1} className="flex-grow pt-8">
+          <ErrorBoundary>
           <Routes>
             <Route path="/" element={<LandingPage />} />
+            <Route path="/care-guide" element={<CareGuide />} />
+            <Route path="/demo" element={<Demo />} />
+            <Route path="/developers" element={<Developers />} />
             {/* Public info pages */}
             <Route path="/patients" element={<ForPatients />} />
             <Route path="/researchers" element={<ForResearchers />} />
             <Route path="/institutions" element={<ForInstitutions />} />
             {/* Authenticated dashboards */}
-            <Route path="/patient" element={<RequireSession roles={['patient']}><PatientPortal /></RequireSession>} />
-            <Route path="/research" element={<RequireSession roles={['researcher', 'admin']}><ResearcherDashboard /></RequireSession>} />
-            <Route path="/institution" element={<RequireSession roles={['institution', 'admin']}><InstitutionDashboard /></RequireSession>} />
-            <Route path="/cohort-builder" element={<RequireSession roles={['researcher', 'admin']}><CohortBuilder /></RequireSession>} />
+            <Route path="/patient" element={<ProtectedRoute roles={['patient']}><PatientPortal /></ProtectedRoute>} />
+            <Route path="/research" element={<ProtectedRoute roles={['researcher']}><ResearcherDashboard /></ProtectedRoute>} />
+            <Route path="/institution" element={<ProtectedRoute roles={['institution']}><InstitutionDashboard /></ProtectedRoute>} />
+            <Route path="/cohort-builder" element={<ProtectedRoute roles={['researcher']}><CohortBuilder /></ProtectedRoute>} />
             {/* Platform pages */}
             <Route path="/platform" element={<PlatformFocusAreas />} />
             <Route path="/security-posture" element={<SecurityPostureMap />} />
             <Route path="/data-flow" element={<DataFlowDiagram />} />
-            <Route path="/repo-analyzer" element={<RepoAnalyzer />} />
+            <Route path="/repo-analyzer" element={<ProtectedRoute roles={['researcher']}><RepoAnalyzer /></ProtectedRoute>} />
             {/* Other pages */}
-            <Route path="/marketplace" element={<DataMarketplace />} />
+            <Route path="/marketplace" element={<ProtectedRoute roles={['researcher']}><DataMarketplace /></ProtectedRoute>} />
             <Route path="/resources" element={<Resources />} />
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/about" element={<About />} />
@@ -76,6 +84,7 @@ function App() {
             {/* Catch-all: unknown URLs must not render the homepage */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </ErrorBoundary>
         </main>
         <Footer />
         <Toaster position="top-right" />
@@ -85,4 +94,3 @@ function App() {
 }
 
 export default App;
-

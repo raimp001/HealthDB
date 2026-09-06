@@ -20,7 +20,7 @@ if not DATABASE_URL:
     DATABASE_URL = f"sqlite:///{data_dir}/healthdb.db"
     is_sqlite = True
 else:
-    is_sqlite = False
+    is_sqlite = DATABASE_URL.startswith("sqlite:")
     # Handle Heroku/Railway style postgres:// URLs
     if DATABASE_URL.startswith("postgres://"):
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
