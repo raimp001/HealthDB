@@ -1,9 +1,9 @@
+import { API_URL, apiFetch as fetch, saveSession, signInDestination } from '../lib/api';
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
-import { apiRequest } from '../lib/api';
-import { destinationFor, saveUser } from '../lib/session';
+// Use relative URL in production (same origin), fallback to localhost in dev
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -19,15 +19,19 @@ const Login = () => {
     setError('');
 
     try {
-      const data = await apiRequest('/api/auth/login', {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: email.trim(), password }),
       });
 
-      sessionStorage.setItem('token', data.access_token);
-      saveUser(data.user);
-      navigate(destinationFor(data.user, location.state?.from), { replace: true });
+      if (!response.ok) {
+        throw new Error('Invalid credentials');
+      }
+
+      const data = await response.json();
+      saveSession(data);
+      navigate(signInDestination(location.state?.from, data.user.user_type), { replace: true });
     } catch (err) {
       setError(err.message || 'Login failed. Please try again.');
     } finally {
@@ -36,7 +40,7 @@ const Login = () => {
   };
 
   return (
-    <div className="relative min-h-screen bg-black flex items-center justify-center py-20 px-6">
+    <div className="min-h-screen bg-black flex items-center justify-center py-20 px-6">
       <div className="absolute inset-0 gradient-bg opacity-50" />
       <div className="absolute inset-0 grid-pattern" />
       
@@ -52,28 +56,24 @@ const Login = () => {
             HealthDB
           </Link>
           <h1 className="heading-display text-3xl text-white mb-2">Sign in</h1>
-          <p className="text-white/40">Access your account</p>
+          <p className="text-white/40">Invited pilot accounts only</p>
         </div>
 
         {/* Form */}
         <div className="border border-white/10 p-8">
-          {location.state?.registered && <p role="status" className="mb-6 text-emerald-400">Account created. Sign in to open your pilot workspace.</p>}
-          {location.state?.expired && <p role="status" className="mb-6 text-amber-400">Your session has expired. Please sign in again.</p>}
           {error && (
             <div role="alert" className="mb-6 p-4 bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
               {error}
             </div>
           )}
 
-          <form aria-busy={isLoading} onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="login-email" className="block text-xs uppercase tracking-wider text-white/60 mb-2">
+              <label htmlFor="login-email" className="block text-sm text-white/70 mb-2">
                 Email
               </label>
               <input
-                id="login-email"
-                autoComplete="username"
-                type="email"
+                id="login-email" name="email" autoComplete="username" type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -84,7 +84,7 @@ const Login = () => {
 
             <div>
               <div className="flex justify-between items-center mb-2">
-                <label htmlFor="login-password" className="block text-xs uppercase tracking-wider text-white/60">
+                <label htmlFor="login-password" className="block text-sm text-white/70">
                   Password
                 </label>
                 {/* No self-service reset exists yet; this is a manual request. */}
@@ -93,9 +93,7 @@ const Login = () => {
                 </Link>
               </div>
               <input
-                id="login-password"
-                autoComplete="current-password"
-                type="password"
+                id="login-password" name="password" autoComplete="current-password" type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -115,9 +113,9 @@ const Login = () => {
 
           <div className="mt-8 pt-8 border-t border-white/10">
             <p className="text-center text-white/40 text-sm">
-              Don't have an account?{' '}
-              <Link to="/register" className="text-white hover:text-[#00d4aa] transition-colors">
-                Create one
+              Need pilot access?{' '}
+              <Link to="/contact?interest=pilot" className="text-white hover:text-[#00d4aa] transition-colors">
+                Request an invitation
               </Link>
             </p>
           </div>
@@ -128,4 +126,3 @@ const Login = () => {
 };
 
 export default Login;
-

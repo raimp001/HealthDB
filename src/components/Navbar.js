@@ -1,7 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { clearSession, SESSION_EVENT } from '../lib/api';
 
-import { DASHBOARD_BY_ROLE, readStoredUser, clearSession } from '../lib/session';
+// Where each role lands after signing in.
+const DASHBOARD_BY_ROLE = {
+  patient: '/patient',
+  institution: '/institution',
+  researcher: '/research',
+};
+
+const readStoredUser = () => {
+  try {
+    const raw = sessionStorage.getItem('user');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
 
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
@@ -24,12 +39,6 @@ const Navbar = () => {
     setUser(readStoredUser());
   }, [location]);
 
-  useEffect(() => {
-    const syncUser = () => setUser(readStoredUser());
-    window.addEventListener('healthdb-session', syncUser);
-    return () => window.removeEventListener('healthdb-session', syncUser);
-  }, []);
-
   const handleSignOut = () => {
     clearSession();
     setUser(null);
@@ -38,14 +47,20 @@ const Navbar = () => {
 
   const dashboardPath = user ? (DASHBOARD_BY_ROLE[user.user_type] || '/research') : null;
 
+  useEffect(() => {
+    const sync = () => setUser(readStoredUser());
+    const close = event => { if (event.key === 'Escape') setMenuOpen(false); };
+    window.addEventListener(SESSION_EVENT, sync);
+    window.addEventListener('keydown', close);
+    return () => { window.removeEventListener(SESSION_EVENT, sync); window.removeEventListener('keydown', close); };
+  }, []);
+
   return (
     <nav
-      aria-label="Main navigation"
-      onKeyDown={event => { if (event.key === 'Escape') setMenuOpen(false); }}
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         scrolled
           ? 'bg-black/80 backdrop-blur-xl border-b border-white/5'
-          : 'bg-black'
+          : 'bg-transparent'
       }`}
     >
       <div className="max-w-7xl mx-auto px-6">
@@ -62,7 +77,8 @@ const Navbar = () => {
             <NavLink to="/researchers">Researchers</NavLink>
             <NavLink to="/patients">Patients</NavLink>
             <NavLink to="/institutions">Institutions</NavLink>
-            <NavLink to="/platform">Roadmap</NavLink>
+            <NavLink to="/demo">Demo</NavLink>
+            <NavLink to="/developers">API</NavLink>
             <NavLink to="/about">About</NavLink>
           </div>
 
@@ -92,10 +108,10 @@ const Navbar = () => {
                   Sign In
                 </Link>
                 <Link
-                  to="/register"
+                  to="/contact"
                   className="px-5 py-2.5 bg-white text-black text-xs font-medium uppercase tracking-wider hover:bg-gray-100 transition-colors"
                 >
-                  Get Started
+                  Request Pilot
                 </Link>
               </>
             )}
@@ -105,7 +121,7 @@ const Navbar = () => {
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             className="md:hidden p-2 text-white"
-            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            aria-label="Toggle menu"
             aria-expanded={menuOpen}
             aria-controls="mobile-navigation"
           >
@@ -143,6 +159,8 @@ const Navbar = () => {
           <MobileNavLink to="/patients">Patients</MobileNavLink>
           <MobileNavLink to="/institutions">Institutions</MobileNavLink>
           <MobileNavLink to="/platform">Roadmap</MobileNavLink>
+          <MobileNavLink to="/demo">Demo</MobileNavLink>
+          <MobileNavLink to="/developers">API for developers and agents</MobileNavLink>
           <MobileNavLink to="/about">About</MobileNavLink>
           <div className="pt-6 border-t border-white/10 space-y-4">
             {user ? (
@@ -164,10 +182,10 @@ const Navbar = () => {
                   Sign In
                 </Link>
                 <Link
-                  to="/register"
+                  to="/contact"
                   className="block px-5 py-3 bg-white text-black text-sm font-medium uppercase tracking-wider text-center"
                 >
-                  Get Started
+                  Request Pilot
                 </Link>
               </>
             )}
@@ -185,7 +203,6 @@ const NavLink = ({ to, children }) => {
   return (
     <Link
       to={to}
-      aria-current={isActive ? 'page' : undefined}
       className={`px-4 py-2 text-sm transition-colors ${
         isActive
           ? 'text-white'
@@ -204,7 +221,6 @@ const MobileNavLink = ({ to, children }) => {
   return (
     <Link
       to={to}
-      aria-current={isActive ? 'page' : undefined}
       className={`block text-2xl font-light ${
         isActive ? 'text-white' : 'text-white/50'
       }`}
@@ -215,4 +231,3 @@ const MobileNavLink = ({ to, children }) => {
 };
 
 export default Navbar;
-

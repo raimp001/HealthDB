@@ -1,22 +1,12 @@
 {
   "short_name": "HealthDB",
-  "name": "HealthDB - Ethical Cancer Research Data Platform",
-  "description": "Accelerating cancer research through ethical data sharing. Patient-contributed, consent-based oncology data for IRB-approved studies.",
+  "name": "HealthDB - Oncology Research Infrastructure Pilot",
+  "description": "Closed synthetic-data pilot for evaluating oncology research workflows and safeguards.",
   "icons": [
     {
-      "src": "favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
-    },
-    {
-      "src": "logo192.png",
-      "type": "image/png",
-      "sizes": "192x192"
-    },
-    {
-      "src": "logo512.png",
-      "type": "image/png",
-      "sizes": "512x512"
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
     }
   ],
   "start_url": ".",

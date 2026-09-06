@@ -6,10 +6,9 @@ import React from 'react';
  * than relying on the visitor to find the disclosure.
  */
 const PilotBanner = () => (
-  <div className="bg-amber-400/10 border-b border-amber-400/20 px-6 py-2 text-center">
-    <p className="text-xs text-amber-400/90">
-      Closed pilot — not for clinical use. HealthDB holds no compliance
-      certifications and does not accept real patient data.
+  <div className="mt-20 bg-amber-950/95 border-y border-amber-400/20 px-6 py-2 text-center">
+    <p className="text-xs text-amber-200">
+      Closed technical pilot · Synthetic data only · No clinical use, PHI, or compliance certifications
     </p>
   </div>
 );

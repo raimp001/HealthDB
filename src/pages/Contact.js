@@ -1,9 +1,11 @@
+import { API_URL, apiFetch as fetch } from '../lib/api';
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { useSearchParams } from 'react-router-dom';
 
-import { API_URL } from '../lib/api';
 
 const INTEREST_TYPES = [
+  { value: 'pilot', label: 'I want to evaluate the closed pilot' },
   { value: 'researcher', label: 'I am a researcher looking for data' },
   { value: 'institution', label: 'I represent an institution / site' },
   { value: 'patient', label: 'I am a patient with questions' },
@@ -12,11 +14,16 @@ const INTEREST_TYPES = [
 ];
 
 const Contact = () => {
+  const [searchParams] = useSearchParams();
+  const requestedInterest = searchParams.get('interest');
+  const initialInterest = INTEREST_TYPES.some((item) => item.value === requestedInterest)
+    ? requestedInterest
+    : 'pilot';
   const [form, setForm] = useState({
     name: '',
     email: '',
     organization: '',
-    interest_type: 'researcher',
+    interest_type: initialInterest,
     message: '',
   });
   const [status, setStatus] = useState({ state: 'idle', message: '' });
@@ -35,7 +42,7 @@ const Contact = () => {
       const data = await response.json();
       if (response.ok) {
         setStatus({ state: 'sent', message: data.message || 'Thanks — we received your message.' });
-        setForm({ name: '', email: '', organization: '', interest_type: 'researcher', message: '' });
+        setForm({ name: '', email: '', organization: '', interest_type: initialInterest, message: '' });
       } else {
         const detail = typeof data.detail === 'string' ? data.detail : 'Please check the form and try again.';
         setStatus({ state: 'error', message: detail });
@@ -60,8 +67,7 @@ const Contact = () => {
             <p className="text-sm text-emerald-400 uppercase tracking-wider mb-4">Contact</p>
             <h1 className="text-4xl md:text-5xl font-bold mb-6">Get in touch</h1>
             <p className="text-white/40 mb-10">
-              Tell us what you're working on. We read every message and typically respond within one
-              business day.
+              Tell us what you want to evaluate or help design. We review pilot requests directly.
             </p>
           </motion.div>
 
@@ -90,6 +96,7 @@ const Contact = () => {
                   <input
                     type="text"
                     required
+                    maxLength={120}
                     value={form.name}
                     onChange={update('name')}
                     placeholder="Jane Doe"
@@ -118,6 +125,7 @@ const Contact = () => {
                 <input
                   type="text"
                   required
+                  maxLength={200}
                   value={form.organization}
                   onChange={update('organization')}
                   placeholder="University, hospital, company, or 'Independent'"
@@ -144,6 +152,8 @@ const Contact = () => {
                 </label>
                 <textarea
                   required
+                  minLength={10}
+                  maxLength={4000}
                   rows={6}
                   value={form.message}
                   onChange={update('message')}
@@ -177,4 +187,3 @@ const Contact = () => {
 };
 
 export default Contact;
-

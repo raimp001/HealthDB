@@ -4,11 +4,11 @@ Main application entry point with real database integration
 """
 from fastapi import FastAPI, HTTPException, Depends, status, Query, BackgroundTasks, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from typing import Optional, List, Dict, Any, Literal
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from decimal import Decimal
 from uuid import UUID
 import uuid
@@ -51,15 +51,26 @@ from .repositories import (
 )
 from .deidentification import deidentify_record, find_residual_identifiers
 from .fhir_ingest import parse_fhir_bundle
+from .cohort_query import CohortCriteria, matching_patient_ids, payload
+from .demo import router as demo_router
 
 # Initialize FastAPI app
 app = FastAPI(
     title="HealthDB API",
-    description="Longitudinal Healthcare Database Platform API",
+    description="Synthetic-data oncology research workflow pilot API",
     version="1.0.0",
-    docs_url="/api/docs",
-    redoc_url="/api/redoc",
+    docs_url=None,
+    redoc_url=None,
+    openapi_url="/api/openapi.json",
 )
+app.include_router(demo_router)
+
+
+@app.get('/api/docs', include_in_schema=False)
+@app.get('/api/redoc', include_in_schema=False)
+def api_documentation():
+    # Same-origin documentation works under the site's CSP without CDN scripts.
+    return RedirectResponse('/developers')
 
 # CORS configuration - restrict methods and headers
 allowed_origins = [
@@ -81,7 +92,7 @@ app.add_middleware(
 # Audit logging middleware
 @app.middleware("http")
 async def audit_log_middleware(request: Request, call_next):
-    """Log all API requests for HIPAA audit trail"""
+    """Log security-relevant API requests for pilot troubleshooting."""
     start_time = datetime.utcnow()
     response = await call_next(request)
     duration_ms = (datetime.utcnow() - start_time).total_seconds() * 1000
@@ -120,6 +131,23 @@ JWT_ALGORITHM = "HS256"
 # hidden to prevent re-identification. Lower via env for demos/small datasets.
 MIN_AGGREGATE_CELL_SIZE = int(os.environ.get("MIN_AGGREGATE_CELL_SIZE", "11"))
 
+
+def env_flag(name: str, default: bool = False) -> bool:
+    """Read an opt-in feature flag from the environment.
+
+    Sensitive pilot workflows stay closed unless a deployer deliberately
+    enables them. This avoids a missing environment variable silently opening
+    registration or record intake in production.
+    """
+    fallback = "true" if default else "false"
+    return os.environ.get(name, fallback).strip().lower() in {"1", "true", "yes", "on"}
+
+
+SELF_SERVICE_REGISTRATION_ENABLED = env_flag("ENABLE_SELF_SERVICE_REGISTRATION")
+SYNTHETIC_FHIR_UPLOADS_ENABLED = env_flag("ENABLE_SYNTHETIC_FHIR_UPLOADS")
+DATA_MARKETPLACE_ENABLED = env_flag("ENABLE_DATA_MARKETPLACE")
+PATIENT_STUDY_ENROLLMENT_ENABLED = env_flag("ENABLE_PATIENT_STUDY_ENROLLMENT")
+
 # Validate JWT secret at import time - must be set in production
 if not JWT_SECRET:
     if os.environ.get("ENVIRONMENT", "development") == "production":
@@ -139,6 +167,9 @@ SCHEMA_SYNC_STATEMENTS = [
     "ALTER TABLE studies ADD COLUMN eligibility_summary TEXT",
     "ALTER TABLE regulatory_submissions ALTER COLUMN study_id DROP NOT NULL",
     "ALTER TABLE extraction_jobs ADD COLUMN result_csv TEXT",
+    "ALTER TABLE extraction_jobs ADD COLUMN selected_variables JSON",
+    "ALTER TABLE extraction_jobs ADD COLUMN source_patient_ids JSON",
+    "ALTER TABLE extraction_jobs ADD COLUMN source_record_ids JSON",
 ]
 
 # Local development fixtures ONLY. These are deliberately fictional: seeding
@@ -278,16 +309,6 @@ class DataProductDetail(DataProductSummary):
     pricing_tiers: Dict[str, float]
     category: Optional[str]
 
-class CohortCriteria(BaseModel):
-    cancer_types: Optional[List[str]] = None
-    icd_codes: Optional[List[str]] = None
-    stages: Optional[List[str]] = None
-    age_min: Optional[int] = None
-    age_max: Optional[int] = None
-    molecular_markers: Optional[List[str]] = None
-    treatment_types: Optional[List[str]] = None
-    min_follow_up_months: Optional[int] = None
-
 class CohortResult(BaseModel):
     cohort_id: Optional[str] = None
     patient_count: int
@@ -301,22 +322,25 @@ class CohortResult(BaseModel):
     suppressed: bool = False
 
 class SaveCohortRequest(BaseModel):
-    name: str
+    model_config = ConfigDict(str_strip_whitespace=True)
+    name: str = Field(min_length=1, max_length=255)
     description: Optional[str] = None
     criteria: CohortCriteria
 
 class ContactRequest(BaseModel):
-    name: str
+    model_config = ConfigDict(str_strip_whitespace=True)
+    name: str = Field(min_length=1, max_length=120)
     email: EmailStr
-    organization: str
-    message: str
-    interest_type: str
+    organization: str = Field(min_length=1, max_length=200)
+    message: str = Field(min_length=10, max_length=4000)
+    interest_type: str = Field(min_length=1, max_length=80)
 
 
 # ============== Study & Regulatory Models ==============
 
 class CreateStudyRequest(BaseModel):
-    name: str
+    model_config = ConfigDict(str_strip_whitespace=True)
+    name: str = Field(min_length=1, max_length=255)
     description: Optional[str] = None
     cohort_id: Optional[str] = None
     principal_investigator: Optional[str] = None
@@ -401,10 +425,11 @@ class CollaborationResponse(BaseModel):
     accepted_at: Optional[datetime]
 
 class ExtractionJobRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     study_id: str
-    variables: List[str]
-    output_format: str = "csv"
-    deidentification_level: str = "limited_dataset"
+    variables: List[str] = Field(min_length=1, max_length=200)
+    output_format: Literal["csv"] = "csv"
+    deidentification_level: Literal["limited_dataset"] = "limited_dataset"
 
 class ExtractionJobResponse(BaseModel):
     id: str
@@ -493,6 +518,12 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) 
         return None
     try:
         payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        if not payload.get("sub") or not payload.get("exp"):
+            raise JWTError("Missing required claims")
+        try:
+            UUID(payload["sub"])
+        except (ValueError, TypeError, AttributeError):
+            raise JWTError("Invalid subject")
         return payload
     except ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
@@ -593,47 +624,67 @@ def scrub_deidentified_data(value: Any) -> Any:
     return deidentify_record(value)
 
 
+def require_current_export_approvals(db: Session, study_id: str) -> None:
+    now = datetime.utcnow()
+    submissions = db.query(RegulatorySubmission).filter(
+        RegulatorySubmission.study_id == study_id,
+        RegulatorySubmission.institution_id == None,
+        or_(RegulatorySubmission.expires_at == None, RegulatorySubmission.expires_at > now),
+    ).all()
+    irb = any(s.document_type == "irb_protocol" and s.status == "approved" for s in submissions)
+    dua = any(s.document_type == "dua" and s.status in {"approved", "signed"} for s in submissions)
+    if not irb or not dua:
+        raise HTTPException(status_code=400, detail="An unexpired study-level IRB approval and signed DUA are required")
+
+
+def eligible_export_records(db: Session, study: Study):
+    patient_ids = _consented_patient_ids(db)
+    enrolled = {str(pid) for (pid,) in db.query(StudyEnrollment.patient_id).filter(
+        StudyEnrollment.study_id == study.id, StudyEnrollment.status == "enrolled",
+        StudyEnrollment.patient_id.in_(patient_ids),
+    ).all()}
+    records = db.query(ExtractedMedicalData).filter(
+        ExtractedMedicalData.patient_id.in_(enrolled)
+    ).order_by(ExtractedMedicalData.patient_id, ExtractedMedicalData.original_date, ExtractedMedicalData.created_at).all() if enrolled else []
+    if study.cohort_id:
+        cohort = db.query(ResearchCohort).filter(ResearchCohort.id == study.cohort_id).first()
+        if not cohort:
+            raise HTTPException(status_code=409, detail="The study cohort is no longer available")
+        matched = matching_patient_ids(records, CohortCriteria.model_validate(cohort.criteria))
+        records = [record for record in records if str(record.patient_id) in matched]
+    return records
+
+
+def csv_cell(value):
+    text_value = str(value)
+    return "'" + text_value if text_value.lstrip().startswith(("=", "+", "-", "@", "\t", "\r")) else text_value
+
+
 def process_extraction_job(db: Session, job: ExtractionJob, study: Study, requester_user_id: str) -> None:
     """Build a consent-gated limited dataset CSV for an extraction job"""
     now = datetime.utcnow()
-    eligible_patients = db.query(PatientProfile).join(
-        StudyEnrollment,
-        StudyEnrollment.patient_id == PatientProfile.id,
-    ).join(
-        Consent,
-        Consent.patient_id == PatientProfile.id,
-    ).filter(
-        StudyEnrollment.study_id == study.id,
-        StudyEnrollment.status == "enrolled",
-        Consent.consent_type == "research_data_sharing",
-        Consent.status == "active",
-        or_(Consent.expires_at == None, Consent.expires_at > now),
-    ).distinct().all()
-    patient_ids = [str(patient.id) for patient in eligible_patients]
-
-    records = []
-    if patient_ids:
-        records = db.query(ExtractedMedicalData).filter(
-            ExtractedMedicalData.patient_id.in_(patient_ids)
-        ).order_by(
-            ExtractedMedicalData.patient_id,
-            ExtractedMedicalData.original_date,
-            ExtractedMedicalData.created_at,
-        ).all()
+    records = eligible_export_records(db, study)
+    selected = set(job.selected_variables or [])
+    exported_record_ids = []
 
     rows_by_patient: Dict[str, int] = {}
     export_rows = []
     scrubbed_records = []
     for record in records:
         patient_id = str(record.patient_id)
+        projected = {key: value for key, value in payload(record).items()
+                     if f"{record.data_category}.{key}" in selected}
+        if not projected:
+            continue
         rows_by_patient[patient_id] = rows_by_patient.get(patient_id, 0) + 1
+        exported_record_ids.append(str(record.id))
         patient_pseudonym = "P-" + hashlib.sha256(f"{study.id}:{patient_id}".encode()).hexdigest()[:12]
-        scrubbed = deidentify_record(record.deidentified_data or {})
+        scrubbed = deidentify_record(projected)
         scrubbed_records.append(scrubbed)
         export_rows.append([
             patient_pseudonym,
             record.data_category,
-            record.data_type or "",
+            csv_cell(deidentify_record(record.data_type or "")),
             record.original_date.year if record.original_date else "",
             record.data_quality_score if record.data_quality_score is not None else "",
             json.dumps(scrubbed),
@@ -662,27 +713,18 @@ def process_extraction_job(db: Session, job: ExtractionJob, study: Study, reques
     job.result_csv = output.getvalue()
     job.status = "completed"
     job.completed_at = now
-    job.patient_count = len(patient_ids)
+    job.patient_count = len(rows_by_patient)
+    job.source_patient_ids = sorted(rows_by_patient)
+    job.source_record_ids = exported_record_ids
     job.download_url = f"/api/extraction/jobs/{job.id}/download"
     job.download_expires_at = now + timedelta(days=7)
 
-    patient_repo = PatientRepository(db)
     for patient_id, record_count in rows_by_patient.items():
         db.add(DataAccessLog(
-            user_id=requester_user_id,
-            patient_id=patient_id,
-            access_type="research_extraction",
-            data_type="extracted_medical_data",
-            purpose=f"Data extract for study: {study.name}",
-            record_count=record_count,
+            user_id=requester_user_id, patient_id=patient_id,
+            access_type="research_extraction", data_type="extracted_medical_data",
+            purpose=f"Synthetic extract for study: {study.name}", record_count=record_count,
         ))
-        patient_repo.add_points(
-            patient_id,
-            10,
-            f"Data used in research: {study.name}",
-            "extraction",
-            str(job.id),
-        )
 
     db.commit()
 
@@ -784,7 +826,13 @@ def get_enrolled_count(db: Session, study_id: str) -> int:
 
 @app.post("/api/auth/register", response_model=TokenResponse)
 async def register(user: UserCreate, db: Session = Depends(get_db)):
-    """Register a new user (patient or researcher)"""
+    """Register a new user when an operator has opened pilot enrollment."""
+    if not SELF_SERVICE_REGISTRATION_ENABLED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Self-service registration is closed. Request pilot access through the contact page.",
+        )
+
     user_repo = UserRepository(db)
 
     # Validate password strength
@@ -954,7 +1002,13 @@ async def sign_consent(
     token_data: Dict = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
-    """Sign a new consent"""
+    """Exercise the consent prototype in an approved synthetic-data pilot."""
+    if not SYNTHETIC_FHIR_UPLOADS_ENABLED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Consent simulation is disabled outside approved synthetic-data pilots.",
+        )
+
     patient_repo = PatientRepository(db)
     profile = patient_repo.get_profile(UUID(token_data["sub"]))
 
@@ -994,9 +1048,8 @@ async def get_patient_rewards(
 
     return {
         "total_earned": profile.total_points_earned,
-        "total_redeemed": profile.total_points_earned - profile.points_balance,
         "available_balance": profile.points_balance,
-        "cash_value": profile.points_balance / 100,  # 100 points = $1
+        "has_monetary_value": False,
         "history": [
             {
                 "date": r.created_at.strftime("%Y-%m-%d"),
@@ -1039,97 +1092,37 @@ async def get_data_access_log(
 async def get_consent_templates(
     db: Session = Depends(get_db)
 ):
-    """Get available consent templates"""
-    templates = db.query(ConsentTemplate).filter(ConsentTemplate.is_active == True).all()
+    """Get synthetic pilot consent templates when that workflow is enabled."""
+    if not SYNTHETIC_FHIR_UPLOADS_ENABLED:
+        return []
+
+    templates = db.query(ConsentTemplate).filter(
+        ConsentTemplate.is_active == True,
+        ConsentTemplate.name == "Synthetic Research Workflow",
+    ).all()
     
     # If no templates exist, create default ones
     if not templates:
         default_templates = [
             {
-                "name": "Research Data Sharing",
-                "description": "Allow your de-identified health data to be used for cancer research",
+                "name": "Synthetic Research Workflow",
+                "description": "Exercise the consent UI with synthetic records only",
                 "consent_type": "research_data_sharing",
                 "version": "1.0",
                 "content": """
-# Research Data Sharing Consent
+# Synthetic Research Workflow Acknowledgement
 
-By signing this consent, you agree to share your de-identified health information with qualified researchers for the purpose of advancing cancer research.
+This screen is a product simulation for invited pilot users. It is not a research consent form and does not authorize HealthDB to collect, store, or disclose real health information.
 
-## What data will be shared?
-- Diagnosis information (cancer type, stage, date)
-- Treatment history (medications, procedures, outcomes)
-- Lab results and biomarkers
-- Demographic information (age range, not exact date of birth)
+## Pilot boundary
+- Use fictional or generated records only
+- Do not enter protected health information or identifying details
+- No dataset is released and no research enrollment occurs
 
-## What will NOT be shared?
-- Your name or contact information
-- Social Security Number
-- Exact dates (only month/year)
-- Any information that could directly identify you
-
-## Your Rights
-- You can revoke this consent at any time
-- You can request a list of who accessed your data
-- You earn rewards for contributing to research
-
-## Duration
-This consent is valid for 24 months from signing date.
+Acknowledging this screen records a test event so the workflow can be evaluated. Pilot points have no monetary value.
                 """,
                 "data_categories": ["demographics", "diagnosis", "treatment", "lab_results", "outcomes"],
-                "duration_months": 24,
-            },
-            {
-                "name": "Clinical Trial Matching",
-                "description": "Allow researchers to contact you about relevant clinical trials",
-                "consent_type": "clinical_trial_matching",
-                "version": "1.0",
-                "content": """
-# Clinical Trial Matching Consent
-
-By signing this consent, you allow HealthDB to match your profile against available clinical trials and notify you of potential opportunities.
-
-## What this means
-- Your medical profile will be compared against trial eligibility criteria
-- You will receive notifications about matching trials
-- Researchers may request to contact you through our platform
-
-## Your Control
-- You choose whether to respond to any trial invitation
-- You can opt out at any time
-- Your identity is protected until you choose to reveal it
-
-## Duration
-This consent is valid for 12 months from signing date.
-                """,
-                "data_categories": ["demographics", "diagnosis", "treatment"],
-                "duration_months": 12,
-            },
-            {
-                "name": "AI/ML Training Data",
-                "description": "Allow your anonymized data to be used for training AI models",
-                "consent_type": "ai_ml_training",
-                "version": "1.0",
-                "content": """
-# AI/ML Training Data Consent
-
-By signing this consent, you agree to allow your fully anonymized health data to be used for training artificial intelligence and machine learning models.
-
-## Purpose
-These AI models are designed to:
-- Predict treatment outcomes
-- Identify patterns in cancer progression
-- Assist doctors in making treatment decisions
-
-## Data Protection
-- Data is fully anonymized before use
-- No individual patient can be re-identified
-- Models are validated for fairness and bias
-
-## Duration
-This consent is valid for 36 months from signing date.
-                """,
-                "data_categories": ["demographics", "diagnosis", "treatment", "molecular", "outcomes"],
-                "duration_months": 36,
+                "duration_months": None,
             },
         ]
         
@@ -1138,7 +1131,10 @@ This consent is valid for 36 months from signing date.
             db.add(template)
         db.commit()
         
-        templates = db.query(ConsentTemplate).filter(ConsentTemplate.is_active == True).all()
+        templates = db.query(ConsentTemplate).filter(
+            ConsentTemplate.is_active == True,
+            ConsentTemplate.name == "Synthetic Research Workflow",
+        ).all()
     
     return [
         ConsentTemplateResponse(
@@ -1162,7 +1158,13 @@ async def sign_consent_template(
     token_data: Dict = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
-    """Sign a consent from a template"""
+    """Record a consent simulation event for an approved synthetic pilot."""
+    if not SYNTHETIC_FHIR_UPLOADS_ENABLED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Consent simulation is disabled outside approved synthetic-data pilots.",
+        )
+
     patient_repo = PatientRepository(db)
     profile = patient_repo.get_profile(UUID(token_data["sub"]))
     
@@ -1170,7 +1172,11 @@ async def sign_consent_template(
         raise HTTPException(status_code=404, detail="Patient profile not found")
     
     # Get the template
-    template = db.query(ConsentTemplate).filter(ConsentTemplate.id == consent_req.template_id).first()
+    template = db.query(ConsentTemplate).filter(
+        ConsentTemplate.id == consent_req.template_id,
+        ConsentTemplate.is_active == True,
+        ConsentTemplate.name == "Synthetic Research Workflow",
+    ).first()
     if not template:
         raise HTTPException(status_code=404, detail="Consent template not found")
     
@@ -1203,13 +1209,13 @@ async def sign_consent_template(
     )
     db.add(new_consent)
     
-    # Award points for signing consent
-    points_earned = 50  # Base points for consent
+    # Record a non-monetary pilot activity score for exercising the workflow.
+    points_earned = 50
     reward = RewardsTransaction(
         patient_id=profile.id,
         transaction_type="earn",
         points=points_earned,
-        description=f"Signed {template.name} consent",
+        description=f"Reviewed {template.name}",
         reference_type="consent",
         reference_id=str(new_consent.id),
     )
@@ -1228,7 +1234,7 @@ async def sign_consent_template(
         "status": new_consent.status,
         "expires_at": expires_at.isoformat() if expires_at else None,
         "points_earned": points_earned,
-        "message": f"Consent signed successfully! You earned {points_earned} points.",
+        "message": f"Test acknowledgement recorded. {points_earned} pilot activity points added (no monetary value).",
     }
 
 
@@ -1322,7 +1328,13 @@ async def connect_fhir_records(
     token_data: Dict = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
-    """Import supported records from a patient-supplied FHIR R4 Bundle."""
+    """Import a synthetic FHIR R4 Bundle in an explicitly enabled pilot."""
+    if not SYNTHETIC_FHIR_UPLOADS_ENABLED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="FHIR uploads are disabled. Use synthetic data only in an approved test environment.",
+        )
+
     patient_repo = PatientRepository(db)
     profile = patient_repo.get_profile(UUID(token_data["sub"]))
 
@@ -1394,14 +1406,14 @@ async def connect_fhir_records(
         patient_repo.add_points(
             profile.id,
             100,
-            f"Uploaded health records ({connection.source_name})",
+            f"Imported synthetic FHIR bundle ({connection.source_name})",
             "connection",
             str(connection.id),
         )
     db.commit()
 
     if records_imported:
-        message = f"Successfully imported {records_imported} de-identified health records."
+        message = f"Successfully imported {records_imported} synthetic test records."
     else:
         message = "No supported clinical resources were found in the FHIR Bundle."
     return {
@@ -1539,7 +1551,10 @@ async def list_products(
     search: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
-    """List available data products"""
+    """List data products only after a governed marketplace is enabled."""
+    if not DATA_MARKETPLACE_ENABLED:
+        return []
+
     product_repo = DataProductRepository(db)
     products = product_repo.get_all(
         category=category,
@@ -1570,6 +1585,12 @@ async def list_products(
 @app.get("/api/marketplace/products/{product_id}", response_model=DataProductDetail)
 async def get_product_detail(product_id: str, db: Session = Depends(get_db)):
     """Get detailed product information"""
+    if not DATA_MARKETPLACE_ENABLED:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="The dataset marketplace is not available.",
+        )
+
     product_repo = DataProductRepository(db)
     product = product_repo.get_by_id(UUID(product_id))
 
@@ -1602,6 +1623,12 @@ async def submit_inquiry(
     db: Session = Depends(get_db),
 ):
     """Submit inquiry for a data product"""
+    if not DATA_MARKETPLACE_ENABLED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="The dataset marketplace is not available.",
+        )
+
     product_repo = DataProductRepository(db)
     product = product_repo.get_by_id(UUID(product_id))
 
@@ -1622,7 +1649,7 @@ async def submit_inquiry(
 
     return {
         "status": "success",
-        "message": "Thank you for your inquiry. Our team will contact you within 24 hours.",
+        "message": "Thank you for your inquiry. Your request has been received for review.",
         "product_name": product.name,
         "inquiry_id": str(submission.id),
     }
@@ -1633,7 +1660,7 @@ async def submit_inquiry(
 @app.post("/api/cohort/build", response_model=CohortResult)
 async def build_cohort(
     criteria: CohortCriteria,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_role("researcher")),
     db: Session = Depends(get_db)
 ):
     """Count patients matching the criteria, over consented, de-identified records.
@@ -1656,52 +1683,7 @@ async def build_cohort(
         ExtractedMedicalData.patient_id.in_(patient_ids)
     ).all()
 
-    def _payload(record):
-        data = record.deidentified_data
-        if isinstance(data, str):
-            try:
-                data = json.loads(data)
-            except (TypeError, ValueError, json.JSONDecodeError):
-                return {}
-        return data if isinstance(data, dict) else {}
-
-    def _matches_any(text: str, terms: List[str]) -> bool:
-        lowered = (text or "").lower()
-        return any(term.lower() in lowered for term in terms if term)
-
-    # Narrow to the patients whose records satisfy every supplied criterion.
-    matching = set(patient_ids)
-
-    if criteria.cancer_types or criteria.icd_codes:
-        wanted = set()
-        terms = list(criteria.cancer_types or []) + list(criteria.icd_codes or [])
-        for record in records:
-            if record.data_category != "diagnosis":
-                continue
-            data = _payload(record)
-            haystack = " ".join(str(data.get(k, "")) for k in ("display", "cancer_type", "code", "icd_code"))
-            if _matches_any(haystack, terms):
-                wanted.add(str(record.patient_id))
-        matching &= wanted
-
-    if criteria.treatment_types:
-        wanted = set()
-        for record in records:
-            if record.data_category != "treatment":
-                continue
-            data = _payload(record)
-            haystack = " ".join(str(data.get(k, "")) for k in ("medication", "procedure", "regimen", "display"))
-            if _matches_any(haystack, criteria.treatment_types):
-                wanted.add(str(record.patient_id))
-        matching &= wanted
-
-    if criteria.stages:
-        wanted = set()
-        for record in records:
-            data = _payload(record)
-            if _matches_any(str(data.get("stage", "")), criteria.stages):
-                wanted.add(str(record.patient_id))
-        matching &= wanted
+    matching = matching_patient_ids(records, criteria)
 
     matched_records = [r for r in records if str(r.patient_id) in matching]
     patient_count = len(matching)
@@ -1756,10 +1738,10 @@ async def get_cohort_variables(
     token_data: Dict = Depends(require_role("researcher")),
     db: Session = Depends(get_db)
 ):
-    """Inventory of variables that consented patients actually have data for.
+    """Inventory of variables carried by acknowledged synthetic test profiles.
 
     Completeness is measured, not estimated: for each field it is the share of
-    contributing patients that carry a non-empty value for that field. Fields
+    synthetic profiles that carry a non-empty value for that field. Fields
     below the aggregate cell-size floor are withheld so a variable held by a
     handful of people cannot itself become an identifier.
     """
@@ -1795,7 +1777,7 @@ async def get_cohort_variables(
                 suppressed += 1
                 continue
             variables.append({
-                "id": field,
+                "id": f"{category}.{field}",
                 "label": field.replace("_", " ").title(),
                 "patients_with_data": count,
                 "completeness": round(100 * count / total_patients),
@@ -1821,8 +1803,8 @@ async def save_cohort(
     cohort_repo = CohortRepository(db)
 
     # Build cohort first to get count
-    criteria_dict = request.criteria.dict()
-    result = cohort_repo.build_cohort(criteria_dict)
+    criteria_dict = request.criteria.model_dump(mode="json")
+    result = await build_cohort(request.criteria, token_data, db)
 
     # Save cohort
     cohort = cohort_repo.save_cohort(
@@ -1830,13 +1812,16 @@ async def save_cohort(
         name=request.name,
         description=request.description,
         criteria=criteria_dict,
-        patient_count=result["patient_count"],
+        patient_count=result.patient_count,
     )
 
     return {
+        "id": str(cohort.id),
         "cohort_id": str(cohort.id),
         "name": cohort.name,
         "patient_count": cohort.patient_count,
+        "criteria": criteria_dict,
+        "created_at": cohort.created_at.isoformat(),
     }
 
 
@@ -1855,6 +1840,7 @@ async def get_saved_cohorts(
             "name": c.name,
             "description": c.description,
             "patient_count": c.patient_count,
+            "criteria": c.criteria,
             "created_at": c.created_at.isoformat(),
         }
         for c in cohorts
@@ -1868,13 +1854,14 @@ async def get_cohort_summary(
     db: Session = Depends(get_db)
 ):
     """Get summary statistics for a cohort"""
-    cohort_repo = CohortRepository(db)
-    summary = cohort_repo.get_cohort_summary(UUID(cohort_id))
-
-    if not summary:
+    cohort = db.query(ResearchCohort).filter(
+        ResearchCohort.id == cohort_id, ResearchCohort.user_id == token_data["sub"]
+    ).first()
+    if not cohort:
         raise HTTPException(status_code=404, detail="Cohort not found")
+    result = await build_cohort(CohortCriteria.model_validate(cohort.criteria), token_data, db)
+    return {**result.model_dump(), "cohort_id": str(cohort.id), "name": cohort.name, "criteria": cohort.criteria}
 
-    return summary
 
 
 # ============== Study & Regulatory Endpoints ==============
@@ -1882,7 +1869,7 @@ async def get_cohort_summary(
 @app.post("/api/researcher/studies", response_model=StudyResponse)
 async def create_study(
     request: CreateStudyRequest,
-    token_data: Dict = Depends(require_auth),
+    token_data: Dict = Depends(require_role("researcher")),
     db: Session = Depends(get_db)
 ):
     """Create a new research study"""
@@ -1891,9 +1878,14 @@ async def create_study(
     # Get cohort patient count if cohort_id provided
     patient_count = 0
     if request.cohort_id:
-        cohort = db.query(ResearchCohort).filter(ResearchCohort.id == request.cohort_id).first()
-        if cohort:
-            patient_count = cohort.patient_count or 0
+        cohort = db.query(ResearchCohort).filter(
+            ResearchCohort.id == request.cohort_id, ResearchCohort.user_id == user_id
+        ).first()
+        if not cohort:
+            raise HTTPException(status_code=404, detail="Cohort not found")
+        patient_count = cohort.patient_count or 0
+    if request.is_recruiting and not PATIENT_STUDY_ENROLLMENT_ENABLED:
+        raise HTTPException(status_code=403, detail="Study enrollment is closed in this deployment")
     
     study = Study(
         user_id=user_id,
@@ -2505,30 +2497,24 @@ async def create_extraction_job(
     """Create a data extraction job"""
     study = require_export_access(db, request.study_id, token_data["sub"])
     
-    # Check if study has all required approvals
-    submissions = db.query(RegulatorySubmission).filter(
-        RegulatorySubmission.study_id == request.study_id
-    ).all()
-    
-    irb_approved = any(s.document_type == "irb_protocol" and s.status == "approved" for s in submissions)
-    dua_signed = any(s.document_type == "dua" and s.status in ["approved", "signed"] for s in submissions)
-    
-    if not irb_approved or not dua_signed:
-        raise HTTPException(
-            status_code=400,
-            detail="Cannot extract data without IRB approval and signed DUA"
-        )
-    
+    require_current_export_approvals(db, request.study_id)
+    inventory = await get_cohort_variables(token_data, db)
+    available_variables = {v["id"] for category in inventory["categories"] for v in category["variables"]}
+    requested_variables = list(dict.fromkeys(request.variables))
+    if not set(requested_variables).issubset(available_variables):
+        raise HTTPException(status_code=422, detail="Select available variables using their category.field IDs")
+
     # Create extraction job
     job_name = f"extract_{study.name.lower().replace(' ', '_')}_{datetime.utcnow().strftime('%Y%m%d')}"
-    estimated_completion = datetime.utcnow() + timedelta(days=2)  # Estimate 2 days
+    estimated_completion = datetime.utcnow()
     
     job = ExtractionJob(
         study_id=request.study_id,
         job_name=job_name,
         status="queued",
         patient_count=study.patient_count,
-        variable_count=len(request.variables),
+        variable_count=len(requested_variables),
+        selected_variables=requested_variables,
         output_format=request.output_format,
         deidentification_level=request.deidentification_level,
         estimated_completion=estimated_completion,
@@ -2616,18 +2602,24 @@ async def download_extraction_job(
     if not job:
         raise HTTPException(status_code=404, detail="Extraction job not found")
 
-    require_export_access(db, job.study_id, token_data["sub"])
+    study = require_export_access(db, job.study_id, token_data["sub"])
+    require_current_export_approvals(db, job.study_id)
 
     if job.status != "completed" or job.result_csv is None:
         raise HTTPException(status_code=400, detail="Extraction job is not ready for download")
     if job.download_expires_at and job.download_expires_at < datetime.utcnow():
         raise HTTPException(status_code=410, detail="Extraction job download has expired")
 
+    current_records = eligible_export_records(db, study)
+    current_ids = {str(record.id) for record in current_records}
+    if job.source_record_ids is None or not set(job.source_record_ids).issubset(current_ids):
+        raise HTTPException(status_code=410, detail="Data access changed since this extract was created. Run a new extract.")
+
     filename = re.sub(r'[^A-Za-z0-9._-]', '_', job.job_name or "extract") + ".csv"
     return Response(
         content=job.result_csv,
         media_type="text/csv",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": f'attachment; filename="{filename}"', "Cache-Control": "no-store"},
     )
 
 
@@ -2834,7 +2826,13 @@ async def update_study_recruiting(
     token_data: Dict = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
-    """Open or close a study for patient enrollment"""
+    """Open or close the study-matching simulation when explicitly enabled."""
+    if not PATIENT_STUDY_ENROLLMENT_ENABLED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Patient study enrollment is not available in the closed pilot.",
+        )
+
     study = db.query(Study).filter(Study.id == study_id).first()
     if not study:
         raise HTTPException(status_code=404, detail="Study not found")
@@ -2903,6 +2901,9 @@ async def get_available_studies(
     if token_data.get("type") != "patient":
         raise HTTPException(status_code=403, detail="Patient access required")
 
+    if not PATIENT_STUDY_ENROLLMENT_ENABLED:
+        return []
+
     patient_repo = PatientRepository(db)
     profile = patient_repo.get_profile(UUID(token_data["sub"]))
     if not profile:
@@ -2948,6 +2949,9 @@ async def get_patient_studies(
     if token_data.get("type") != "patient":
         raise HTTPException(status_code=403, detail="Patient access required")
 
+    if not PATIENT_STUDY_ENROLLMENT_ENABLED:
+        return []
+
     patient_repo = PatientRepository(db)
     profile = patient_repo.get_profile(UUID(token_data["sub"]))
     if not profile:
@@ -2980,6 +2984,12 @@ async def join_study(
     """Patient opts in to a recruiting study"""
     if token_data.get("type") != "patient":
         raise HTTPException(status_code=403, detail="Patient access required")
+
+    if not PATIENT_STUDY_ENROLLMENT_ENABLED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Patient study enrollment is not available in the closed pilot.",
+        )
 
     patient_repo = PatientRepository(db)
     profile = patient_repo.get_profile(UUID(token_data["sub"]))
@@ -3017,7 +3027,7 @@ async def join_study(
         )
         db.add(enrollment)
 
-    patient_repo.add_points(profile.id, 25, f"Joined study: {study.name}", "study_enrollment", study_id)
+    patient_repo.add_points(profile.id, 25, f"Joined pilot study simulation: {study.name}", "study_enrollment", study_id)
     db.commit()
     db.refresh(enrollment)
 
@@ -3208,7 +3218,7 @@ async def submit_contact(
 
     return {
         "status": "success",
-        "message": "Thank you for reaching out. We'll respond within 24 hours.",
+        "message": "Thank you for reaching out. Your request has been received for review.",
         "submission_id": str(submission.id),
     }
 
@@ -3441,25 +3451,23 @@ async def create_irb_protocol(
 # ============== Health Check ==============
 
 @app.get("/api/health")
-async def health_check(response: Response, db: Session = Depends(get_db)):
+async def health_check(db: Session = Depends(get_db)):
     """Health check endpoint"""
-    # Test database connection
+    checked_at = datetime.now(timezone.utc).isoformat()
     try:
         db.execute(text("SELECT 1"))
-        db_status = "connected"
     except Exception:
-        db_status = "unavailable"
-        response.status_code = 503
-
-    response.headers["Cache-Control"] = "no-store"
-
-    return {
-        "status": "healthy" if db_status == "connected" else "degraded",
-        "timestamp": datetime.utcnow().isoformat(),
-        "version": "1.0.0",
+        audit_logger.exception("Health check database probe failed")
+        return JSONResponse(status_code=503, headers={"Cache-Control": "no-store"}, content={
+            "status": "degraded", "timestamp": checked_at,
+            "version": "1.0.0", "database": "unavailable",
+            "revision": os.environ.get("VERCEL_GIT_COMMIT_SHA", "unknown"),
+        })
+    return JSONResponse(headers={"Cache-Control": "no-store"}, content={
+        "status": "healthy", "timestamp": checked_at,
+        "version": "1.0.0", "database": "connected",
         "revision": os.environ.get("VERCEL_GIT_COMMIT_SHA", "unknown"),
-        "database": db_status,
-    }
+    })
 
 
 # Run with: uvicorn api.main:app --reload

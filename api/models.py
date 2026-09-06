@@ -482,6 +482,9 @@ class ExtractionJob(Base):
     download_url = Column(Text)
     download_expires_at = Column(DateTime)
     result_csv = Column(Text)
+    selected_variables = Column(JSON)
+    source_patient_ids = Column(JSON)
+    source_record_ids = Column(JSON)
     error_message = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
 

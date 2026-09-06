@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 
 const Section = ({ title, children }) => (
   <section className="mb-10">
-    <h2 className="text-xl font-bold mb-4">{title}</h2>
+    <h2 className="text-xl font-medium mb-4">{title}</h2>
     <div className="text-white/50 space-y-3 leading-relaxed">{children}</div>
   </section>
 );
@@ -12,94 +12,71 @@ const Terms = () => (
   <div className="min-h-screen bg-black text-white">
     <section className="py-24 px-6">
       <div className="max-w-3xl mx-auto">
-        <p className="text-sm text-emerald-400 uppercase tracking-wider mb-4">Terms</p>
-        <h1 className="text-4xl md:text-5xl font-bold mb-4">Terms of Use</h1>
-        <p className="text-white/30 text-sm mb-12">
-          By creating an account you agree to the terms below.
-        </p>
+        <p className="text-xs text-emerald-300 uppercase tracking-[0.2em] mb-4">Terms · closed pilot</p>
+        <h1 className="text-4xl md:text-5xl font-medium mb-4">Terms of pilot use</h1>
+        <p className="text-white/35 text-sm mb-12">Updated September 5, 2026</p>
 
-        <Section title="What the platform is">
+        <Section title="What HealthDB is today">
           <p>
-            HealthDB is research infrastructure. It lets patients contribute de-identified records
-            under explicit consent, and lets approved researchers query those records across
-            institutions. It is not a medical device, not a diagnostic tool, and not a source of
-            clinical advice.
+            HealthDB is an early software prototype for evaluating oncology research-data workflows
+            with synthetic information. It is not a healthcare provider, medical device, clinical
+            decision tool, production data repository, IRB, or compliance service.
           </p>
         </Section>
 
-        <Section title="If you are a patient">
-          <ul className="list-disc list-inside space-y-1">
-            <li>Only upload records that are your own, or that you are legally authorised to share.</li>
-            <li>Participation is voluntary and does not affect the care you receive anywhere.</li>
-            <li>You may revoke any consent at any time from your portal.</li>
-            <li>
-              Contributing does not enrol you in a clinical trial. Study enrolment is a separate,
-              explicit step.
-            </li>
-          </ul>
-        </Section>
-
-        <Section title="If you are a researcher">
-          <ul className="list-disc list-inside space-y-1">
-            <li>
-              You must not attempt to re-identify any individual, link records to an external
-              identified dataset, or contact a contributor.
-            </li>
-            <li>
-              You must hold the IRB approval or documented exemption that your use requires, and any
-              applicable data use agreement, before requesting an export.
-            </li>
-            <li>
-              Data you receive may be used only for the study it was released under. Redistribution
-              outside your approved study team is prohibited.
-            </li>
-            <li>
-              You must not circumvent small-cell suppression, including by combining queries to
-              isolate an individual.
-            </li>
-            <li>Access is logged. Violations end access and may be reported to your institution.</li>
-          </ul>
-        </Section>
-
-        <Section title="If you are an institution">
+        <Section title="Invite-only access">
           <p>
-            Institutional accounts can register protocols, record reliance agreements and approve
-            cross-site collaborations. Recording an agreement on this platform is an administrative
-            record — it does not replace your own legal execution of that agreement.
+            Public account creation is closed. An invitation allows you to evaluate the prototype; it
+            does not grant access to real patient data, production datasets, clinical services, or an
+            institutional partnership.
           </p>
         </Section>
 
-        <Section title="Accounts">
+        <Section title="Synthetic data only">
+          <ul className="list-disc list-inside space-y-1">
+            <li>Do not enter or upload protected health information or patient identifiers.</li>
+            <li>Do not upload real medical records, portal exports, or institutional datasets.</li>
+            <li>Use only fictional or explicitly authorized synthetic test content.</li>
+            <li>Do not rely on pilot output for patient care, research conclusions, or regulatory submissions.</li>
+          </ul>
+        </Section>
+
+        <Section title="Account security and acceptable use">
           <p>
-            Keep your credentials confidential and tell us promptly if you believe an account has
-            been compromised. Do not share logins. We may suspend an account that is being used in a
-            way that puts contributors at risk.
+            Keep credentials confidential and notify HealthDB if access may be compromised. Do not
+            probe another user's data, bypass role or study boundaries, interfere with the service,
+            or use pilot output to attempt re-identification.
+          </p>
+        </Section>
+
+        <Section title="Prototype consent and regulatory screens">
+          <p>
+            Consent forms, regulatory records, agreement states, audit events, and approvals shown in
+            the pilot are software simulations. They do not create legal consent, IRB approval, a DUA,
+            a BAA, site reliance, or any other institutional authorization.
+          </p>
+        </Section>
+
+        <Section title="No rewards, datasets, or service commitment">
+          <p>
+            HealthDB does not currently promise participant compensation, sell datasets, publish a
+            price list, guarantee uptime, or commit to a support or delivery timeline. Pilot access may
+            change or end as the product is evaluated.
           </p>
         </Section>
 
         <Section title="No warranty">
           <p>
-            The platform is provided as is. Research data may be incomplete, inconsistently coded, or
-            biased by who chose to contribute. You are responsible for assessing fitness for your
-            analysis. Nothing here should be relied on for clinical decision-making.
+            The prototype is provided as is and may be incomplete, inaccurate, or unavailable. You are
+            responsible for independently reviewing any workflow, security control, or output before
+            considering it for real-world use.
           </p>
         </Section>
 
-        <Section title="Changes">
+        <Section title="Questions">
           <p>
-            We may update these terms. Material changes affecting how contributed data may be used
-            will be surfaced to you, and where consent is affected we will ask you to re-consent
-            rather than assume it.
-          </p>
-        </Section>
-
-        <Section title="Contact">
-          <p>
-            Questions about these terms:{' '}
-            <Link to="/contact" className="text-emerald-400 hover:underline">
-              get in touch
-            </Link>
-            .
+            Use the <Link to="/contact" className="text-emerald-300 hover:underline">contact form</Link>{' '}
+            and do not include patient information.
           </p>
         </Section>
       </div>

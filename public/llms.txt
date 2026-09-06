@@ -1,0 +1,31 @@
+# HealthDB
+
+> Synthetic-data oncology research workflow pilot. Not for clinical use or real patient data.
+
+## Public entry points
+- Human demo: https://www.healthdb.ai/demo
+- Developer quickstart: https://www.healthdb.ai/developers
+- OpenAPI: https://www.healthdb.ai/api/openapi.json
+- Capabilities: https://www.healthdb.ai/api/capabilities
+- Health: https://www.healthdb.ai/api/health
+
+## Try without authentication
+POST https://www.healthdb.ai/api/demo/cohort/build
+Content-Type: application/json
+{"cancer_types":["Multiple Myeloma"],"age_min":50}
+
+Fixture version 1: 4 matching fictional profiles, 16 records, 24 total profiles.
+This endpoint uses deterministic fixtures, never the patient database.
+It accepts CohortCriteria as defined in OpenAPI. Unsupported input returns 422.
+All inclusion rules must match; any matching exclusion removes a profile.
+Missing data does not establish a negative finding. Stage matching is exact.
+No results should be interpreted as real patients, clinical recommendations, or business traction.
+
+## Private workflows
+Invited accounts only. Bearer tokens and role authorization are required.
+Do not put credentials in URLs or public browser code.
+Exports require selected fields, current approvals and eligible consented records.
+Only CSV pilot exports are implemented. No production EHR integration or MCP server is offered.
+
+## Partnerships
+https://www.healthdb.ai/contact
