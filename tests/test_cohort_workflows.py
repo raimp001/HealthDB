@@ -8,7 +8,9 @@ from api.cohort_query import CohortCriteria, matching_patient_ids
 
 
 def record(pid='one', category='diagnosis', **data):
-    return SimpleNamespace(patient_id=pid, data_category=category, deidentified_data=data, original_date=date(2024, 1, 1))
+    # Mirrors the real column set. A double carrying a field the model no
+    # longer has is how the original_date removal reached production.
+    return SimpleNamespace(patient_id=pid, data_category=category, deidentified_data=data, original_year=2024)
 
 
 def test_exact_stage_and_conservative_age_band():

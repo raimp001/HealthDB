@@ -1,5 +1,4 @@
 """Public, deterministic fixtures. No database reads, writes, or patient records."""
-from datetime import date
 from types import SimpleNamespace
 from fastapi import APIRouter
 from .cohort_query import CohortCriteria, matching_patient_ids
@@ -19,7 +18,7 @@ def demo_records():
         ]
         for category, data in rows:
             records.append(SimpleNamespace(patient_id=f'synthetic-{i + 1:02}', data_category=category,
-                                           deidentified_data=data, original_date=date(2024, 1, 1)))
+                                           deidentified_data=data, original_year=2024))
     return records
 
 

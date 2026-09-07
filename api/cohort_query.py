@@ -3,6 +3,11 @@
 Queries use recorded values only. Missing values never establish an inclusion
 or a negative finding. Age-band comparisons require the entire recorded band
 to satisfy the requested bounds; an overlapping band is not an exact age.
+
+Clinical dates are stored as a year and nothing finer, so every date-based
+comparison here is year-granular. A diagnosis-date range matches on whole
+calendar years, and a follow-up duration derived from record dates is a lower
+bound, never an estimate.
 """
 from collections import defaultdict
 from datetime import date
@@ -115,10 +120,16 @@ def values_for(records, field):
             if value is not None and value != "":
                 values.extend(value if isinstance(value, list) else [value])
     if field == "follow_up" and not values:
-        dates = sorted(r.original_date for r in records if r.original_date)
-        if len(dates) >= 2:
-            first, last = dates[0], dates[-1]
-            values.append((last.year - first.year) * 12 + last.month - first.month - (last.day < first.day))
+        # Clinical dates are stored as a year (Safe Harbor forbids more
+        # precision), so an exact month count cannot be derived. Records
+        # spanning first..last year are at least (span - 1) whole years apart
+        # — December of the first to January of the last — so that lower bound
+        # is what gets reported. Estimating the midpoint instead would invent
+        # the precision the truncation deliberately destroyed, and would
+        # over-include patients at the boundary of a minimum-follow-up filter.
+        years = sorted(r.original_year for r in records if r.original_year)
+        if len(years) >= 2:
+            values.append(max(0, (years[-1] - years[0] - 1) * 12))
     return values
 
 
@@ -183,9 +194,16 @@ def matching_patient_ids(records, criteria):
                for field, operator, value in numeric):
             continue
         if criteria.diagnosis_date_start or criteria.diagnosis_date_end:
-            if not any(r.data_category == "diagnosis" and r.original_date
-                       and (not criteria.diagnosis_date_start or r.original_date >= criteria.diagnosis_date_start)
-                       and (not criteria.diagnosis_date_end or r.original_date <= criteria.diagnosis_date_end)
+            # Only the year is stored, so the comparison is year-granular. A
+            # range starting mid-year therefore includes that whole year: the
+            # filter cannot be more precise than the data it filters, and a
+            # cohort that quietly dropped in-range patients would be worse
+            # than one that is openly coarse.
+            start_year = criteria.diagnosis_date_start.year if criteria.diagnosis_date_start else None
+            end_year = criteria.diagnosis_date_end.year if criteria.diagnosis_date_end else None
+            if not any(r.data_category == "diagnosis" and r.original_year
+                       and (start_year is None or r.original_year >= start_year)
+                       and (end_year is None or r.original_year <= end_year)
                        for r in patient_records):
                 continue
         if any(r.enabled and not rule_matches(patient_records, r) for r in criteria.inclusions):
