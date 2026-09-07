@@ -81,6 +81,10 @@
       "destination": "/manifest.json"
     },
     {
+      "source": "/admin",
+      "destination": "/index.html"
+    },
+    {
       "source": "/collaborations",
       "destination": "/index.html"
     },

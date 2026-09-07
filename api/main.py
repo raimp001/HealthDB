@@ -4113,6 +4113,74 @@ async def create_irb_protocol(
 
 # ============== Health Check ==============
 
+class AdminResearcherDecision(BaseModel):
+    decision: Literal["approve", "revoke"]
+
+
+class AdminContactDecision(BaseModel):
+    status: Literal["new", "contacted", "closed"]
+
+
+@app.get("/api/admin/overview")
+async def admin_overview(
+    token_data: Dict = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+    offset: int = Query(0, ge=0),
+):
+    """A bounded operator inbox; never return passwords or patient records."""
+    contacts = db.query(ContactSubmission).order_by(ContactSubmission.created_at.desc(), ContactSubmission.id).offset(offset).limit(50).all()
+    researchers = db.query(User).filter(User.user_type == "researcher").order_by(User.created_at.desc(), User.id).offset(offset).limit(50).all()
+    return JSONResponse(headers={"Cache-Control": "no-store"}, content={
+        "contacts": [{"id": c.id, "name": c.name, "email": c.email,
+                      "organization": c.organization, "message": c.message,
+                      "status": c.status, "interest": c.interest_type} for c in contacts],
+        "researchers": [{"id": u.id, "name": u.name, "email": u.email,
+                          "organization": u.organization, "verified": bool(u.is_verified),
+                          "active": bool(u.is_active), "approved": u.researcher_approved_at is not None} for u in researchers],
+        "has_more": len(contacts) == 50 or len(researchers) == 50,
+        "capabilities": [
+            {"name": "Self-service account registration", "enabled": SELF_SERVICE_REGISTRATION_ENABLED},
+            {"name": "Synthetic FHIR uploads", "enabled": SYNTHETIC_FHIR_UPLOADS_ENABLED},
+            {"name": "Data marketplace", "enabled": DATA_MARKETPLACE_ENABLED},
+            {"name": "Patient study enrollment", "enabled": PATIENT_STUDY_ENROLLMENT_ENABLED},
+            {"name": "Live EHR data ingestion", "enabled": False},
+            {"name": "Commercial data licensing execution", "enabled": False},
+        ],
+    })
+
+
+@app.post("/api/admin/researchers/{user_id}/decision")
+async def admin_researcher_decision(
+    user_id: str, body: AdminResearcherDecision,
+    token_data: Dict = Depends(require_role("admin")), db: Session = Depends(get_db),
+):
+    target = db.query(User).filter(User.id == user_id).with_for_update().first()
+    if not target or target.user_type != "researcher":
+        raise HTTPException(404, "Researcher not found")
+    if body.decision == "approve" and (not target.is_verified or not target.is_active):
+        raise HTTPException(409, "Researcher must verify their email and have an active account first.")
+    target.researcher_approved_at = datetime.utcnow() if body.decision == "approve" else None
+    target.researcher_approved_by = token_data["sub"]
+    db.add(DataAccessLog(user_id=token_data["sub"], access_type="researcher_" + body.decision,
+                         data_type="account", purpose="Researcher account " + target.id))
+    db.commit()
+    return {"approved": target.researcher_approved_at is not None}
+
+
+@app.post("/api/admin/contacts/{contact_id}/status")
+async def admin_contact_status(
+    contact_id: str, body: AdminContactDecision,
+    token_data: Dict = Depends(require_role("admin")), db: Session = Depends(get_db),
+):
+    contact = db.query(ContactSubmission).filter(ContactSubmission.id == contact_id).with_for_update().first()
+    if not contact:
+        raise HTTPException(404, "Request not found")
+    contact.status = body.status
+    db.add(DataAccessLog(user_id=token_data["sub"], access_type="request_status",
+                         data_type="contact", purpose=contact.id + ": " + body.status))
+    db.commit()
+    return {"status": contact.status}
+
 @app.get("/api/health/invariants")
 async def health_invariants(
     token_data: Dict = Depends(require_role("admin")),
