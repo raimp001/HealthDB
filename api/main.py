@@ -311,7 +311,31 @@ def initialize_database():
     """Create tables, apply additive schema sync, and seed defaults.
     Idempotent. Called at import time (serverless runtimes don't reliably
     run ASGI startup hooks) and again from the startup event."""
-    Base.metadata.create_all(bind=engine)
+    # create_all inspects, then creates what is missing. Two cold starts
+    # hitting a deploy that adds a table can both pass the inspection and
+    # then race on CREATE TABLE; the loser raises. Because this runs at
+    # import, an exception here takes down every request on the instance,
+    # which is how the last outage presented. The loser's tables exist by
+    # definition, so losing the race is not a failure worth dying for.
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception:
+        audit_logger.warning(
+            "create_all did not complete; another instance may have won the "
+            "race. Continuing and checking what actually exists.", exc_info=True
+        )
+
+    # Swallowing the error above would hide a genuinely missing table, so say
+    # which ones are absent. One metadata read, and never fatal: a request that
+    # needs a missing table will fail on its own terms with a real error,
+    # which is more useful than the whole instance refusing to boot.
+    try:
+        present = set(inspect(engine).get_table_names())
+        missing = sorted(set(Base.metadata.tables) - present)
+        if missing:
+            audit_logger.error(f"Schema incomplete; tables missing: {missing}")
+    except Exception:
+        audit_logger.warning("Could not verify the schema", exc_info=True)
 
     for statement in SCHEMA_SYNC_STATEMENTS:
         try:
