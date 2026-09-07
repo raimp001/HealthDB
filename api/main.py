@@ -231,14 +231,19 @@ def migrate_truncate_original_dates(engine) -> None:
     """Remove month and day from previously stored clinical dates.
 
     extracted_medical_data.original_date stored a full DATE parsed from the
-    uploaded FHIR resource, which contradicted the Safe Harbor claim made
+    uploaded FHIR resource, which contradicted the Safe Harbor language used
     elsewhere in the product. This backfills original_year from it, then
     destroys the month/day values.
 
-    Idempotent and safe on every boot. Ordering matters: the year is copied
-    before anything is destroyed, and the column is dropped only after its
-    values are already NULL, so an interrupted run cannot lose the year while
-    leaving month/day behind.
+    Each statement runs in its own transaction. PostgreSQL aborts the whole
+    transaction on the first error, so the SQLite-flavoured backfill and its
+    PostgreSQL fallback cannot share one: the fallback would fail with
+    "current transaction is aborted" rather than doing its job. That is
+    exactly what took the API down when this first shipped.
+
+    Idempotent. Ordering matters: the year is copied before anything is
+    destroyed, and the column is dropped only after its values are NULL, so an
+    interrupted run cannot lose the year while leaving month/day behind.
     """
     try:
         columns = {c["name"] for c in inspect(engine).get_columns("extracted_medical_data")}
@@ -247,28 +252,41 @@ def migrate_truncate_original_dates(engine) -> None:
     if "original_date" not in columns:
         return  # already migrated
 
-    with engine.begin() as conn:
-        # 1. Preserve the year.
+    # 1. Preserve the year. Separate transactions so a dialect mismatch on the
+    #    first attempt does not poison the second.
+    backfilled = False
+    for statement in (
+        "UPDATE extracted_medical_data "
+        "SET original_year = CAST(strftime('%Y', original_date) AS INTEGER) "
+        "WHERE original_year IS NULL AND original_date IS NOT NULL",
+        "UPDATE extracted_medical_data "
+        "SET original_year = EXTRACT(YEAR FROM original_date)::int "
+        "WHERE original_year IS NULL AND original_date IS NOT NULL",
+    ):
         try:
-            conn.execute(text(
-                "UPDATE extracted_medical_data "
-                "SET original_year = CAST(strftime('%Y', original_date) AS INTEGER) "
-                "WHERE original_year IS NULL AND original_date IS NOT NULL"
-            ))
+            with engine.begin() as conn:
+                conn.execute(text(statement))
+            backfilled = True
+            break
         except Exception:
-            # PostgreSQL has no strftime.
-            conn.execute(text(
-                "UPDATE extracted_medical_data "
-                "SET original_year = EXTRACT(YEAR FROM original_date)::int "
-                "WHERE original_year IS NULL AND original_date IS NOT NULL"
-            ))
+            continue
 
-        # 2. Destroy month/day. This is the step that satisfies the privacy
-        #    requirement; the DROP below is cleanup.
-        conn.execute(text(
-            "UPDATE extracted_medical_data SET original_date = NULL "
-            "WHERE original_date IS NOT NULL"
-        ))
+    if not backfilled:
+        # Never destroy the source before the year is safely copied.
+        print("original_date backfill failed; leaving the column untouched")
+        return
+
+    # 2. Destroy month/day. This is the step that satisfies the privacy
+    #    requirement; the DROP below is cleanup.
+    try:
+        with engine.begin() as conn:
+            conn.execute(text(
+                "UPDATE extracted_medical_data SET original_date = NULL "
+                "WHERE original_date IS NOT NULL"
+            ))
+    except Exception as exc:
+        print(f"original_date could not be nulled: {exc}")
+        return
 
     # 3. Drop the column. Needs SQLite >= 3.35; if it fails the values are
     #    already NULL, so no month/day survives either way.
@@ -292,7 +310,16 @@ def initialize_database():
         except Exception:
             pass
 
-    migrate_truncate_original_dates(engine)
+    # migrate_truncate_original_dates() and remove_placeholder_institutions()
+    # are NOT called here. Both take locks (ALTER TABLE ... DROP COLUMN, and
+    # row deletes) and this function runs at import time, once per cold start.
+    # Under concurrent cold starts they contended on the same table until the
+    # serverless function timed out, which surfaced as
+    # FUNCTION_INVOCATION_FAILED on every request. A destructive migration
+    # also deserves a deliberate operator decision rather than firing on any
+    # boot. Run them from the CLI:
+    #     python -m api.manage migrate-dates
+    #     python -m api.manage remove-placeholder-institutions
 
     # Clean up any placeholder/mock data products (no real patient data)
     db = next(get_db())
@@ -302,8 +329,6 @@ def initialize_database():
         if deleted > 0:
             print(f"Removed {deleted} placeholder data products")
             db.commit()
-
-        remove_placeholder_institutions(db)
 
         # Sample institutions are development conveniences only. Production
         # starts empty so nothing can be mistaken for a real partner site.

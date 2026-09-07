@@ -9,6 +9,13 @@ is written to the audit log.
     python -m api.manage grant-role <email> <admin|institution> [--institution-id ID]
     python -m api.manage revoke-role <email>
     python -m api.manage list-privileged
+    python -m api.manage migrate-dates
+    python -m api.manage remove-placeholder-institutions
+
+The two data commands are deliberately not run at boot. Both take locks, and
+running them on every serverless cold start caused concurrent invocations to
+contend until the function timed out. A destructive migration should also be
+an explicit operator decision.
 """
 import argparse
 import logging
@@ -119,6 +126,31 @@ def list_privileged(session):
     return 0
 
 
+def migrate_dates(session):
+    """Truncate stored clinical dates to the year. Irreversible.
+
+    Backfills original_year, then destroys month and day. See
+    docs/MIGRATIONS.md; the discarded precision cannot be recovered without a
+    pre-migration backup.
+    """
+    from .main import migrate_truncate_original_dates
+    engine = session.get_bind()
+    migrate_truncate_original_dates(engine)
+    audit.info("DATE_TRUNCATION_MIGRATION_RUN")
+    print("Date truncation complete. Month and day are gone; this is not reversible.")
+    return 0
+
+
+def remove_placeholders(session):
+    """Delete institution rows naming real hospitals with no relationship here."""
+    from .main import remove_placeholder_institutions
+    removed = remove_placeholder_institutions(session)
+    audit.info("PLACEHOLDER_INSTITUTIONS_REMOVED count=%s", removed)
+    print(f"Removed {removed} placeholder institution row(s).")
+    print("Rows referenced by a user or regulatory submission were kept and listed above.")
+    return 0
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="api.manage")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -134,6 +166,10 @@ def main(argv=None):
     rr = sub.add_parser("revoke-role", help="Return a user to the researcher role")
     rr.add_argument("email")
     sub.add_parser("list-privileged", help="Show privileged and approved accounts")
+    sub.add_parser("migrate-dates",
+                   help="Truncate stored clinical dates to year (irreversible)")
+    sub.add_parser("remove-placeholder-institutions",
+                   help="Delete seeded rows naming real hospitals")
 
     args = parser.parse_args(argv)
     session = SessionLocal()
@@ -146,6 +182,10 @@ def main(argv=None):
             return grant_role(session, args.email, args.role, args.institution_id)
         if args.command == "revoke-role":
             return revoke_role(session, args.email)
+        if args.command == "migrate-dates":
+            return migrate_dates(session)
+        if args.command == "remove-placeholder-institutions":
+            return remove_placeholders(session)
         return list_privileged(session)
     finally:
         session.close()

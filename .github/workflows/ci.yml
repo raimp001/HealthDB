@@ -22,7 +22,9 @@ jobs:
           ENVIRONMENT: test
         # -x stops on first failure; --strict-markers catches typo'd marks.
         # A run that collects no tests must fail, not silently pass.
-        run: pytest tests/ -v --strict-markers
+        run: |
+          pytest tests/ -v --strict-markers
+          python scripts/smoke_boot.py
 
   frontend:
     name: Frontend build
