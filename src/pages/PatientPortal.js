@@ -14,6 +14,61 @@ const STATES = {
   ERROR: 'error',
 };
 
+// Renders the consent text's small markdown subset as real elements.
+//
+// It was previously printed verbatim, so the most important thing a patient
+// reads arrived with "#" and "##" and "-" still in it, looking like something
+// nobody had finished. Deliberately structural rather than HTML injection:
+// this text should never be able to carry markup, even from our own seed.
+const ConsentText = ({ content }) => {
+  const blocks = [];
+  let bullets = [];
+  let paragraph = [];
+
+  const flushBullets = () => {
+    if (!bullets.length) return;
+    blocks.push(
+      <ul key={`ul-${blocks.length}`} className="list-disc pl-5 space-y-1 mb-4 text-white/70 text-sm">
+        {bullets.map((item, i) => <li key={i}>{item}</li>)}
+      </ul>
+    );
+    bullets = [];
+  };
+  // The source is hard-wrapped, so consecutive lines are one sentence and
+  // have to be joined. Emitting a paragraph per line broke sentences across
+  // visual gaps and made the text look like it had been badly pasted.
+  const flushParagraph = () => {
+    if (!paragraph.length) return;
+    blocks.push(
+      <p key={blocks.length} className="text-white/70 text-sm leading-relaxed mb-4">
+        {paragraph.join(' ')}
+      </p>
+    );
+    paragraph = [];
+  };
+  const flushAll = () => { flushParagraph(); flushBullets(); };
+
+  String(content || '').split('\n').forEach((raw) => {
+    const line = raw.trim();
+    if (!line) { flushAll(); return; }
+    if (line.startsWith('## ')) {
+      flushAll();
+      blocks.push(<h4 key={blocks.length} className="text-white font-medium mt-5 mb-2">{line.slice(3)}</h4>);
+    } else if (line.startsWith('# ')) {
+      flushAll();
+      blocks.push(<h3 key={blocks.length} className="text-white text-base font-medium mb-3">{line.slice(2)}</h3>);
+    } else if (line.startsWith('- ')) {
+      flushParagraph();
+      bullets.push(line.slice(2));
+    } else {
+      flushBullets();
+      paragraph.push(line);
+    }
+  });
+  flushAll();
+  return <>{blocks}</>;
+};
+
 const PatientPortal = () => {
   // Core state
   const [pageState, setPageState] = useState(STATES.LOADING);
@@ -132,7 +187,16 @@ const PatientPortal = () => {
   };
 
   const handleRevokeConsent = async (consentId) => {
-    if (!window.confirm('Are you sure you want to revoke this consent? Your data will no longer be shared.')) {
+    // "Your data will no longer be shared" was not true, and this is the
+    // moment a person is most entitled to the truth. Revoking stops every
+    // future extract; it cannot reach a file a researcher already downloaded.
+    if (!window.confirm(
+      'Revoke this consent?\n\n'
+      + 'No new extract will include your data.\n\n'
+      + 'Any extract already downloaded by a study team is held outside this '
+      + 'system and cannot be recalled automatically. If there is one, it will '
+      + 'be flagged for follow-up and you will see it under "What your data did".'
+    )) {
       return;
     }
 
@@ -142,9 +206,15 @@ const PatientPortal = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
+      const data = await response.json().catch(() => ({}));
       if (response.ok) {
         await fetchData();
-        toast('Consent revoked successfully.');
+        // Say what actually happened, including the part we cannot undo.
+        toast(data.outstanding_obligation
+          ? `Consent revoked. ${data.prior_releases_downloaded} extract(s) containing your data were already downloaded; the receiving researchers have been notified to destroy their copies.`
+          : 'Consent revoked. No extract containing your data has been downloaded.');
+      } else {
+        toast(data.detail || 'Could not revoke this consent.');
       }
     } catch (err) {
       toast('Error revoking consent.');
@@ -963,10 +1033,8 @@ const PatientPortal = () => {
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto p-6">
-                <div className="prose prose-invert prose-sm max-w-none">
-                  <div className="whitespace-pre-wrap text-white/70 text-sm leading-relaxed">
-                    {selectedTemplate.content}
-                  </div>
+                <div className="max-w-none">
+                  <ConsentText content={selectedTemplate.content} />
                 </div>
               </div>
               <div className="p-6 border-t border-white/10">
