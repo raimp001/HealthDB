@@ -70,6 +70,12 @@ class User(Base):
     role = Column(String(50), default="user")
     is_verified = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
+    # Researchers must be explicitly approved before reaching any cohort,
+    # study, regulatory or extraction route. Verifying an email proves control
+    # of a mailbox, not institutional affiliation, so approval is a separate
+    # human decision recorded here by `python -m api.manage approve-researcher`.
+    researcher_approved_at = Column(DateTime)
+    researcher_approved_by = Column(String(36))
     two_factor_enabled = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, onupdate=datetime.utcnow)

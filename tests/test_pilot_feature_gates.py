@@ -80,7 +80,11 @@ def test_patient_study_enrollment_is_closed(client, register):
 
 
 def test_researcher_cannot_open_recruitment_when_enrollment_is_closed(client, register):
+    # Approved so the request reaches the enrollment flag under test rather
+    # than stopping at the researcher-approval gate.
+    from tests.conftest import approve_researcher
     researcher = register("recruitment-gate@example.com", user_type="researcher").json()
+    approve_researcher(client, researcher["user"]["id"])
     response = client.put(
         "/api/researcher/studies/00000000-0000-0000-0000-000000000000/recruiting",
         headers=auth(researcher["access_token"]),

@@ -69,8 +69,15 @@ def test_health_database_failure_is_503_without_secret(client):
 
 
 def test_saved_cohort_contract_and_ownership(client, register):
-    owner = register('cohort-owner@example.com').json()['access_token']
-    intruder = register('cohort-other@example.com').json()['access_token']
+    # Both are approved: this test is about cohort ownership, so it must get
+    # past the researcher-approval gate to reach the behaviour it names.
+    from tests.conftest import approve_researcher
+    owner_body = register('cohort-owner@example.com').json()
+    intruder_body = register('cohort-other@example.com').json()
+    approve_researcher(client, owner_body['user']['id'])
+    approve_researcher(client, intruder_body['user']['id'])
+    owner = owner_body['access_token']
+    intruder = intruder_body['access_token']
     headers = {'Authorization': f'Bearer {owner}'}
     criteria = {'stages': ['I'], 'age_min': 50}
     preview = client.post('/api/cohort/build', headers=headers, json=criteria)
@@ -87,7 +94,10 @@ def test_export_projection_and_consent_revocation(client, register, monkeypatch)
     import api.main as main
     from api.models import PatientProfile, Consent, ExtractedMedicalData, StudyEnrollment, RegulatorySubmission
     monkeypatch.setattr(main, 'MIN_AGGREGATE_CELL_SIZE', 1)
-    token = register('export-owner@example.com').json()['access_token']
+    from tests.conftest import approve_researcher
+    owner_body = register('export-owner@example.com').json()
+    approve_researcher(client, owner_body['user']['id'])
+    token = owner_body['access_token']
     headers = {'Authorization': f'Bearer {token}'}
     created = client.post('/api/researcher/studies', headers=headers, json={'name': 'Synthetic export'})
     assert created.status_code == 200
