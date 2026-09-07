@@ -88,3 +88,27 @@ while absolute dates do not.
 That is a different standard with different evidence requirements. It must not
 be described as Safe Harbor, and the expert's written determination must be on
 file before any such data is collected.
+
+---
+
+## Checking whether a migration has actually been run
+
+Nothing in the application enforces that these migrations happened. That is
+deliberate — they take locks, and running them at import time caused an
+outage — but it means "we ran it" is a claim rather than a fact until it is
+re-derived from the database:
+
+```
+python -m api.manage self-audit          # exit 1 if any invariant is failing
+python -m api.manage self-audit --json   # for a monitor
+```
+
+`no_precise_clinical_dates` fails until `migrate-dates` has been run and no
+`original_date` value survives. `no_placeholder_institutions` fails until
+`remove-placeholder-institutions` has been run. Both check live rows, not a
+migration ledger, so a partially applied migration is reported as failing
+rather than done.
+
+The same checks are available at `GET /api/health/invariants` (admin only,
+503 when a blocker is failing) and run in CI against a fresh database, which
+catches the checker and the schema drifting apart.

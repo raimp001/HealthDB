@@ -1,0 +1,31 @@
+name: Production monitor
+
+# The outage that motivated this was invisible: the site rendered, and every
+# /api route returned a 500. Nothing was watching the half that had broken.
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+  # Also runs after a deploy lands on main, so a bad ship is caught in
+  # minutes rather than whenever someone next opens the site.
+  push:
+    branches: [main]
+
+jobs:
+  probe:
+    name: Probe production
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Wait for the deploy to propagate
+        if: github.event_name == 'push'
+        run: sleep 120
+      - name: Probe
+        env:
+          # Optional. With it the probe also runs the server-side safety
+          # invariants; without it, only reachability and behaviour.
+          ADMIN_TOKEN: ${{ secrets.MONITOR_ADMIN_TOKEN }}
+        run: python scripts/monitor.py "${MONITOR_URL:-https://healthdb.ai}"

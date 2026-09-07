@@ -69,6 +69,7 @@ const ResearcherDashboard = () => {
   const [regActionId, setRegActionId] = useState(null);
   const [extractionJobs, setExtractionJobs] = useState([]);
   const [extractActionId, setExtractActionId] = useState(null);
+  const [obligations, setObligations] = useState([]);
   const navigate = useNavigate();
 
   // Cancer types with ICD-10 codes
@@ -133,6 +134,21 @@ const ResearcherDashboard = () => {
     }
   }, []);
 
+  // Withdrawal obligations are not scoped to a study: a patient revoking
+  // affects whichever releases carried them, so this is fetched once.
+  const fetchObligations = useCallback(async () => {
+    const token = sessionStorage.getItem('token');
+    try {
+      const res = await fetch(`${API_URL}/api/researcher/release-obligations`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setObligations(res.ok ? await res.json() : []);
+    } catch (err) {
+      console.error('Failed to fetch release obligations:', err);
+      setObligations([]);
+    }
+  }, []);
+
   const fetchRegulatory = useCallback(async (studyId) => {
     if (!studyId) return;
     const token = sessionStorage.getItem('token');
@@ -168,7 +184,8 @@ const ResearcherDashboard = () => {
     }
 
     fetchData();
-  }, [navigate, fetchData]);
+    fetchObligations();
+  }, [navigate, fetchData, fetchObligations]);
 
   const fetchAnalytics = useCallback(async (scope) => {
     const token = sessionStorage.getItem('token');
@@ -436,6 +453,7 @@ const ResearcherDashboard = () => {
       if (response.ok) {
         setShowAddSite(false);
         await fetchRegulatory(selectedStudyId);
+        await fetchObligations();
       } else {
         toast(data.detail || 'Failed to add site');
       }
@@ -457,6 +475,7 @@ const ResearcherDashboard = () => {
       const data = await response.json();
       if (response.ok) {
         await fetchRegulatory(selectedStudyId);
+        await fetchObligations();
       } else {
         toast(data.detail || 'Failed to submit document');
       }
@@ -482,6 +501,7 @@ const ResearcherDashboard = () => {
       const data = await response.json();
       if (response.ok) {
         await fetchRegulatory(selectedStudyId);
+        await fetchObligations();
         toast(data.message);
       } else {
         toast(data.detail || 'Failed to invite collaborator');
@@ -517,6 +537,7 @@ const ResearcherDashboard = () => {
       const data = await response.json();
       if (response.ok) {
         await fetchRegulatory(selectedStudyId);
+        await fetchObligations();
       } else {
         toast(data.detail || 'Failed to request extract');
       }
@@ -1320,6 +1341,31 @@ const ResearcherDashboard = () => {
                         <p className="text-white/40 text-sm">No collaborators yet. Invite researchers from other institutions to work on this study.</p>
                       )}
                     </div>
+
+                    {obligations.length > 0 && (
+                      <div className="card-glass p-6 mb-6 border border-amber-400/30" data-testid="release-obligations">
+                        <h3 className="text-sm uppercase tracking-wider text-amber-300 mb-2">
+                          Withdrawal required ({obligations.length})
+                        </h3>
+                        <p className="text-white/45 text-sm mb-4">
+                          A participant has revoked consent after these extracts were released.
+                          This system cannot reach a file you already hold, so the obligation is yours.
+                        </p>
+                        <div className="space-y-2">
+                          {obligations.map((item) => (
+                            <div key={item.id} className="py-3 border-b border-white/5 last:border-b-0">
+                              <p className="text-white/80 text-sm break-all">{item.study_name}</p>
+                              <p className="text-white/35 text-xs mt-1">
+                                Released {item.released_at ? new Date(item.released_at).toLocaleDateString() : 'unknown'}
+                                {' • '}revoked {new Date(item.withdrawal_required_at).toLocaleDateString()}
+                                {' • '}sha256:{(item.content_digest || '').slice(0, 12)}
+                              </p>
+                              <p className="text-amber-300/80 text-xs mt-1">{item.action_required}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {regulatoryStudies.find(s => s.id === selectedStudyId)?.mine && (
                       <div className="card-glass p-6 mb-6">

@@ -151,6 +151,28 @@ def remove_placeholders(session):
     return 0
 
 
+def self_audit(session, *, as_json: bool = False) -> int:
+    """Report whether the platform's safety properties still hold.
+
+    Exits non-zero when a blocker is failing, so a scheduled run is a usable
+    alarm rather than something a person has to read.
+    """
+    import json as _json
+
+    from api.self_audit import run_audit
+
+    report = run_audit(session)
+    if as_json:
+        print(_json.dumps(report.as_dict(), indent=2))
+    else:
+        for finding in report.findings:
+            mark = "ok  " if finding.passed else "FAIL"
+            print(f"[{mark}] {finding.severity:<7} {finding.name}: {finding.summary}")
+        print()
+        print(report.summary())
+    return 0 if report.ok else 1
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="api.manage")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -170,6 +192,9 @@ def main(argv=None):
                    help="Truncate stored clinical dates to year (irreversible)")
     sub.add_parser("remove-placeholder-institutions",
                    help="Delete seeded rows naming real hospitals")
+    sa = sub.add_parser("self-audit",
+                        help="Re-derive every safety invariant from live data")
+    sa.add_argument("--json", action="store_true", help="Machine-readable output")
 
     args = parser.parse_args(argv)
     session = SessionLocal()
@@ -186,6 +211,8 @@ def main(argv=None):
             return migrate_dates(session)
         if args.command == "remove-placeholder-institutions":
             return remove_placeholders(session)
+        if args.command == "self-audit":
+            return self_audit(session, as_json=args.json)
         return list_privileged(session)
     finally:
         session.close()

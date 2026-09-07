@@ -27,6 +27,7 @@ const PatientPortal = () => {
   const [consentTemplates, setConsentTemplates] = useState([]);
   const [rewards, setRewards] = useState(null);
   const [accessLog, setAccessLog] = useState([]);
+  const [dataReleases, setDataReleases] = useState([]);
   const [connections, setConnections] = useState([]);
   const [extractedData, setExtractedData] = useState([]);
   const [dataSummary, setDataSummary] = useState(null);
@@ -57,7 +58,7 @@ const PatientPortal = () => {
     try {
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [profileRes, consentsRes, templatesRes, rewardsRes, logRes, connectionsRes, dataRes, summaryRes, availableStudiesRes, myStudiesRes] = await Promise.all([
+      const [profileRes, consentsRes, templatesRes, rewardsRes, logRes, connectionsRes, dataRes, summaryRes, availableStudiesRes, myStudiesRes, releasesRes] = await Promise.all([
         fetch(`${API_URL}/api/patient/profile`, { headers }),
         fetch(`${API_URL}/api/patient/consents`, { headers }),
         fetch(`${API_URL}/api/consent/templates`, { headers }),
@@ -68,6 +69,7 @@ const PatientPortal = () => {
         fetch(`${API_URL}/api/patient/data-summary`, { headers }),
         fetch(`${API_URL}/api/studies/available`, { headers }),
         fetch(`${API_URL}/api/patient/studies`, { headers }),
+        fetch(`${API_URL}/api/patient/data-releases`, { headers }),
       ]);
 
       if (profileRes.ok) setProfile(await profileRes.json());
@@ -80,6 +82,7 @@ const PatientPortal = () => {
       if (summaryRes.ok) setDataSummary(await summaryRes.json());
       setAvailableStudies(availableStudiesRes.ok ? await availableStudiesRes.json() : []);
       if (myStudiesRes.ok) setMyStudies(await myStudiesRes.json());
+      if (releasesRes.ok) setDataReleases(await releasesRes.json());
 
       setPageState(STATES.READY);
     } catch (err) {
@@ -424,6 +427,40 @@ const PatientPortal = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* Where the data has gone. An access log says a query ran; this
+                    says a file exists and who holds it. */}
+                {dataReleases.length > 0 && (
+                  <div className="mb-12" data-testid="patient-data-releases">
+                    <h2 className="text-lg font-medium text-white mb-2">Extracts containing your data</h2>
+                    <p className="text-white/40 text-sm mb-6">
+                      Revoking consent stops any new extract. A file a researcher has already
+                      downloaded is held outside this system and cannot be recalled automatically.
+                    </p>
+                    <div className="space-y-px">
+                      {dataReleases.map((release) => (
+                        <div key={release.id} className="card-glass p-4">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-white/70 text-sm">{release.study_name}</span>
+                            <span className={`text-xs uppercase tracking-wider ${release.downloaded ? 'text-amber-300' : 'text-white/40'}`}>
+                              {release.downloaded ? 'Downloaded' : 'Not downloaded'}
+                            </span>
+                          </div>
+                          <p className="text-white/30 text-xs mt-1">
+                            Released {release.released_at ? new Date(release.released_at).toLocaleDateString() : 'unknown'}
+                            {' • '}alongside {release.subject_count} participant(s)
+                            {' • '}sha256:{(release.content_digest || '').slice(0, 12)}
+                          </p>
+                          {release.withdrawal_required && (
+                            <p className="text-amber-300/80 text-xs mt-1">
+                              You revoked consent. The receiving researcher has been notified to destroy their copy.
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Recent Activity */}
                 <div>

@@ -43,7 +43,7 @@ from .models import (
     MedicalRecordConnection, ExtractedMedicalData, RewardsTransaction,
     Study, RegulatorySubmission, ExtractionJob, EMRConnection, Institution,
     StudyCollaborator, StudyDocument, StudyComment, DiseaseVariableSet,
-    StudyEnrollment, ContactSubmission
+    StudyEnrollment, ContactSubmission, DataRelease
 )
 from .repositories import (
     UserRepository, PatientRepository, ClinicalDataRepository,
@@ -51,6 +51,7 @@ from .repositories import (
 )
 from .deidentification import deidentify_record, find_residual_identifiers
 from .disclosure_risk import assess_records
+from .release_manifest import build_manifest, digest, manifest_digest, verify_manifest
 from .fhir_ingest import parse_fhir_bundle
 from .cohort_query import CohortCriteria, matching_patient_ids, payload
 from .demo import router as demo_router
@@ -831,6 +832,16 @@ def scrub_deidentified_data(value: Any) -> Any:
     return deidentify_record(value)
 
 
+def current_export_approvals(db: Session, study_id: str) -> List[RegulatorySubmission]:
+    """Study-level regulatory submissions that have not expired."""
+    now = datetime.utcnow()
+    return db.query(RegulatorySubmission).filter(
+        RegulatorySubmission.study_id == study_id,
+        RegulatorySubmission.institution_id == None,
+        or_(RegulatorySubmission.expires_at == None, RegulatorySubmission.expires_at > now),
+    ).all()
+
+
 def require_current_export_approvals(db: Session, study_id: str) -> None:
     now = datetime.utcnow()
     submissions = db.query(RegulatorySubmission).filter(
@@ -860,6 +871,38 @@ def eligible_export_records(db: Session, study: Study):
         matched = matching_patient_ids(records, CohortCriteria.model_validate(cohort.criteria))
         records = [record for record in records if str(record.patient_id) in matched]
     return records
+
+
+def releases_containing_subject(db: Session, patient_id: str) -> List["DataRelease"]:
+    """Releases whose manifest recorded this patient as a subject.
+
+    `subject_ids` is JSON, and JSON containment is not portable between
+    SQLite and PostgreSQL, so the filter runs in Python. Releases are rare
+    events measured in tens, not millions of rows; correctness across both
+    engines is worth more here than an index.
+    """
+    patient_id = str(patient_id)
+    return [
+        release for release in db.query(DataRelease).all()
+        if patient_id in {str(s) for s in (release.subject_ids or [])}
+    ]
+
+
+def record_revocation_obligations(db: Session, patient_id: str, reason: str) -> List["DataRelease"]:
+    """Flag every release that already carried this patient.
+
+    Revocation stops future extracts immediately, but data already handed to
+    a researcher is outside the system. Marking the release is what turns a
+    revocation into a tracked obligation rather than a silent status change.
+    Nothing here can retrieve the file; only a person can.
+    """
+    now = datetime.utcnow()
+    affected = releases_containing_subject(db, patient_id)
+    for release in affected:
+        if release.withdrawal_required_at is None:
+            release.withdrawal_required_at = now
+            release.withdrawal_reason = reason
+    return affected
 
 
 def csv_cell(value):
@@ -950,7 +993,8 @@ def process_extraction_job(db: Session, job: ExtractionJob, study: Study, reques
     writer.writerow(["patient_pseudonym", "data_category", "data_type", "year", "quality_score", "data_json"])
     writer.writerows(export_rows)
 
-    job.result_csv = output.getvalue()
+    csv_content = output.getvalue()
+    job.result_csv = csv_content
     job.status = "completed"
     job.completed_at = now
     job.patient_count = len(rows_by_patient)
@@ -958,6 +1002,42 @@ def process_extraction_job(db: Session, job: ExtractionJob, study: Study, reques
     job.source_record_ids = exported_record_ids
     job.download_url = f"/api/extraction/jobs/{job.id}/download"
     job.download_expires_at = now + timedelta(days=7)
+
+    # Record what left, immutably. Without this, a revocation has no way to
+    # find who already holds the patient's data, and no result built on this
+    # extract can be reproduced or checked.
+    cohort_criteria = None
+    if study.cohort_id:
+        cohort = db.query(ResearchCohort).filter(ResearchCohort.id == study.cohort_id).first()
+        cohort_criteria = cohort.criteria if cohort else None
+    manifest = build_manifest(
+        job_id=str(job.id),
+        study_id=str(study.id),
+        study_name=study.name or "",
+        released_to=requester_user_id,
+        released_at=now.isoformat(),
+        variables=sorted(selected),
+        subject_count=len(rows_by_patient),
+        record_count=len(export_rows),
+        content_digest=digest(csv_content),
+        cohort_criteria=cohort_criteria,
+        disclosure_risk=job.disclosure_risk,
+        approvals=[
+            {"id": str(a.id), "document_type": a.document_type,
+             "status": a.status,
+             "expires_at": a.expires_at.isoformat() if a.expires_at else None}
+            for a in current_export_approvals(db, str(study.id))
+        ],
+        deidentification_level=job.deidentification_level or "limited_dataset",
+    )
+    db.add(DataRelease(
+        job_id=str(job.id), study_id=str(study.id),
+        released_to_user_id=requester_user_id,
+        manifest=manifest, manifest_digest=manifest_digest(manifest),
+        content_digest=manifest["content_digest"],
+        subject_count=len(rows_by_patient), record_count=len(export_rows),
+        subject_ids=sorted(rows_by_patient), released_at=now,
+    ))
 
     for patient_id, record_count in rows_by_patient.items():
         db.add(DataAccessLog(
@@ -1298,6 +1378,86 @@ async def get_patient_rewards(
     }
 
 
+@app.get("/api/patient/data-releases")
+async def get_patient_data_releases(
+    token_data: Dict = Depends(require_patient_token),
+    db: Session = Depends(get_db)
+):
+    """Releases that carried this patient's records, and where they stand.
+
+    An access log says a query happened. This says a file exists, who has it,
+    and whether revoking consent left an obligation behind. That is the
+    question a patient actually asks, and it had no answer before.
+    """
+    patient_repo = PatientRepository(db)
+    profile = patient_repo.get_profile(UUID(token_data["sub"]))
+    if not profile:
+        raise HTTPException(status_code=404, detail="Patient profile not found")
+
+    releases = releases_containing_subject(db, str(profile.id))
+    study_names = {
+        str(study.id): study.name
+        for study in db.query(Study).filter(
+            Study.id.in_([r.study_id for r in releases])
+        ).all()
+    } if releases else {}
+
+    return [
+        {
+            "id": str(release.id),
+            "study_name": study_names.get(str(release.study_id), "Unknown study"),
+            "released_at": release.released_at.isoformat() if release.released_at else None,
+            "downloaded": (release.download_count or 0) > 0,
+            "first_downloaded_at": release.first_downloaded_at.isoformat() if release.first_downloaded_at else None,
+            "subject_count": release.subject_count,
+            "withdrawal_required": release.withdrawal_required_at is not None,
+            "content_digest": release.content_digest,
+        }
+        for release in sorted(releases, key=lambda r: r.released_at or datetime.min, reverse=True)
+    ]
+
+
+@app.get("/api/researcher/release-obligations")
+async def get_release_obligations(
+    token_data: Dict = Depends(require_researcher_token),
+    db: Session = Depends(get_db)
+):
+    """Releases this researcher holds where a patient has since revoked.
+
+    The system cannot delete a file it does not hold. What it can do is tell
+    the person who does hold it, and record that it told them.
+    """
+    releases = db.query(DataRelease).filter(
+        DataRelease.released_to_user_id == token_data["sub"],
+        DataRelease.withdrawal_required_at != None,
+    ).order_by(DataRelease.withdrawal_required_at.desc()).all()
+
+    study_names = {
+        str(study.id): study.name
+        for study in db.query(Study).filter(
+            Study.id.in_([r.study_id for r in releases])
+        ).all()
+    } if releases else {}
+
+    return [
+        {
+            "id": str(release.id),
+            "study_name": study_names.get(str(release.study_id), "Unknown study"),
+            "released_at": release.released_at.isoformat() if release.released_at else None,
+            "downloaded": (release.download_count or 0) > 0,
+            "withdrawal_required_at": release.withdrawal_required_at.isoformat(),
+            "reason": release.withdrawal_reason,
+            "content_digest": release.content_digest,
+            "action_required": (
+                "Destroy your local copy of this extract and confirm in writing."
+                if (release.download_count or 0) > 0
+                else "No copy was downloaded. No action required."
+            ),
+        }
+        for release in releases
+    ]
+
+
 @app.get("/api/patient/data-access-log")
 async def get_data_access_log(
     token_data: Dict = Depends(require_patient_token),
@@ -1501,11 +1661,29 @@ async def revoke_consent(
     
     consent.status = "revoked"
     consent.revoked_at = datetime.utcnow()
+
+    # Say what revocation can and cannot undo. Future extracts stop; files a
+    # researcher already downloaded are outside the system, so those releases
+    # are flagged as outstanding obligations rather than described as recalled.
+    affected = record_revocation_obligations(
+        db, str(profile.id), f"Consent {consent.id} revoked by patient"
+    )
     db.commit()
-    
+
+    downloaded = [r for r in affected if (r.download_count or 0) > 0]
     return {
         "success": True,
-        "message": "Consent has been revoked. Your data will no longer be shared under this consent.",
+        "message": "Consent has been revoked. No new extract can include your data.",
+        "prior_releases": len(affected),
+        "prior_releases_downloaded": len(downloaded),
+        "outstanding_obligation": bool(downloaded),
+        "note": (
+            "Extracts already downloaded are held outside this system and cannot "
+            "be recalled automatically. Each has been flagged for follow-up with "
+            "the receiving researcher."
+        ) if downloaded else (
+            "No extract containing your data has been downloaded."
+        ),
     }
 
 
@@ -2853,11 +3031,36 @@ async def download_extraction_job(
     if job.source_record_ids is None or not set(job.source_record_ids).issubset(current_ids):
         raise HTTPException(status_code=410, detail="Data access changed since this extract was created. Run a new extract.")
 
+    # Record that the data actually left. Building an extract and handing it
+    # over are different events, and only the second creates an obligation to
+    # the patients in it.
+    now = datetime.utcnow()
+    release = db.query(DataRelease).filter(DataRelease.job_id == str(job.id)).first()
+    if release:
+        release.download_count = (release.download_count or 0) + 1
+        release.last_downloaded_at = now
+        if release.first_downloaded_at is None:
+            release.first_downloaded_at = now
+    for patient_id in (job.source_patient_ids or []):
+        db.add(DataAccessLog(
+            user_id=token_data["sub"], patient_id=patient_id,
+            access_type="research_export_download",
+            data_type="extracted_medical_data",
+            purpose=f"Download of extract for study: {study.name}",
+            query_hash=job.id,
+        ))
+    db.commit()
+
     filename = re.sub(r'[^A-Za-z0-9._-]', '_', job.job_name or "extract") + ".csv"
     return Response(
         content=job.result_csv,
         media_type="text/csv",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"', "Cache-Control": "no-store"},
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
+            # Lets the recipient verify the file matches the release record.
+            "X-Content-Digest": f"sha256={release.content_digest}" if release else "",
+        },
     )
 
 
@@ -3723,6 +3926,27 @@ async def create_irb_protocol(
 
 
 # ============== Health Check ==============
+
+@app.get("/api/health/invariants")
+async def health_invariants(
+    token_data: Dict = Depends(require_role("admin")),
+    db: Session = Depends(get_db)
+):
+    """Re-derive every safety property from live data.
+
+    Admin-gated and deliberately not part of /api/health: this runs a dozen
+    queries, and a health check that can itself exhaust the database is a
+    liability rather than a safeguard.
+    """
+    from .self_audit import run_audit
+
+    report = run_audit(db)
+    return JSONResponse(
+        status_code=200 if report.ok else 503,
+        headers={"Cache-Control": "no-store"},
+        content={"summary": report.summary(), **report.as_dict()},
+    )
+
 
 @app.get("/api/health")
 async def health_check(db: Session = Depends(get_db)):

@@ -25,6 +25,16 @@ jobs:
         run: |
           pytest tests/ -v --strict-markers
           python scripts/smoke_boot.py
+      # A fresh database must satisfy its own invariants. If this fails, the
+      # checker and the schema have drifted apart and neither can be trusted.
+      - name: Self-audit a fresh database
+        env:
+          JWT_SECRET: ci-only-secret-long-enough-to-pass-the-length-check
+          ENVIRONMENT: test
+          DATABASE_URL: sqlite:///ci-selfaudit.db
+        run: |
+          python -c "from api.main import initialize_database; initialize_database()"
+          python -m api.manage self-audit
 
   frontend:
     name: Frontend build

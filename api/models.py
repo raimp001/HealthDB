@@ -504,6 +504,44 @@ class ExtractionJob(Base):
     study = relationship("Study", back_populates="extraction_jobs")
 
 
+class DataRelease(Base):
+    """Immutable record of one research release, plus its mutable aftermath.
+
+    Columns above `released_at` are hashed into `manifest_digest` and must
+    never be updated. Columns below it record what happened to the release
+    afterwards and are expected to change.
+    """
+    __tablename__ = "data_releases"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    job_id = Column(String(36), ForeignKey("extraction_jobs.id"), nullable=False, index=True)
+    study_id = Column(String(36), ForeignKey("studies.id"), nullable=False, index=True)
+    released_to_user_id = Column(String(36), ForeignKey("users.id"), index=True)
+
+    # Hashed content.
+    manifest = Column(JSON, nullable=False)
+    manifest_digest = Column(String(64), nullable=False, index=True)
+    content_digest = Column(String(64), nullable=False)
+    subject_count = Column(Integer, nullable=False, default=0)
+    record_count = Column(Integer, nullable=False, default=0)
+    # Internal patient ids, so a revocation can find the releases that carried
+    # that person. Never leaves the server; the file itself carries only
+    # per-study pseudonyms.
+    subject_ids = Column(JSON)
+    released_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # Mutable aftermath.
+    download_count = Column(Integer, default=0)
+    first_downloaded_at = Column(DateTime)
+    last_downloaded_at = Column(DateTime)
+    # No release is licensed for any use beyond the approvals recorded in the
+    # manifest. This stays "not_licensed" until a real agreement exists; it is
+    # a placeholder for accounting, not an authorization.
+    license_state = Column(String(50), default="not_licensed")
+    withdrawal_required_at = Column(DateTime)
+    withdrawal_reason = Column(Text)
+
+
 class EMRConnection(Base):
     """Institution-level EMR connection configuration"""
     __tablename__ = "emr_connections"
