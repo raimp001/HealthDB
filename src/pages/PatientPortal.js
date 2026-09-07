@@ -25,10 +25,10 @@ const PatientPortal = () => {
   const [profile, setProfile] = useState(null);
   const [consents, setConsents] = useState([]);
   const [consentTemplates, setConsentTemplates] = useState([]);
-  const [rewards, setRewards] = useState(null);
   const [accessLog, setAccessLog] = useState([]);
   const [dataReleases, setDataReleases] = useState([]);
   const [studyResults, setStudyResults] = useState([]);
+  const [contribution, setContribution] = useState(null);
   const [connections, setConnections] = useState([]);
   const [extractedData, setExtractedData] = useState([]);
   const [dataSummary, setDataSummary] = useState(null);
@@ -59,11 +59,10 @@ const PatientPortal = () => {
     try {
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [profileRes, consentsRes, templatesRes, rewardsRes, logRes, connectionsRes, dataRes, summaryRes, availableStudiesRes, myStudiesRes, releasesRes, resultsRes] = await Promise.all([
+      const [profileRes, consentsRes, templatesRes, logRes, connectionsRes, dataRes, summaryRes, availableStudiesRes, myStudiesRes, releasesRes, resultsRes, contributionRes] = await Promise.all([
         fetch(`${API_URL}/api/patient/profile`, { headers }),
         fetch(`${API_URL}/api/patient/consents`, { headers }),
         fetch(`${API_URL}/api/consent/templates`, { headers }),
-        fetch(`${API_URL}/api/patient/rewards`, { headers }),
         fetch(`${API_URL}/api/patient/data-access-log`, { headers }),
         fetch(`${API_URL}/api/patient/connections`, { headers }),
         fetch(`${API_URL}/api/patient/extracted-data`, { headers }),
@@ -72,12 +71,12 @@ const PatientPortal = () => {
         fetch(`${API_URL}/api/patient/studies`, { headers }),
         fetch(`${API_URL}/api/patient/data-releases`, { headers }),
         fetch(`${API_URL}/api/patient/study-results`, { headers }),
+        fetch(`${API_URL}/api/patient/contribution`, { headers }),
       ]);
 
       if (profileRes.ok) setProfile(await profileRes.json());
       if (consentsRes.ok) setConsents(await consentsRes.json());
       if (templatesRes.ok) setConsentTemplates(await templatesRes.json());
-      if (rewardsRes.ok) setRewards(await rewardsRes.json());
       if (logRes.ok) setAccessLog(await logRes.json());
       if (connectionsRes.ok) setConnections(await connectionsRes.json());
       if (dataRes.ok) setExtractedData(await dataRes.json());
@@ -86,6 +85,7 @@ const PatientPortal = () => {
       if (myStudiesRes.ok) setMyStudies(await myStudiesRes.json());
       if (releasesRes.ok) setDataReleases(await releasesRes.json());
       if (resultsRes.ok) setStudyResults(await resultsRes.json());
+      if (contributionRes.ok) setContribution(await contributionRes.json());
 
       setPageState(STATES.READY);
     } catch (err) {
@@ -240,7 +240,7 @@ const PatientPortal = () => {
     { id: 'consent', label: 'Acknowledgement' },
     { id: 'studies', label: 'Study concept' },
     { id: 'data', label: 'Test Data' },
-    { id: 'rewards', label: 'Pilot activity' },
+    { id: 'contribution', label: 'What your data did' },
   ];
 
   const hasActiveResearchConsent = consents.some(c => c.consent_type === 'research_data_sharing' && c.status === 'active');
@@ -296,9 +296,11 @@ const PatientPortal = () => {
                 </div>
               </div>
               <div className="h-8 w-px bg-white/10"></div>
-              <div className="text-right">
-                <p className="text-white/40 text-xs mb-1">Pilot Points</p>
-                <p className="text-white font-mono text-lg">{profile?.points_balance || 0} pts</p>
+              <div className="text-right max-w-xs">
+                <p className="text-white/40 text-xs mb-1">Your contribution</p>
+                <p className="text-white/75 text-sm leading-snug">
+                  {contribution?.summary || 'Loading your contribution record…'}
+                </p>
               </div>
             </div>
           </motion.div>
@@ -354,8 +356,12 @@ const PatientPortal = () => {
                 {/* Stats Grid */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/5 mb-12">
                   <div className="card-glass p-6">
-                    <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Pilot Points</p>
-                    <p className="text-2xl font-light text-white font-mono">{profile?.points_balance || 0}</p>
+                    <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Records Contributed</p>
+                    <p className="text-2xl font-light text-white font-mono">
+                      {contribution?.stages?.find(st => st.key === 'contributed')?.items?.length !== undefined
+                        ? (extractedData.length || 0)
+                        : 0}
+                    </p>
                   </div>
                   <div className="card-glass p-6">
                     <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Test Acknowledgements</p>
@@ -425,7 +431,7 @@ const PatientPortal = () => {
                       <p className="text-white/40 text-sm mb-4">
                         {extractedData.length > 0
                           ? `${extractedData.length} synthetic record(s) are available for pilot testing.`
-                          : 'Pilot points mark completed test events and have no cash value.'}
+                          : 'Nothing has been contributed yet. What you contribute, and what it does, is tracked under "What your data did".'}
                       </p>
                     </div>
                   </div>
@@ -840,67 +846,90 @@ const PatientPortal = () => {
               </motion.div>
             )}
 
-            {/* REWARDS TAB */}
-            {activeTab === 'rewards' && (
-              <motion.div key="rewards" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <div className="grid md:grid-cols-2 gap-8">
-                  <div>
-                    <h2 className="text-lg font-medium text-white mb-6">Pilot Activity</h2>
-                    <div className="card-glass p-8 mb-8">
-                      <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Prototype Activity Score</p>
-                      <p className="text-5xl font-light text-white font-mono mb-2">{profile?.points_balance || 0}</p>
-                      <p className="text-white/40 text-sm mb-4">Test metric only · no monetary value</p>
-                      <div className="pt-4 border-t border-white/10 text-sm">
-                        <div>
-                          <p className="text-white/30">Total activity points</p>
-                          <p className="text-white font-mono">{rewards?.total_earned || 0} pts</p>
-                        </div>
-                      </div>
-                    </div>
-                    <p className="text-white/35 text-sm">HealthDB does not currently offer rewards, gift cards, payments, or redemption.</p>
-                  </div>
+            {/* WHAT YOUR DATA DID — the chain, including where it stops */}
+            {activeTab === 'contribution' && (
+              <motion.div key="contribution" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <div className="max-w-3xl">
+                  <h2 className="text-lg font-medium text-white mb-2">What your data did</h2>
+                  <p className="text-white/45 text-sm mb-8 leading-relaxed">
+                    {contribution?.summary || 'Loading your contribution record…'}
+                  </p>
 
-                  <div>
-                    <h2 className="text-lg font-medium text-white mb-6">How events are recorded</h2>
-                    <div className="space-y-3 mb-8">
-                      {[
-                        { action: 'Review a test consent', points: 50, icon: '📝' },
-                        { action: 'Import a synthetic bundle', points: 100, icon: '🧪' },
-                        { action: 'Complete a test profile', points: 25, icon: '👤' },
-                        { action: 'Simulate a research event', points: 10, icon: '🔬', note: 'per event' },
-                      ].map((item) => (
-                        <div key={item.action} className="card-glass p-4 flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <span className="text-xl">{item.icon}</span>
-                            <div>
-                              <p className="text-white/80 text-sm">{item.action}</p>
-                              {item.note && <p className="text-white/30 text-xs">{item.note}</p>}
-                            </div>
-                          </div>
-                          <span className="text-[#00d4aa] font-mono">+{item.points}</span>
-                        </div>
+                  {contribution?.stages && (
+                    <ol className="relative" data-testid="contribution-chain">
+                      {contribution.stages.map((stageItem, index) => (
+                        <li key={stageItem.key} className="relative pl-10 pb-8 last:pb-0">
+                          {/* The connecting line stops where the chain stops. */}
+                          {index < contribution.stages.length - 1 && (
+                            <span
+                              aria-hidden="true"
+                              className={`absolute left-[11px] top-6 bottom-0 w-px ${
+                                stageItem.reached ? 'bg-emerald-400/30' : 'bg-white/10'
+                              }`}
+                            />
+                          )}
+                          <span
+                            aria-hidden="true"
+                            className={`absolute left-0 top-1 w-[23px] h-[23px] rounded-full border flex items-center justify-center text-[11px] ${
+                              stageItem.reached
+                                ? 'border-emerald-400/50 text-emerald-300'
+                                : 'border-white/15 text-white/25'
+                            }`}
+                          >
+                            {stageItem.reached ? '\u2713' : index + 1}
+                          </span>
+
+                          <h3 className={`text-sm font-medium mb-1 ${
+                            stageItem.reached ? 'text-white' : 'text-white/45'
+                          }`}>
+                            {stageItem.headline}
+                          </h3>
+                          <p className="text-white/45 text-sm leading-relaxed">{stageItem.detail}</p>
+
+                          {stageItem.blocked_because && (
+                            <p className="text-white/30 text-xs mt-2">{stageItem.blocked_because}</p>
+                          )}
+
+                          {stageItem.key === 'enrolled' && stageItem.items.length > 0 && (
+                            <ul className="mt-3 space-y-1">
+                              {stageItem.items.map((item, i) => (
+                                <li key={i} className="text-white/60 text-sm">{item.study_name}</li>
+                              ))}
+                            </ul>
+                          )}
+
+                          {stageItem.key === 'released' && stageItem.items.length > 0 && (
+                            <ul className="mt-3 space-y-2">
+                              {stageItem.items.map((item, i) => (
+                                <li key={i} className="text-xs text-white/40">
+                                  {item.released_at ? new Date(item.released_at).toLocaleDateString() : 'date unknown'}
+                                  {' \u00b7 '}{item.downloaded ? 'downloaded by the study team' : 'not downloaded'}
+                                  {' \u00b7 '}sha256:{(item.content_digest || '').slice(0, 12)}
+                                  {item.withdrawal_required && (
+                                    <span className="text-amber-300/80"> \u00b7 withdrawal requested</span>
+                                  )}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+
+                          {stageItem.key === 'published' && stageItem.items.length > 0 && (
+                            <ul className="mt-3 space-y-1">
+                              {stageItem.items.map((item, i) => (
+                                <li key={i} className="text-white/60 text-sm">{item.title}</li>
+                              ))}
+                            </ul>
+                          )}
+                        </li>
                       ))}
-                    </div>
+                    </ol>
+                  )}
 
-                    <h2 className="text-lg font-medium text-white mb-4">Recent pilot activity</h2>
-                    {rewards?.history && rewards.history.length > 0 ? (
-                      <div className="space-y-2">
-                        {rewards.history.slice(0, 5).map((item, index) => (
-                          <div key={index} className="card-glass p-3 flex items-center justify-between">
-                            <div>
-                              <p className="text-white/70 text-sm">{item.activity}</p>
-                              <p className="text-white/30 text-xs">{item.date}</p>
-                            </div>
-                            <span className="text-[#00d4aa] font-mono text-sm">+{item.points}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="card-glass p-6 text-center">
-                        <p className="text-white/40 text-sm">No pilot activity yet</p>
-                      </div>
-                    )}
-                  </div>
+                  <p className="text-white/30 text-xs mt-10 pt-6 border-t border-white/10 leading-relaxed">
+                    HealthDB does not pay for data and does not offer points, gift cards or
+                    redemption. Paying people for their medical history prices them; this record
+                    is meant to show you what your contribution did instead.
+                  </p>
                 </div>
               </motion.div>
             )}

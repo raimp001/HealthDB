@@ -1546,6 +1546,27 @@ async def get_patient_study_results(
     ]
 
 
+@app.get("/api/patient/contribution")
+async def get_patient_contribution(
+    token_data: Dict = Depends(require_patient_token),
+    db: Session = Depends(get_db)
+):
+    """What this person's contribution actually did, and where it stopped.
+
+    This replaces the points balance as the answer to "what did my data do".
+    A number that goes up is not an answer; a chain that says where it ends
+    is. Reads only, and scoped entirely to the caller.
+    """
+    from .contribution import build_contribution
+
+    patient_repo = PatientRepository(db)
+    profile = patient_repo.get_profile(UUID(token_data["sub"]))
+    if not profile:
+        raise HTTPException(status_code=404, detail="Patient profile not found")
+
+    return build_contribution(db, str(profile.id))
+
+
 @app.get("/api/patient/data-releases")
 async def get_patient_data_releases(
     token_data: Dict = Depends(require_patient_token),
