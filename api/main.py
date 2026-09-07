@@ -43,7 +43,7 @@ from .models import (
     MedicalRecordConnection, ExtractedMedicalData, RewardsTransaction,
     Study, RegulatorySubmission, ExtractionJob, EMRConnection, Institution,
     StudyCollaborator, StudyDocument, StudyComment, DiseaseVariableSet,
-    StudyEnrollment, ContactSubmission, DataRelease, CohortQueryLog, StudyResult
+    StudyEnrollment, ContactSubmission, DataRelease, CohortQueryLog, StudyResult, ResearchEvidence
 )
 from .repositories import (
     UserRepository, PatientRepository, ClinicalDataRepository,
@@ -4152,6 +4152,83 @@ async def health_check(db: Session = Depends(get_db)):
         "version": "1.0.0", "database": "connected",
         "revision": os.environ.get("VERCEL_GIT_COMMIT_SHA", "unknown"),
     })
+
+
+from .research_readiness import readiness_report
+
+
+def require_readiness_user(user: User = Depends(current_user)) -> User:
+    if user.user_type == 'admin':
+        return user
+    return require_approved_researcher(user)
+
+
+class ResearchEvidenceRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
+    category: Literal['ehr_validation', 'deidentification', 'institution_agreement', 'research_authority', 'data_license', 'security_review']
+    reference: str = Field(min_length=3, max_length=120, pattern=r'^[A-Za-z0-9_.:/-]+$')
+    sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
+    scope: str = Field(min_length=10, max_length=200)
+    expires_at: datetime
+
+
+@app.get('/api/researcher/studies/{study_id}/readiness')
+def get_research_readiness(study_id: str, user: User = Depends(require_readiness_user), db: Session = Depends(get_db)):
+    if user.user_type != 'admin':
+        require_study_access(db, study_id, user.id)
+    elif not db.query(Study).filter(Study.id == study_id).first():
+        raise HTTPException(404, 'Study not found')
+    report = readiness_report(db.query(ResearchEvidence).filter(ResearchEvidence.study_id == study_id).order_by(ResearchEvidence.created_at.desc()).all())
+    study = db.query(Study).filter(Study.id == study_id).first()
+    return {**report, 'can_review': user.user_type == 'admin', 'can_submit': study.user_id == user.id}
+
+
+@app.post('/api/researcher/studies/{study_id}/readiness')
+def submit_research_evidence(study_id: str, request: ResearchEvidenceRequest, user: User = Depends(require_readiness_user), db: Session = Depends(get_db)):
+    study = require_study_access(db, study_id, user.id)
+    if study.user_id != user.id:
+        raise HTTPException(403, 'Only the study owner can submit evidence')
+    if request.expires_at.tzinfo is None:
+        raise HTTPException(422, 'Expiration must include a timezone')
+    expires = request.expires_at.astimezone(timezone.utc).replace(tzinfo=None)
+    if expires <= datetime.utcnow():
+        raise HTTPException(422, 'Evidence expiration must be in the future')
+    row = ResearchEvidence(study_id=study_id, category=request.category, reference=request.reference,
+                          sha256=request.sha256, scope=request.scope, expires_at=expires,
+                          submitted_by=user.id)
+    db.add(row)
+    db.commit()
+    return {'id': row.id, 'status': row.status}
+
+
+class EvidenceReviewRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    decision: Literal['verified', 'rejected', 'revoked']
+
+
+@app.post('/api/research-evidence/{evidence_id}/review')
+def review_research_evidence(evidence_id: str, request: EvidenceReviewRequest, token_data: Dict = Depends(require_role('admin')), db: Session = Depends(get_db)):
+    row = db.query(ResearchEvidence).filter(ResearchEvidence.id == evidence_id).first()
+    if not row:
+        raise HTTPException(404, 'Evidence not found')
+    if row.submitted_by == token_data['sub']:
+        raise HTTPException(403, 'Independent review is required')
+    expected = 'verified' if request.decision == 'revoked' else 'submitted'
+    if row.status != expected:
+        raise HTTPException(409, 'Invalid review transition; submit a new evidence version')
+    if request.decision == 'verified' and row.expires_at <= datetime.utcnow():
+        raise HTTPException(409, 'Expired evidence cannot be verified')
+    reviewed_at = datetime.utcnow()
+    history = list(row.review_history or []) + [{'decision': request.decision, 'reviewer_id': token_data['sub'], 'at': reviewed_at.isoformat() + 'Z'}]
+    changed = db.query(ResearchEvidence).filter(ResearchEvidence.id == evidence_id, ResearchEvidence.status == expected).update({
+        'status': request.decision, 'reviewed_by': token_data['sub'],
+        'reviewed_at': reviewed_at, 'review_history': history,
+    }, synchronize_session=False)
+    if not changed:
+        db.rollback()
+        raise HTTPException(409, 'Evidence changed during review; reload before retrying')
+    db.commit()
+    return {'id': evidence_id, 'status': request.decision, 'live_data_enabled': False}
 
 
 # Run with: uvicorn api.main:app --reload

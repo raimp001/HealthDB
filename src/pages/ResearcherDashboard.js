@@ -1083,6 +1083,7 @@ const ResearcherDashboard = () => {
                           <div>
                             <div className="flex flex-wrap items-center gap-2 mb-2">
                               <h3 className="text-white font-medium">{study.name}</h3>
+                              <a href={`/research-readiness?study=${encodeURIComponent(study.id)}`} className="text-emerald-300 underline text-sm">Review launch readiness</a>
                               <span className="px-2 py-0.5 text-xs bg-blue-500/20 text-blue-400 uppercase">
                                 {study.status.replace('_', ' ')}
                               </span>
