@@ -91,6 +91,19 @@ file before any such data is collected.
 
 ---
 
+## Running them without a Python environment
+
+`docs/sql/apply_pending_migrations.sql` does exactly what
+`manage.py remove-placeholder-institutions` and `manage.py migrate-dates` do,
+written as PostgreSQL so it can be pasted into any database console. It leads
+with SELECTs that change nothing, so the destructive statements are never the
+first thing run.
+
+The SQL is verified against the Python implementation rather than merely
+resembling it: both are applied to identically seeded databases — including a
+placeholder institution deliberately referenced by a user, which must survive
+— and the resulting rows, years and columns are asserted equal.
+
 ## Checking whether a migration has actually been run
 
 Nothing in the application enforces that these migrations happened. That is
