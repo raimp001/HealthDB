@@ -1,5 +1,6 @@
 import pytest
 from api.models import Study
+from tests.conftest import approve_researcher
 
 
 @pytest.mark.parametrize('decision', ['accept', 'decline'])
@@ -7,6 +8,10 @@ def test_invitation_requires_recipient_consent(client, register, decision):
     owner = register('owner@example.com').json()
     recipient = register('recipient@example.com').json()
     stranger = register('stranger@example.com').json()
+    # Research routes require an approved researcher. This test is about
+    # invitation consent, so all three are approved to reach that behaviour.
+    for account in (owner, recipient, stranger):
+        approve_researcher(client, account['user']['id'])
     headers = lambda user: {'Authorization': 'Bearer ' + user['access_token']}
     with client._session_factory() as db:
         study = Study(user_id=owner['user']['id'], name='Synthetic research study')

@@ -2939,7 +2939,7 @@ async def invite_collaborator(
 
 @app.get('/api/researcher/invitations')
 async def list_research_invitations(
-    token_data: Dict = Depends(require_role('researcher')),
+    token_data: Dict = Depends(require_researcher_token),
     db: Session = Depends(get_db),
 ):
     user = db.query(User).filter(User.id == token_data['sub']).first()

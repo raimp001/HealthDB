@@ -81,7 +81,7 @@
       "destination": "/manifest.json"
     },
     {
-      "source": "/care-guide",
+      "source": "/collaborations",
       "destination": "/index.html"
     },
     {
