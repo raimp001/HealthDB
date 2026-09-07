@@ -235,3 +235,28 @@ def test_the_real_consent_is_recorded_where_the_pilot_is_open(client, monkeypatc
 
     with client._session_factory() as db:
         assert {c.consent_type for c in db.query(Consent).all()} == {"research_data_sharing"}
+
+
+def test_the_listed_consent_type_matches_what_signing_records(client, monkeypatch):
+    """A patient must not be shown one consent type and given another."""
+    from api.models import Consent
+
+    for uploads_open, expected in ((False, "prototype_acknowledgement"),
+                                   (True, "research_data_sharing")):
+        monkeypatch.setattr(main, "SYNTHETIC_FHIR_UPLOADS_ENABLED", uploads_open)
+        email = f"journey-match-{uploads_open}@example.com"
+        body = register(client, email, role="patient")
+        headers = {"Authorization": f"Bearer {body['access_token']}"}
+
+        listed = client.get("/api/consent/templates", headers=headers).json()[0]
+        assert listed["consent_type"] == expected
+
+        assert client.post("/api/consent/sign", headers=headers, json={
+            "template_id": listed["id"], "signature": "P",
+            "consent_options": {"research_data_sharing": True}}).status_code == 200
+
+        with client._session_factory() as db:
+            recorded = db.query(Consent).filter(
+                Consent.signature == "P").order_by(Consent.created_at.desc()).first()
+        assert recorded.consent_type == listed["consent_type"], \
+            "the type shown and the type recorded must be the same"

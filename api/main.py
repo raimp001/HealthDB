@@ -235,6 +235,19 @@ or redemption of any kind.
 }
 
 
+def effective_consent_type(template_type: str) -> str:
+    """What signing this template will actually record on this deployment.
+
+    Where the synthetic pilot is open it records the template's own type,
+    which cohort queries read. Where it is closed it records a prototype
+    acknowledgement that nothing treats as authorisation.
+
+    Both the listing and the signing endpoint go through here, so the type a
+    patient is shown can never differ from the type they get.
+    """
+    return template_type if SYNTHETIC_FHIR_UPLOADS_ENABLED else "prototype_acknowledgement"
+
+
 def ensure_consent_template(session_factory=None) -> bool:
     """Make sure there is something for a patient to read and acknowledge.
 
@@ -1828,7 +1841,7 @@ async def get_consent_templates(
             id=str(t.id),
             name=t.name,
             description=t.description,
-            consent_type=t.consent_type,
+            consent_type=effective_consent_type(t.consent_type),
             version=t.version,
             content=t.content,
             data_categories=t.data_categories or [],
@@ -1881,7 +1894,7 @@ async def sign_consent_template(
     if not template:
         raise HTTPException(status_code=404, detail="Consent template not found")
     
-    consent_type = template.consent_type if records_authorised else "prototype_acknowledgement"
+    consent_type = effective_consent_type(template.consent_type)
 
     # Check if already has active consent of this type
     existing = db.query(Consent).filter(
