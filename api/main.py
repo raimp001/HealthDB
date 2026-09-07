@@ -4300,6 +4300,9 @@ def review_research_evidence(evidence_id: str, request: EvidenceReviewRequest, t
 
 
 # Run with: uvicorn api.main:app --reload
+from .research_workspace import register_workspace
+register_workspace(app, get_db, require_readiness_user, require_study_access)
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

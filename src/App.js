@@ -37,6 +37,7 @@ import CollaborationInbox from './pages/CollaborationInbox';
 import Developers from './pages/Developers';
 import ResearchReadiness from './pages/ResearchReadiness';
 import AdminDashboard from './pages/AdminDashboard';
+import ResearchProjects from './pages/ResearchProjects';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -55,6 +56,7 @@ function App() {
         <main id="main-content" tabIndex={-1} className="flex-grow pt-8">
           <ErrorBoundary>
           <Routes>
+            <Route path="/projects" element={<ProtectedRoute roles={['researcher', 'admin']}><ResearchProjects /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute roles={['admin']}><AdminDashboard /></ProtectedRoute>} />
             <Route path="/" element={<LandingPage />} />
             <Route path="/collaborations" element={<ProtectedRoute roles={['researcher']}><CollaborationInbox /></ProtectedRoute>} />

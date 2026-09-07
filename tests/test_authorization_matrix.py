@@ -35,7 +35,7 @@ PUBLIC_ALLOWLIST = {
     "/api/openapi.json",
 }
 
-RESEARCH_PREFIXES = ("/api/researcher", "/api/cohort", "/api/extraction",
+RESEARCH_PREFIXES = ("/api/workspace", "/api/researcher", "/api/cohort", "/api/extraction",
                      "/api/regulatory", "/api/study/")
 PATIENT_PREFIXES = ("/api/patient/", "/api/studies/", "/api/consent/sign")
 INSTITUTION_PREFIXES = ("/api/institution/", "/api/emr/")

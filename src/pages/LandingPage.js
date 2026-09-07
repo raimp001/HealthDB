@@ -7,6 +7,8 @@ const statusGroups = [
     status: 'Prototype works today',
     tone: 'emerald',
     items: [
+      'Shared research plans, variable definitions, milestones and team discussions',
+      'Opt-in project discovery and collaborator invitation requests',
       'Role-scoped patient, researcher, and institution workspaces',
       'FHIR R4 bundle parsing and identifier checks for supported synthetic fields',
       'Consent records, revocation states, and patient-visible access events',
@@ -68,6 +70,7 @@ const LandingPage = () => (
             integrations and commercial dataset releases require institutional validation.
           </p>
           <div className="flex flex-col sm:flex-row flex-wrap gap-3">
+            <Link to="/projects" className="px-7 py-3.5 bg-emerald-300 text-black text-center font-medium hover:bg-emerald-200 transition-colors">Plan a research project</Link>
             <Link to="/demo" className="px-7 py-3.5 bg-white text-black text-center font-medium hover:bg-gray-100 transition-colors">
               Try the research demo
             </Link>

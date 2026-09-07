@@ -34,6 +34,7 @@ export default function CollaborationInbox() {
   return <article className="max-w-5xl mx-auto px-6 py-16 text-white">
     <p className="text-emerald-300">HealthDB AI · Research network</p>
     <h1 className="text-4xl my-5">Your collaborations</h1>
+    <Link to="/projects" className="inline-block text-emerald-300 underline mb-5">Find projects and open shared plans</Link>
     <p className="text-white/70 mb-8">Review invitations before granting participation. Accepting joins a pilot workspace; it does not authorize patient-data transfer or replace institutional agreements.</p>
     {error && <div role="alert" className="border border-red-300 p-4 mb-5">{error} <button onClick={load} disabled={busy || loading} className="underline">Retry</button></div>}
     {loading ? <p role="status">Loading collaborations…</p> : <>
