@@ -578,6 +578,20 @@ const CohortBuilder = () => {
                       <div className="text-white/40 text-sm">matching test profiles</div>
                     </div>
 
+                    {/* A zero with no explanation reads as "no such patients".
+                        It usually means the opposite: too few to reveal, or
+                        too close to what this researcher was already told. */}
+                    {cohortResult?.suppressed && cohortResult?.suppression_reason && (
+                      <div
+                        className="mb-4 p-4 border border-amber-400/30 bg-amber-400/5"
+                        role="status"
+                        data-testid="suppression-reason"
+                      >
+                        <p className="text-amber-300 text-xs uppercase tracking-wider mb-2">Count withheld</p>
+                        <p className="text-white/60 text-sm leading-relaxed">{cohortResult.suppression_reason}</p>
+                      </div>
+                    )}
+
                     <div className="space-y-2 mb-4">
                       {[
                         ['Diagnoses', cohortResult?.diagnosis_count],

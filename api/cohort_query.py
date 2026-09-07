@@ -18,9 +18,11 @@ from typing import List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from .terminology import same_concept
+
 
 FIELDS = {
-    "diagnosis": ("diagnosis", ("display", "cancer_type", "code", "icd_code")),
+    "diagnosis": ("diagnosis", ("display", "cancer_type", "code", "icd_code", "icd10_code")),
     "stage": ("diagnosis", ("stage",)),
     "treatment": ("treatment", ("medication", "procedure", "regimen", "display", "treatment_type")),
     "line_of_therapy": ("treatment", ("line_of_therapy", "line")),
@@ -138,6 +140,13 @@ def text_matches(value, wanted, field, contains=False):
     if field == "stage":
         return actual.removeprefix("stage ") == term.removeprefix("stage ")
     if field == "diagnosis":
+        # Two sites can write the same disease three ways. If both sides
+        # resolve to the same code, that is a match regardless of wording.
+        # Terminology never *rejects* a match: an unmapped term falls through
+        # to the string comparison below, so adding a code can only widen
+        # recall, never silently narrow an existing cohort.
+        if same_concept(value, wanted):
+            return True
         # A diagnosis preset includes its ICD family, e.g. AML (C92.0).
         code = re.search(r"\(([a-z]\d[\w.]*)\)$", term)
         if code:

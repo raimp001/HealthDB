@@ -29,7 +29,7 @@ with a beautiful workflow around an empty centre.
 | Consent covering **commercial** use | **Missing** | See §Money |
 | Re-consent when study scope changes | **Missing** | A study can change purpose after enrolment; consent does not re-open |
 | Proxy / paediatric / decisionally-impaired consent | **Missing** | Requires a legal model, not a checkbox |
-| Returning results to the patient | **Missing** | Patients contribute and hear nothing back |
+| Returning results to the patient | Built | A study team publishes a plain-language finding; enrolled participants see it, framed as a group finding rather than advice |
 
 ## Stage 2 — Data arrives
 
@@ -40,7 +40,7 @@ with a beautiful workflow around an empty centre.
 | Direct-identifier scrubbing | Partial | Regex only, no NER; unreliable on free text |
 | Live EHR connection (SMART on FHIR, Bulk FHIR) | **Missing** | Blocked on de-identification review, not on code |
 | HL7v2, claims, lab feeds | **Missing** | |
-| Terminology normalization (ICD-10, SNOMED, LOINC, RxNorm) | **Missing** | Cohorts match on free-text strings today, which is why they cannot be compared across sites |
+| Terminology normalization (ICD-10) | Partial | `api/terminology.py` codes diagnoses on ingest and matches cohorts on the code, so three spellings of one disease form one cohort. Starter map, not coder-reviewed. SNOMED, LOINC and RxNorm are not covered |
 | Provenance: which system, which extraction, when | **Missing** | A record's origin is not stored |
 | Ingest validation and rejection reporting | **Missing** | Bad data is stored, not quarantined |
 
@@ -52,7 +52,7 @@ with a beautiful workflow around an empty centre.
 | Small-cell suppression on aggregates | Built | |
 | Saved cohorts | Built | |
 | Variable inventory | Built | |
-| **Query budget across repeated cohorts** | **Missing** | Differencing two overlapping cohorts defeats the suppression floor; nothing tracks it |
+| Query budget across repeated cohorts | Built | `api/query_budget.py` compares each result set against the researcher's recent ones and withholds a count differing by fewer than the floor. Per researcher, bounded history — a mitigation, not a proof |
 | Cohort versioning | Partial | The manifest snapshots criteria at release; editing a cohort still silently changes what "the cohort" means |
 
 ## Stage 4 — Governance
@@ -88,7 +88,7 @@ with a beautiful workflow around an empty centre.
 | --- | --- | --- |
 | Citable dataset identity | Partial | The content digest is citable; there is no DOI or persistent landing page |
 | Analysis environment | **Missing** | Data leaves the platform entirely. A trusted research environment would mean it never has to |
-| Results returned to the platform | **Missing** | Nothing links a publication back to the release it used |
+| Results returned to the platform | Partial | A study result can carry a citation; nothing yet links it to the specific release it used |
 | Reproducibility check against a manifest | Partial | Possible by hand; no route does it |
 
 ## Stage 7 — Keeping it working
@@ -172,12 +172,17 @@ those involve selling patient data, which is why they are available.
 
 ## Order of work, if it were mine to sequence
 
+Items 2, 3 and 5 of the original list are now built. What is left:
+
 1. **Statistician review.** Everything downstream waits on it. Live EHR
-   connections cannot safely proceed without it.
-2. **Terminology normalization.** Without codes, cross-site cohorts are
-   string matching, and multi-institution research is the actual product.
-3. **Query budgeting.** The current suppression floor is defeatable by anyone
-   patient enough to run two cohorts.
-4. **Institutional onboarding.** A real, audited path for one institution.
-5. **Returning results to patients.** The one thing that makes contributing
-   worth doing, and the cheapest of these to build.
+   connections cannot safely proceed without it, and it is not engineering
+   work — see `DISCLOSURE_RISK_REVIEW.md`.
+2. **Clinical review of the terminology map.** The code exists; the mappings
+   have not been checked by a coder. `UNMAPPED_BY_DESIGN` records the terms
+   deliberately left out and why, so a reviewer can start there.
+3. **Institutional onboarding.** A real, audited path for one institution,
+   with executed agreements rather than a status string.
+4. **Provenance on ingest.** Which system a record came from, and when. The
+   release manifest can say what was supplied but not where it originated.
+5. **Alerting.** A failing GitHub Action is not a page. The monitor and the
+   self-audit both produce a clear signal; nothing carries it to a person.

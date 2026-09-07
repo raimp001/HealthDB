@@ -7,6 +7,8 @@ identifiers and raw birth dates are never included in the returned data payloads
 from datetime import date, datetime
 import re
 
+from .terminology import annotate
+
 
 _FHIR_DATE_RE = re.compile(
     r"^(?P<year>(?:19|20)\d{2})"
@@ -179,6 +181,11 @@ def _year_only(value):
 
 
 def _record(data_category, data_type, source_date, data):
+    if data_category == "diagnosis":
+        # Annotate with a coded concept so cohorts can match across sites that
+        # word the same disease differently. Additive: the source wording is
+        # kept exactly as sent, and an unmappable term is simply left alone.
+        data = annotate(data)
     return {
         "data_category": data_category,
         "data_type": data_type,

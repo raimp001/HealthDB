@@ -504,6 +504,45 @@ class ExtractionJob(Base):
     study = relationship("Study", back_populates="extraction_jobs")
 
 
+class CohortQueryLog(Base):
+    """What a researcher has already been told, so the next answer can be safe.
+
+    Small-cell suppression protects one query; it cannot see that two queries
+    differ by a single patient. Keeping the result sets lets the next one be
+    checked against them. Bounded per user and pruned — this is a working set
+    for the differencing check, not an archive.
+    """
+    __tablename__ = "cohort_query_logs"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    patient_set = Column(JSON, nullable=False)
+    patient_count = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class StudyResult(Base):
+    """A plain-language finding returned to the patients who contributed.
+
+    Patients supply data and hear nothing back. That is the most common
+    complaint about research data sharing and the easiest of its problems to
+    fix. A result here is written by the study team, shown only to enrolled
+    participants, and framed as a research finding — never as advice about
+    the reader's own care.
+    """
+    __tablename__ = "study_results"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    study_id = Column(String(36), ForeignKey("studies.id"), nullable=False, index=True)
+    title = Column(String(255), nullable=False)
+    # Written for the participant, not the journal.
+    plain_language_summary = Column(Text, nullable=False)
+    # Optional pointer to the paper, preprint or registry entry.
+    citation = Column(Text)
+    published_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    published_by = Column(String(36), ForeignKey("users.id"))
+
+
 class DataRelease(Base):
     """Immutable record of one research release, plus its mutable aftermath.
 

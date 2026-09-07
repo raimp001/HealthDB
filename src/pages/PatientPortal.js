@@ -28,6 +28,7 @@ const PatientPortal = () => {
   const [rewards, setRewards] = useState(null);
   const [accessLog, setAccessLog] = useState([]);
   const [dataReleases, setDataReleases] = useState([]);
+  const [studyResults, setStudyResults] = useState([]);
   const [connections, setConnections] = useState([]);
   const [extractedData, setExtractedData] = useState([]);
   const [dataSummary, setDataSummary] = useState(null);
@@ -58,7 +59,7 @@ const PatientPortal = () => {
     try {
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [profileRes, consentsRes, templatesRes, rewardsRes, logRes, connectionsRes, dataRes, summaryRes, availableStudiesRes, myStudiesRes, releasesRes] = await Promise.all([
+      const [profileRes, consentsRes, templatesRes, rewardsRes, logRes, connectionsRes, dataRes, summaryRes, availableStudiesRes, myStudiesRes, releasesRes, resultsRes] = await Promise.all([
         fetch(`${API_URL}/api/patient/profile`, { headers }),
         fetch(`${API_URL}/api/patient/consents`, { headers }),
         fetch(`${API_URL}/api/consent/templates`, { headers }),
@@ -70,6 +71,7 @@ const PatientPortal = () => {
         fetch(`${API_URL}/api/studies/available`, { headers }),
         fetch(`${API_URL}/api/patient/studies`, { headers }),
         fetch(`${API_URL}/api/patient/data-releases`, { headers }),
+        fetch(`${API_URL}/api/patient/study-results`, { headers }),
       ]);
 
       if (profileRes.ok) setProfile(await profileRes.json());
@@ -83,6 +85,7 @@ const PatientPortal = () => {
       setAvailableStudies(availableStudiesRes.ok ? await availableStudiesRes.json() : []);
       if (myStudiesRes.ok) setMyStudies(await myStudiesRes.json());
       if (releasesRes.ok) setDataReleases(await releasesRes.json());
+      if (resultsRes.ok) setStudyResults(await resultsRes.json());
 
       setPageState(STATES.READY);
     } catch (err) {
@@ -427,6 +430,45 @@ const PatientPortal = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* What came of it. Contributing data and hearing nothing
+                    back is the most common complaint about research sharing. */}
+                {studyResults.length > 0 && (
+                  <div className="mb-12" data-testid="patient-study-results">
+                    <h2 className="text-lg font-medium text-white mb-2">Findings from studies you joined</h2>
+                    <p className="text-white/40 text-sm mb-6">
+                      Written by the study team for participants. These describe what researchers
+                      found across a group — they are not advice about your own care.
+                    </p>
+                    <div className="space-y-3">
+                      {studyResults.map((result) => (
+                        <article key={result.id} className="card-glass p-5">
+                          <p className="text-white/30 text-xs uppercase tracking-wider mb-2">{result.study_name}</p>
+                          <h3 className="text-white font-medium mb-3">{result.title}</h3>
+                          <p className="text-white/60 text-sm leading-relaxed whitespace-pre-line">
+                            {result.plain_language_summary}
+                          </p>
+                          <p className="text-white/30 text-xs mt-4">
+                            Published {new Date(result.published_at).toLocaleDateString()}
+                          </p>
+                          {result.citation && (
+                            <a
+                              href={result.citation}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-block text-emerald-300 text-sm mt-2 hover:underline"
+                            >
+                              Read the full publication →
+                            </a>
+                          )}
+                          <p className="text-white/35 text-xs mt-4 pt-3 border-t border-white/10">
+                            {result.disclaimer}
+                          </p>
+                        </article>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Where the data has gone. An access log says a query ran; this
                     says a file exists and who holds it. */}

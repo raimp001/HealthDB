@@ -43,7 +43,7 @@ from .models import (
     MedicalRecordConnection, ExtractedMedicalData, RewardsTransaction,
     Study, RegulatorySubmission, ExtractionJob, EMRConnection, Institution,
     StudyCollaborator, StudyDocument, StudyComment, DiseaseVariableSet,
-    StudyEnrollment, ContactSubmission, DataRelease
+    StudyEnrollment, ContactSubmission, DataRelease, CohortQueryLog, StudyResult
 )
 from .repositories import (
     UserRepository, PatientRepository, ClinicalDataRepository,
@@ -54,6 +54,7 @@ from .disclosure_risk import assess_records
 from .release_manifest import build_manifest, digest, manifest_digest, verify_manifest
 from .fhir_ingest import parse_fhir_bundle
 from .cohort_query import CohortCriteria, matching_patient_ids, payload
+from .query_budget import find_differencing_risk, prune_history, recent_history
 from .demo import router as demo_router
 
 # Initialize FastAPI app
@@ -455,6 +456,10 @@ class CohortResult(BaseModel):
     data_completeness: float = 0.0
     min_cell_size: int = 0
     suppressed: bool = False
+    # Why a count was withheld. Present only when suppressed, so a researcher
+    # can tell "too few patients" from "too close to your last query" and act
+    # on it instead of guessing.
+    suppression_reason: Optional[str] = None
 
 class SaveCohortRequest(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
@@ -558,6 +563,15 @@ class CollaborationResponse(BaseModel):
     status: str
     site_count: int
     accepted_at: Optional[datetime]
+
+class StudyResultRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    title: str = Field(min_length=3, max_length=255)
+    # Long enough to be a real explanation. A one-line summary returned to
+    # someone who gave years of their medical history is not a result.
+    plain_language_summary: str = Field(min_length=120, max_length=5000)
+    citation: Optional[str] = Field(default=None, max_length=500)
+
 
 class ExtractionJobRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -1378,6 +1392,117 @@ async def get_patient_rewards(
     }
 
 
+@app.post("/api/researcher/studies/{study_id}/results")
+async def publish_study_result(
+    study_id: str,
+    request: StudyResultRequest,
+    token_data: Dict = Depends(require_researcher_token),
+    db: Session = Depends(get_db)
+):
+    """Publish a plain-language finding to the study's participants.
+
+    Written by the study team and shown only to enrolled patients. It is a
+    research finding, not advice about the reader's own care, and the patient
+    view says so on every result.
+    """
+    study = require_study_access(db, study_id, token_data["sub"])
+
+    result = StudyResult(
+        study_id=str(study.id),
+        title=request.title,
+        plain_language_summary=request.plain_language_summary,
+        citation=request.citation,
+        published_by=token_data["sub"],
+    )
+    db.add(result)
+    db.commit()
+    db.refresh(result)
+
+    participants = db.query(StudyEnrollment).filter(
+        StudyEnrollment.study_id == str(study.id),
+        StudyEnrollment.status == "enrolled",
+    ).count()
+    return {
+        "id": str(result.id),
+        "study_id": str(study.id),
+        "published_at": result.published_at.isoformat(),
+        "visible_to_participants": participants,
+    }
+
+
+@app.get("/api/researcher/studies/{study_id}/results")
+async def list_study_results(
+    study_id: str,
+    token_data: Dict = Depends(require_researcher_token),
+    db: Session = Depends(get_db)
+):
+    """Findings already published to this study's participants."""
+    study = require_study_access(db, study_id, token_data["sub"])
+    results = db.query(StudyResult).filter(
+        StudyResult.study_id == str(study.id)
+    ).order_by(StudyResult.published_at.desc()).all()
+    return [
+        {
+            "id": str(r.id), "title": r.title,
+            "plain_language_summary": r.plain_language_summary,
+            "citation": r.citation,
+            "published_at": r.published_at.isoformat(),
+        }
+        for r in results
+    ]
+
+
+@app.get("/api/patient/study-results")
+async def get_patient_study_results(
+    token_data: Dict = Depends(require_patient_token),
+    db: Session = Depends(get_db)
+):
+    """What came of the studies this patient joined.
+
+    Scoped to studies they are actually enrolled in. Every result carries the
+    same framing: this is a finding about a group, not guidance about the
+    reader, and it does not replace a conversation with their own clinician.
+    """
+    patient_repo = PatientRepository(db)
+    profile = patient_repo.get_profile(UUID(token_data["sub"]))
+    if not profile:
+        raise HTTPException(status_code=404, detail="Patient profile not found")
+
+    study_ids = [
+        str(sid) for (sid,) in db.query(StudyEnrollment.study_id).filter(
+            StudyEnrollment.patient_id == str(profile.id),
+            StudyEnrollment.status == "enrolled",
+        ).all()
+    ]
+    if not study_ids:
+        return []
+
+    results = db.query(StudyResult).filter(
+        StudyResult.study_id.in_(study_ids)
+    ).order_by(StudyResult.published_at.desc()).all()
+    study_names = {
+        str(study.id): study.name
+        for study in db.query(Study).filter(Study.id.in_(study_ids)).all()
+    }
+
+    return [
+        {
+            "id": str(r.id),
+            "study_name": study_names.get(str(r.study_id), "Unknown study"),
+            "title": r.title,
+            "plain_language_summary": r.plain_language_summary,
+            "citation": r.citation,
+            "published_at": r.published_at.isoformat(),
+            "disclaimer": (
+                "This describes what researchers found across a group of "
+                "participants. It is not advice about your own care and does "
+                "not replace talking to your clinician."
+            ),
+        }
+        for r in results
+    ]
+
+
 @app.get("/api/patient/data-releases")
 async def get_patient_data_releases(
     token_data: Dict = Depends(require_patient_token),
@@ -2108,7 +2233,44 @@ async def build_cohort(
             treatment_count=0, molecular_count=0,
             available_institutions=[], data_completeness=0.0,
             min_cell_size=MIN_AGGREGATE_CELL_SIZE, suppressed=True,
+            suppression_reason=(
+                f"Fewer than {MIN_AGGREGATE_CELL_SIZE} patients match. The exact "
+                "count is withheld so a query cannot be narrowed until it "
+                "isolates one person."
+            ),
         )
+
+    # Differencing: this count clears the floor, but so did the last one. If
+    # the two cohorts differ by fewer patients than the floor, subtracting
+    # them identifies those patients, and the floor never sees it happen.
+    researcher_id = token_data["sub"]
+    risk = find_differencing_risk(
+        matching,
+        recent_history(db, CohortQueryLog, researcher_id),
+        threshold=MIN_AGGREGATE_CELL_SIZE,
+    )
+    if risk:
+        audit_logger.info(
+            f"AUDIT: differencing_block user={researcher_id} "
+            f"prior={risk.prior_query_id} difference={risk.difference}"
+        )
+        return CohortResult(
+            patient_count=0, data_points=0, diagnosis_count=0,
+            treatment_count=0, molecular_count=0,
+            available_institutions=[], data_completeness=0.0,
+            min_cell_size=MIN_AGGREGATE_CELL_SIZE, suppressed=True,
+            suppression_reason=risk.message(),
+        )
+
+    # Record only what the researcher is actually told. A suppressed query
+    # disclosed no set, so it must not constrain their next one.
+    db.add(CohortQueryLog(
+        user_id=researcher_id,
+        patient_set=sorted(matching),
+        patient_count=patient_count,
+    ))
+    prune_history(db, CohortQueryLog, researcher_id)
+    db.commit()
 
     diagnosis_count = sum(1 for r in matched_records if r.data_category == "diagnosis")
     treatment_count = sum(1 for r in matched_records if r.data_category == "treatment")
