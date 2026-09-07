@@ -23,14 +23,33 @@ def test_self_service_registration_can_be_closed(client, monkeypatch):
     assert "registration is closed" in response.json()["detail"].lower()
 
 
-def test_consent_templates_are_hidden_when_synthetic_workflow_is_closed(client, monkeypatch):
+def test_consent_text_is_readable_even_when_the_synthetic_workflow_is_closed(
+        client, monkeypatch):
+    """Replaces an earlier rule that hid the template entirely.
+
+    Hiding it was meant to avoid implying a consent workflow existed where it
+    did not. What it actually produced was a patient portal with nothing in
+    it: production shipped with this flag unset, so anyone who signed up could
+    read nothing, acknowledge nothing, and contribute nothing.
+
+    The concern behind the old rule is real, and is now handled where it
+    belongs — in what gets recorded, not in what can be read. See
+    test_journeys.py: acknowledging while the pilot is closed records a
+    prototype acknowledgement, which no query treats as authorisation.
+    """
     import api.main as main
 
     monkeypatch.setattr(main, "SYNTHETIC_FHIR_UPLOADS_ENABLED", False)
     response = client.get("/api/consent/templates")
 
     assert response.status_code == 200
-    assert response.json() == []
+    assert response.json(), "a patient with nothing to read is a dead end"
+    # And it must still say plainly what it is. Normalised because the source
+    # is wrapped, and a line break must not be able to hide a missing phrase.
+    import re
+    content = re.sub(r"\s+", " ", response.json()[0]["content"])
+    assert "not a research consent form" in content
+    assert "fictional or generated records only" in content
 
 
 def test_fhir_upload_is_rejected_before_processing_when_closed(client, register, monkeypatch):

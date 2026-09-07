@@ -82,21 +82,52 @@ def test_findings_are_json_serializable(db):
 # Individual invariants: clean, then violated
 # ---------------------------------------------------------------------------
 
-def test_placeholder_institutions_are_detected(db):
+def test_a_stored_placeholder_is_reported_but_not_served(db):
+    """Filtering removes the harm; the row still owes a cleanup.
+
+    The two checks must move independently. If the stored row could make the
+    served check fail, or the filter could make the stored check pass, one
+    would hide the other.
+    """
     from api.main import PLACEHOLDER_INSTITUTION_NAMES
     from api.models import Institution
 
-    assert self_audit.check_no_placeholder_institutions(db).passed is True
+    assert self_audit.check_no_placeholder_institutions_served(db).passed is True
+    assert self_audit.check_no_placeholder_institutions_stored(db).passed is True
 
     name = sorted(PLACEHOLDER_INSTITUTION_NAMES)[0]
-    db.add(Institution(name=name))
+    db.add(Institution(name=name, is_active=True))
     db.commit()
 
-    finding = self_audit.check_no_placeholder_institutions(db)
+    served = self_audit.check_no_placeholder_institutions_served(db)
+    assert served.passed is True, "a stored row that is filtered out is not served"
+
+    stored = self_audit.check_no_placeholder_institutions_stored(db)
+    assert stored.passed is False
+    assert stored.severity == self_audit.WARNING, "filtered out, so not a blocker"
+    assert stored.count == 1
+    assert name in stored.detail["names"]
+    assert "manage remove-placeholder-institutions" in stored.summary
+
+
+def test_a_seeded_name_that_reached_a_caller_is_a_blocker(db, monkeypatch):
+    """If the filter is ever removed, the audit must go red immediately."""
+    import api.main as main
+    from api.models import Institution
+
+    name = sorted(main.PLACEHOLDER_INSTITUTION_NAMES)[0]
+    db.add(Institution(name=name, is_active=True))
+    db.commit()
+
+    # Simulate the filter being dropped from the serving query.
+    monkeypatch.setattr(
+        main, "servable_institutions",
+        lambda session: session.query(Institution).filter(Institution.is_active == True),
+    )
+    finding = self_audit.check_no_placeholder_institutions_served(db)
     assert finding.passed is False
-    assert finding.count == 1
+    assert finding.severity == self_audit.BLOCKER
     assert name in finding.detail["names"]
-    assert "manage remove-placeholder-institutions" in finding.summary
 
 
 def test_a_completed_export_without_a_risk_report_is_caught(db):

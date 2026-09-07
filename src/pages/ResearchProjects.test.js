@@ -35,3 +35,15 @@ test('accepted collaborators see a read-only plan and discussion', async () => {
   expect(container.textContent).not.toContain('Save plan');
   expect(container.textContent).toContain('Post update');
 });
+
+test('myeloma scaffold is an unsaved private plan, not a live study or published listing', async () => {
+  mocks({ ...report, revision: 0 });
+  await act(async () => { root.render(<MemoryRouter initialEntries={['/projects?study=s1']}><ResearchProjects /></MemoryRouter>); });
+  const scaffold = [...container.querySelectorAll('button')].find(b => b.textContent === 'Use myeloma pilot scaffold');
+  await act(async () => { scaffold.click(); });
+  expect(container.textContent).toContain('Unsaved edits');
+  const listing = [...container.querySelectorAll('input[type="checkbox"]')].pop();
+  expect(listing.checked).toBe(false);
+  expect([...container.querySelectorAll('textarea')][0].value).toContain('myeloma bispecific');
+  expect(apiRequest.mock.calls.some(([, options]) => options?.method === 'PUT')).toBe(false);
+});

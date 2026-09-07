@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { apiRequest, readSessionUser } from '../lib/api';
+import { myelomaPilot } from '../data/myelomaPilot';
 
 const request = (path, options = {}) => apiRequest(`/api/workspace${path}`, { ...options, headers: { Authorization: `Bearer ${sessionStorage.getItem('token')}`, 'Content-Type': 'application/json' } });
 const input = 'w-full bg-black border border-white/30 rounded-lg p-3 mt-2 text-white';
@@ -83,6 +84,7 @@ export default function ResearchProjects() {
       <div className="flex flex-wrap gap-3 mb-6"><button className={button} disabled={busy} onClick={load}>Reload saved plan</button><button className={button} disabled={dirty || busy || !report.revision} onClick={download}>Download plan JSON</button><Link className={button} to={`/research-readiness?study=${encodeURIComponent(id)}`}>Institutional readiness</Link></div>
       <form onSubmit={save}>
         <fieldset disabled={busy || !report.can_edit} className="space-y-5">
+          {report.can_edit && report.revision === 0 && !dirty && <div className="border border-emerald-300/30 rounded-lg p-4"><p className="mb-3">Start with a proposed myeloma bispecific tumor-flare planning scaffold. It contains definitions and tasks only, requires clinical and governance review, and stays private until you choose to list it.</p><button type="button" className={button} onClick={() => { setReport(r => ({ ...r, listed: false, plan: JSON.parse(JSON.stringify(myelomaPilot)) })); setDirty(true); }}>Use myeloma pilot scaffold</button></div>}
           <div className="grid md:grid-cols-2 gap-5">{fields.map(([key, title, hint]) => <label key={key}>{title}<textarea className={input} rows={3} maxLength={key === 'analysis' ? 2000 : key === 'seeking' ? 300 : 1000} placeholder={hint} value={report.plan[key]} onChange={e => change(key, e.target.value)} /></label>)}</div>
           <h3 className="text-2xl">Data specification</h3>
           <p className="text-white/60">Define variables, not patient values. Source and unit definitions make site-to-site mapping reviewable. Saving this specification does not connect an EHR.</p>

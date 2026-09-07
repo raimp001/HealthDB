@@ -46,6 +46,11 @@ def client():
         finally:
             db.close()
 
+    # initialize_database() seeds this on a real deployment. Building the
+    # tables without it would give tests a starting state no deployment has —
+    # specifically, one where a patient has nothing to acknowledge.
+    main.ensure_consent_template(TestingSession)
+
     main.app.dependency_overrides[main.get_db] = override_get_db
     with TestClient(main.app) as c:
         c._session_factory = TestingSession

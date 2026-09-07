@@ -117,25 +117,57 @@ def check_no_precise_clinical_dates(db: Session) -> Finding:
     )
 
 
-def check_no_placeholder_institutions(db: Session) -> Finding:
-    """Seeded rows naming real hospitals were served as though they were partners."""
-    from .models import Institution
-    from .main import PLACEHOLDER_INSTITUTION_NAMES
+def check_no_placeholder_institutions_served(db: Session) -> Finding:
+    """No seeded hospital name reaches a caller.
 
-    names = [
+    This is the check that matters, because the harm was entirely in the
+    serving: `/api/institutions` is public, so those rows were presented as
+    partner sites. It asks the same query the route asks rather than trusting
+    that the route still filters.
+    """
+    from .main import PLACEHOLDER_INSTITUTION_NAMES, servable_institutions
+
+    leaked = sorted(
+        inst.name for inst in servable_institutions(db).all()
+        if inst.name in PLACEHOLDER_INSTITUTION_NAMES
+    )
+    return Finding(
+        "no_placeholder_institutions_served", not leaked, BLOCKER,
+        "No seeded organisation name is served to callers."
+        if not leaked else
+        f"{len(leaked)} real organisation name(s) are being served with no "
+        "relationship to HealthDB.",
+        count=len(leaked),
+        # Organisation names are not PHI, and an operator needs to know which.
+        detail={"names": leaked},
+    )
+
+
+def check_no_placeholder_institutions_stored(db: Session) -> Finding:
+    """The seeded rows are also still gone from the database.
+
+    A warning rather than a blocker: filtering them out of every serving path
+    removes the harm, and this records the cleanup that is still owed. It must
+    stay separate from the served check — one going green must never be able
+    to hide the other.
+    """
+    from .main import PLACEHOLDER_INSTITUTION_NAMES
+    from .models import Institution
+
+    names = sorted(
         row.name for row in db.query(Institution).filter(
             Institution.name.in_(PLACEHOLDER_INSTITUTION_NAMES)
         ).all()
-    ]
+    )
     return Finding(
-        "no_placeholder_institutions", not names, BLOCKER,
-        "No seeded organisation names are being served as partners."
+        "no_placeholder_institutions_stored", not names, WARNING,
+        "No seeded organisation rows remain in the database."
         if not names else
-        f"{len(names)} real organisation name(s) served with no relationship. "
-        "Run: python -m api.manage remove-placeholder-institutions",
+        f"{len(names)} seeded row(s) remain stored. They are filtered out of "
+        "every serving path, so nothing is disclosed, but they should be "
+        "deleted: python -m api.manage remove-placeholder-institutions",
         count=len(names),
-        # Organisation names are not PHI, and an operator needs to know which.
-        detail={"names": sorted(names)},
+        detail={"names": names},
     )
 
 
@@ -316,6 +348,43 @@ def check_export_threshold_not_lowered(db: Session) -> Finding:
     )
 
 
+def check_admin_bootstrap(db: Session) -> Finding:
+    """Report whether an admin exists, and whether the bootstrap is still armed.
+
+    Two failure modes, opposite in character. No admin at all means nobody can
+    approve a researcher or run these checks, and the operator surface is
+    decorative. A BOOTSTRAP_ADMIN_EMAIL left set after it has done its job
+    means an environment variable still confers admin, so anyone who can edit
+    deployment configuration can hand themselves the role quietly.
+
+    A warning rather than a blocker: neither state is a live privacy breach,
+    and making it red would train people to ignore a red audit.
+    """
+    from .models import User
+
+    admins = db.query(User).filter(User.user_type == "admin").count()
+    armed = bool(os.environ.get("BOOTSTRAP_ADMIN_EMAIL", "").strip())
+
+    if not admins:
+        summary = ("No admin account exists. Researcher approval, the operator "
+                   "inbox and these checks are all unreachable. Register an "
+                   "account, then set BOOTSTRAP_ADMIN_EMAIL to its address.")
+    elif armed:
+        summary = (f"{admins} admin account(s) exist and BOOTSTRAP_ADMIN_EMAIL "
+                   "is still set. Remove it: while it is set, deployment "
+                   "configuration alone grants the admin role.")
+    else:
+        summary = f"{admins} admin account(s) exist; the bootstrap is disarmed."
+
+    return Finding(
+        "admin_bootstrap", bool(admins) and not armed, WARNING, summary,
+        count=admins,
+        # The address itself is a real person's email; the verdict does not
+        # need it and a findings payload is the wrong place to carry one.
+        detail={"admin_count": admins, "bootstrap_armed": armed},
+    )
+
+
 def check_pilot_flags(db: Session) -> Finding:
     """Report which sensitive workflows a deployment has opened.
 
@@ -357,7 +426,8 @@ def check_secrets_configured(db: Session) -> Finding:
 
 INVARIANTS: List[Callable[[Session], Finding]] = [
     check_no_precise_clinical_dates,
-    check_no_placeholder_institutions,
+    check_no_placeholder_institutions_served,
+    check_no_placeholder_institutions_stored,
     check_completed_exports_were_risk_assessed,
     check_completed_exports_have_manifests,
     check_release_manifests_verify,
@@ -365,6 +435,7 @@ INVARIANTS: List[Callable[[Session], Finding]] = [
     check_revocations_are_tracked,
     check_no_unapproved_researcher_holds_studies,
     check_export_threshold_not_lowered,
+    check_admin_bootstrap,
     check_pilot_flags,
     check_secrets_configured,
 ]
