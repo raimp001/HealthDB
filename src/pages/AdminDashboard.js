@@ -54,6 +54,7 @@ export default function AdminDashboard() {
   const button = 'border border-white/40 rounded px-4 py-2 disabled:opacity-40';
   return <main className="max-w-6xl mx-auto px-6 py-16 text-white">
     <h1 className="text-4xl mb-4">Admin workspace</h1>
+    <Link className="inline-block text-emerald-300 underline mb-4" to="/projects">Plan research and discover projects</Link>
     <p className="text-white/70 mb-6">Review incoming requests, confirm and approve researchers for testing, and check platform readiness.</p>
     <div className="flex gap-4 mb-6"><button className={button} disabled={busy} onClick={load}>Refresh inbox</button><Link className={button} to="/research-readiness">Review study evidence</Link></div>
     {error && <p role="alert" className="text-red-300 mb-6">{error}</p>}

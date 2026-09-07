@@ -447,6 +447,27 @@ class Study(Base):
     enrollments = relationship("StudyEnrollment", back_populates="study")
 
 
+class ResearchPlan(Base):
+    """Study metadata only: no patient-level values or uploaded records."""
+    __tablename__ = 'research_plans'
+    study_id = Column(String(36), ForeignKey('studies.id'), primary_key=True)
+    revision = Column(Integer, nullable=False, default=1)
+    content = Column(JSON, nullable=False, default=dict)
+    listed = Column(Boolean, nullable=False, default=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class ResearchInterest(Base):
+    __tablename__ = 'research_interests'
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    study_id = Column(String(36), ForeignKey('studies.id'), nullable=False)
+    user_id = Column(String(36), ForeignKey('users.id'), nullable=False)
+    message = Column(String(1000), nullable=False)
+    status = Column(String(20), nullable=False, default='pending')
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    __table_args__ = (UniqueConstraint('study_id', 'user_id', name='uq_research_interest'),)
+
+
 class ResearchEvidence(Base):
     """Versioned references to external review evidence; never stores patient data."""
     __tablename__ = 'research_evidence'
