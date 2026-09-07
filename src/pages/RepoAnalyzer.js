@@ -215,7 +215,7 @@ const RepoAnalyzer = () => {
           </p>
         </motion.div>
         <TargetArchitectureBanner
-          implemented={["FastAPI + SQLAlchemy service", "Safe Harbor de-identification module", "Consent and audit-log tables"]}
+          implemented={["FastAPI + SQLAlchemy service", "De-identification module (identifier removal, year-only dates)", "Consent and audit-log tables"]}
           planned={["Supabase RLS policies", "AWS KMS credential vault", "NLP de-identification of free text", "OMOP CDM tables"]}
         />
 

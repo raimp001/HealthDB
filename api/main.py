@@ -188,6 +188,45 @@ SAMPLE_INSTITUTIONS = [
 ]
 
 
+PLACEHOLDER_INSTITUTION_NAMES = frozenset({
+    "Stanford Cancer Center", "Mayo Clinic", "MD Anderson Cancer Center",
+    "Memorial Sloan Kettering", "Dana-Farber Cancer Institute",
+    "Fred Hutchinson Cancer Center", "Cleveland Clinic",
+    "Johns Hopkins Hospital", "OHSU Knight Cancer Institute",
+    "Emory Winship Cancer Institute", "UCSF Helen Diller Cancer Center",
+})
+
+
+def remove_placeholder_institutions(db) -> int:
+    """Delete institution rows planted by an earlier seeder.
+
+    These name real hospitals with no relationship to HealthDB, and
+    GET /api/institutions is public, so they were served as though they were
+    partner sites. Only rows nothing references are removed; one with a linked
+    user or regulatory submission is kept and reported, because deleting it
+    would lose a real association.
+
+    Returns the number removed. Idempotent.
+    """
+    removed = 0
+    for inst in db.query(Institution).filter(
+        Institution.name.in_(PLACEHOLDER_INSTITUTION_NAMES)
+    ).all():
+        referenced = (
+            db.query(User).filter(User.institution_id == inst.id).count()
+            + db.query(RegulatorySubmission)
+                .filter(RegulatorySubmission.institution_id == inst.id).count()
+        )
+        if referenced:
+            print(f"Kept placeholder institution {inst.name!r}: {referenced} reference(s)")
+            continue
+        db.delete(inst)
+        removed += 1
+    if removed:
+        db.commit()
+    return removed
+
+
 def migrate_truncate_original_dates(engine) -> None:
     """Remove month and day from previously stored clinical dates.
 
@@ -263,6 +302,8 @@ def initialize_database():
         if deleted > 0:
             print(f"Removed {deleted} placeholder data products")
             db.commit()
+
+        remove_placeholder_institutions(db)
 
         # Sample institutions are development conveniences only. Production
         # starts empty so nothing can be mistaken for a real partner site.
