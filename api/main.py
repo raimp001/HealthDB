@@ -207,6 +207,25 @@ PLACEHOLDER_INSTITUTION_NAMES = frozenset({
 })
 
 
+def servable_institutions(db):
+    """Institutions this deployment is allowed to present as real.
+
+    The seeded rows naming real hospitals are excluded here rather than only
+    by the migration that deletes them. Deleting them needs a database
+    credential and an operator at a terminal; not serving them needs neither,
+    and the harm is entirely in the serving — a row nobody reads names nobody.
+
+    This is not a substitute for `manage.py remove-placeholder-institutions`.
+    The rows are still there, the self-audit still reports them, and they
+    should still be deleted. This just stops the site claiming a relationship
+    with Stanford in the meantime.
+    """
+    return db.query(Institution).filter(
+        Institution.is_active == True,
+        Institution.name.notin_(PLACEHOLDER_INSTITUTION_NAMES),
+    )
+
+
 def remove_placeholder_institutions(db) -> int:
     """Delete institution rows planted by an earlier seeder.
 
@@ -2314,9 +2333,7 @@ async def build_cohort(
     # Records arrive patient-mediated, so we cannot attribute a cohort to source
     # institutions. Report the directory of sites a study can be filed with, and
     # let the caller label it as such rather than as contributors.
-    institution_names = [
-        name for (name,) in db.query(Institution.name).filter(Institution.is_active == True).all()
-    ]
+    institution_names = [inst.name for inst in servable_institutions(db).all()]
 
     return CohortResult(
         patient_count=patient_count,
@@ -3279,8 +3296,8 @@ async def get_emr_connections(
 async def get_institutions(
     db: Session = Depends(get_db)
 ):
-    """Get all partner institutions"""
-    institutions = db.query(Institution).filter(Institution.is_active == True).all()
+    """Sites a study can be filed with. Public, so it must never overstate."""
+    institutions = servable_institutions(db).all()
     
     return [
         {
