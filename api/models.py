@@ -447,6 +447,24 @@ class Study(Base):
     enrollments = relationship("StudyEnrollment", back_populates="study")
 
 
+class ResearchEvidence(Base):
+    """Versioned references to external review evidence; never stores patient data."""
+    __tablename__ = 'research_evidence'
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    study_id = Column(String(36), ForeignKey('studies.id'), nullable=False, index=True)
+    category = Column(String(40), nullable=False)
+    reference = Column(String(120), nullable=False)
+    sha256 = Column(String(64), nullable=False)
+    scope = Column(String(200), nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    status = Column(String(20), nullable=False, default='submitted')
+    submitted_by = Column(String(36), ForeignKey('users.id'), nullable=False)
+    reviewed_by = Column(String(36), ForeignKey('users.id'))
+    reviewed_at = Column(DateTime)
+    review_history = Column(JSON, nullable=False, default=list)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class RegulatorySubmission(Base):
     """Track IRB, DUA, and site reliance agreements.
     study_id is NULL for institution-level master agreements (e.g. platform DUA/BAA)."""

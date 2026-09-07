@@ -35,6 +35,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import Demo from './pages/Demo';
 import CollaborationInbox from './pages/CollaborationInbox';
 import Developers from './pages/Developers';
+import ResearchReadiness from './pages/ResearchReadiness';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -55,6 +56,7 @@ function App() {
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/collaborations" element={<ProtectedRoute roles={['researcher']}><CollaborationInbox /></ProtectedRoute>} />
+            <Route path="/research-readiness" element={<ProtectedRoute roles={['researcher', 'admin']}><ResearchReadiness /></ProtectedRoute>} />
             <Route path="/demo" element={<Demo />} />
             <Route path="/developers" element={<Developers />} />
             {/* Public info pages */}

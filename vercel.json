@@ -85,6 +85,10 @@
       "destination": "/index.html"
     },
     {
+      "source": "/research-readiness",
+      "destination": "/index.html"
+    },
+    {
       "source": "/demo",
       "destination": "/index.html"
     },

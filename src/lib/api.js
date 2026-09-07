@@ -28,8 +28,8 @@ export function dashboardForRole(role) {
 
 export function signInDestination(from, role) {
   const paths = { patient: ['/patient'], institution: ['/institution'],
-    researcher: ['/research', '/collaborations', '/cohort-builder', '/repo-analyzer', '/marketplace'],
-    admin: ['/research', '/collaborations', '/institution', '/cohort-builder', '/repo-analyzer', '/marketplace'] };
+    researcher: ['/research', '/research-readiness', '/collaborations', '/cohort-builder', '/repo-analyzer', '/marketplace'],
+    admin: ['/research', '/research-readiness', '/collaborations', '/institution', '/cohort-builder', '/repo-analyzer', '/marketplace'] };
   if (typeof from === 'string' && paths[role]?.includes(from.split(/[?#]/)[0])) return from;
   return dashboardForRole(role);
 }

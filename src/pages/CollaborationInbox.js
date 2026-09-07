@@ -47,6 +47,7 @@ export default function CollaborationInbox() {
       {!studies.length && <p className="text-white/60">No accepted collaborations yet.</p>}
       {studies.map(study => <section key={study.study_id} className="border border-white/20 p-5 mb-4 rounded-lg"><h3 className="text-xl">{study.study_name}</h3><p className="text-white/70 mt-2">{study.pi_name} · {study.pi_organization || 'Institution not specified'} · {study.my_role.replaceAll('_', ' ')}</p><p className="mt-3">{study.description}</p></section>)}
     </>}
+    <Link to="/research-readiness" className="block text-emerald-300 underline mt-8">Review institutional launch readiness</Link>
     <Link to="/research" className="inline-block text-emerald-300 underline mt-8">Open research workspace</Link>
   </article>;
 }
