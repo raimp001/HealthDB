@@ -120,7 +120,11 @@ class TestResearchSurface:
                                verified=False, approved=True)
         r = client.get("/api/researcher/studies", headers=headers)
         assert r.status_code == 403
-        assert "verify" in r.json()["detail"].lower()
+        detail = r.json()["detail"].lower()
+        assert "identity" in detail
+        # There is no email system, so the refusal must not tell someone to
+        # go and check their inbox for a link that will never arrive.
+        assert "verify your email" not in detail
 
     def test_approved_researcher_is_allowed(self, client, approved_researcher):
         assert client.get("/api/researcher/studies",

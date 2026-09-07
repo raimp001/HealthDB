@@ -13,7 +13,7 @@ def test_admin_access_and_approval(client, make_user):
     body = client.get('/api/admin/overview', headers=admin).json()
     assert body['researchers'][0]['approved']
     assert 'password_hash' not in str(body)
-    assert client.post(path, headers=admin, json={'decision': 'revoke'}).json() == {'approved': False}
+    assert client.post(path, headers=admin, json={'decision': 'revoke'}).json()['approved'] is False
     with client._session_factory() as db:
         assert db.query(DataAccessLog).filter(DataAccessLog.access_type == 'researcher_revoke').count() == 1
 

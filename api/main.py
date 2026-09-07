@@ -36,7 +36,7 @@ PBKDF2_ITERATIONS = 600_000
 from sqlalchemy.orm import Session
 
 from sqlalchemy import text, func, or_, inspect
-from .database import get_db, init_db, engine
+from .database import get_db, init_db, engine, SessionLocal
 from .models import (
     Base, User, PatientProfile, Consent, ConsentTemplate,
     CancerDiagnosis, Treatment, DataProduct, DataAccessLog, ResearchCohort,
@@ -207,6 +207,126 @@ PLACEHOLDER_INSTITUTION_NAMES = frozenset({
 })
 
 
+PILOT_CONSENT_TEMPLATE_NAME = "Synthetic Research Workflow"
+
+PILOT_CONSENT_TEMPLATE = {
+    "name": PILOT_CONSENT_TEMPLATE_NAME,
+    "description": "Review the consent workflow using synthetic records only",
+    "consent_type": "research_data_sharing",
+    "version": "1.0",
+    "content": """
+# Synthetic Research Workflow Acknowledgement
+
+This screen is a product simulation for invited pilot users. It is not a
+research consent form and does not authorize HealthDB to collect, store, or
+disclose real health information.
+
+## Pilot boundary
+- Use fictional or generated records only
+- Do not enter protected health information or identifying details
+- No dataset is released and no research enrollment occurs
+
+Acknowledging this screen records a test event so the workflow can be
+evaluated. HealthDB does not pay for data and offers no points, gift cards,
+or redemption of any kind.
+""",
+    "data_categories": ["demographics", "diagnosis", "treatment", "lab_results", "outcomes"],
+    "duration_months": None,
+}
+
+
+def ensure_consent_template(session_factory=None) -> bool:
+    """Make sure there is something for a patient to read and acknowledge.
+
+    Without this the patient portal is a dead end on a fresh deployment: an
+    account can be created, and then there is nothing to do with it — no
+    acknowledgement, so no consent, so no records, so no cohort ever contains
+    them. Production shipped in exactly that state.
+
+    It used to be created lazily by the GET that lists templates, which meant
+    an unauthenticated read wrote to the database and two cold starts could
+    insert it twice. Creating it at initialisation instead makes the read
+    read-only and the row single.
+
+    Idempotent and never fatal, for the same reason everything else at import
+    time is: an exception here would take down every request on the instance.
+    """
+    try:
+        session = (session_factory or SessionLocal)()
+        try:
+            exists = session.query(ConsentTemplate).filter(
+                ConsentTemplate.name == PILOT_CONSENT_TEMPLATE_NAME
+            ).count()
+            if exists:
+                return False
+            session.add(ConsentTemplate(**PILOT_CONSENT_TEMPLATE))
+            session.commit()
+            return True
+        finally:
+            session.close()
+    except Exception:
+        audit_logger.warning("Consent template seeding failed", exc_info=True)
+        return False
+
+
+def promote_bootstrap_admin(session_factory=None) -> bool:
+    """Give one already-registered account the admin role, from configuration.
+
+    Every admin route — approving researchers, running the invariant checks,
+    reviewing study evidence — requires a user whose role is admin. Roles are
+    granted by `manage.py grant-role`, which needs a database URL, and the
+    registration endpoint deliberately refuses to mint privileged accounts.
+    So on a hosted deployment there was no way to create the first admin, and
+    the entire operator surface was unreachable. Researchers could not be
+    approved at all, which quietly killed the whole research half of the
+    product.
+
+    Setting BOOTSTRAP_ADMIN_EMAIL to an address that has already registered
+    promotes it. Deliberately narrow:
+
+    * **It never creates an account.** The person registers normally first, so
+      they proved control of the mailbox and chose their own password. This
+      grants a role; it does not mint an identity.
+    * **It never demotes.** Unsetting the variable does not remove the role —
+      taking admin away is a decision someone should make explicitly, not a
+      side effect of an environment change.
+    * **It is idempotent and never fatal.** This runs at import, once per cold
+      start, and an exception here would take down every request on the
+      instance. A failure to promote is logged and the app serves.
+
+    `session_factory` defaults to the application's own; it is a parameter so
+    this can be exercised against a disposable database rather than only
+    against whatever DATABASE_URL happens to point at.
+
+    Returns True when a promotion actually happened.
+    """
+    email = os.environ.get("BOOTSTRAP_ADMIN_EMAIL", "").strip().lower()
+    if not email:
+        return False
+    try:
+        session = (session_factory or SessionLocal)()
+        try:
+            user = session.query(User).filter(func.lower(User.email) == email).first()
+            if not user:
+                audit_logger.warning(
+                    "BOOTSTRAP_ADMIN_EMAIL is set but no such account exists. "
+                    "Register that address first, then redeploy."
+                )
+                return False
+            if user.user_type == "admin":
+                return False
+            user.user_type = "admin"
+            user.is_verified = True
+            session.commit()
+            audit_logger.warning(f"AUDIT: bootstrap_admin_promoted user={user.id}")
+            return True
+        finally:
+            session.close()
+    except Exception:
+        audit_logger.warning("Bootstrap admin promotion failed", exc_info=True)
+        return False
+
+
 def servable_institutions(db):
     """Institutions this deployment is allowed to present as real.
 
@@ -373,6 +493,9 @@ def initialize_database():
     # boot. Run them from the CLI:
     #     python -m api.manage migrate-dates
     #     python -m api.manage remove-placeholder-institutions
+
+    ensure_consent_template()
+    promote_bootstrap_admin()
 
     # Clean up any placeholder/mock data products (no real patient data)
     db = next(get_db())
@@ -809,7 +932,12 @@ def require_approved_researcher(user: User = Depends(current_user)) -> User:
     if not user.is_verified:
         raise HTTPException(
             status_code=403,
-            detail="Verify your email address before accessing research features.",
+            detail=(
+                "Your identity and affiliation have not been confirmed yet. "
+                "An operator confirms this directly; there is no email link, "
+                "because controlling a mailbox does not establish who you are "
+                "at an institution."
+            ),
         )
     if user.researcher_approved_at is None:
         raise HTTPException(
@@ -1678,50 +1806,23 @@ async def get_data_access_log(
 async def get_consent_templates(
     db: Session = Depends(get_db)
 ):
-    """Get synthetic pilot consent templates when that workflow is enabled."""
-    if not SYNTHETIC_FHIR_UPLOADS_ENABLED:
-        return []
+    """The acknowledgement text a pilot patient is asked to read.
 
+    Not gated on the synthetic-upload flag. Reading and acknowledging the
+    consent language is the workflow the pilot exists to evaluate; ingesting
+    records is a separate, riskier capability. Tying them together left the
+    patient portal empty on any deployment that had not enabled uploads,
+    which is how production shipped.
+
+    Read-only. This used to create the template on demand, so an
+    unauthenticated GET wrote to the database; it is seeded at initialisation
+    instead.
+    """
     templates = db.query(ConsentTemplate).filter(
         ConsentTemplate.is_active == True,
-        ConsentTemplate.name == "Synthetic Research Workflow",
+        ConsentTemplate.name == PILOT_CONSENT_TEMPLATE_NAME,
     ).all()
-    
-    # If no templates exist, create default ones
-    if not templates:
-        default_templates = [
-            {
-                "name": "Synthetic Research Workflow",
-                "description": "Exercise the consent UI with synthetic records only",
-                "consent_type": "research_data_sharing",
-                "version": "1.0",
-                "content": """
-# Synthetic Research Workflow Acknowledgement
 
-This screen is a product simulation for invited pilot users. It is not a research consent form and does not authorize HealthDB to collect, store, or disclose real health information.
-
-## Pilot boundary
-- Use fictional or generated records only
-- Do not enter protected health information or identifying details
-- No dataset is released and no research enrollment occurs
-
-Acknowledging this screen records a test event so the workflow can be evaluated. Pilot points have no monetary value.
-                """,
-                "data_categories": ["demographics", "diagnosis", "treatment", "lab_results", "outcomes"],
-                "duration_months": None,
-            },
-        ]
-        
-        for t in default_templates:
-            template = ConsentTemplate(**t)
-            db.add(template)
-        db.commit()
-        
-        templates = db.query(ConsentTemplate).filter(
-            ConsentTemplate.is_active == True,
-            ConsentTemplate.name == "Synthetic Research Workflow",
-        ).all()
-    
     return [
         ConsentTemplateResponse(
             id=str(t.id),
@@ -1744,12 +1845,26 @@ async def sign_consent_template(
     token_data: Dict = Depends(require_patient_token),
     db: Session = Depends(get_db)
 ):
-    """Record a consent simulation event for an approved synthetic pilot."""
-    if not SYNTHETIC_FHIR_UPLOADS_ENABLED:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Consent simulation is disabled outside approved synthetic-data pilots.",
-        )
+    """Record that this person read and acknowledged the pilot consent text.
+
+    Not gated on the synthetic-upload flag. Reading the language and deciding
+    whether to acknowledge it is the workflow the pilot exists to evaluate,
+    and gating it behind record ingestion left every patient account on a
+    deployment without uploads with nothing to do at all.
+
+    What is recorded depends on what the deployment can actually honour, and
+    this is the important part. Where the synthetic pilot is open, this
+    records the research-data-sharing consent the cohort queries read. Where
+    it is not, it records a prototype acknowledgement — a distinct type that
+    no query treats as authorisation.
+
+    That distinction exists so an acknowledgement can never be silently
+    upgraded. Someone who ticked a box on a prototype has not agreed to their
+    records being drawn into a cohort, and if uploads were switched on later
+    a single shared consent type would have quietly turned the one into the
+    other without anybody deciding to.
+    """
+    records_authorised = SYNTHETIC_FHIR_UPLOADS_ENABLED
 
     patient_repo = PatientRepository(db)
     profile = patient_repo.get_profile(UUID(token_data["sub"]))
@@ -1766,10 +1881,12 @@ async def sign_consent_template(
     if not template:
         raise HTTPException(status_code=404, detail="Consent template not found")
     
+    consent_type = template.consent_type if records_authorised else "prototype_acknowledgement"
+
     # Check if already has active consent of this type
     existing = db.query(Consent).filter(
         Consent.patient_id == profile.id,
-        Consent.consent_type == template.consent_type,
+        Consent.consent_type == consent_type,
         Consent.status == "active"
     ).first()
     
@@ -1784,7 +1901,7 @@ async def sign_consent_template(
     # Create the consent
     new_consent = Consent(
         patient_id=profile.id,
-        consent_type=template.consent_type,
+        consent_type=consent_type,
         consent_version=template.version,
         status="active",
         consent_options=consent_req.consent_options,
@@ -4152,7 +4269,13 @@ async def create_irb_protocol(
 # ============== Health Check ==============
 
 class AdminResearcherDecision(BaseModel):
-    decision: Literal["approve", "revoke"]
+    # confirm-identity records that an operator established who this person
+    # is, by whatever means they judged sufficient — a call to the department,
+    # an institutional directory, a known colleague. It is deliberately not
+    # an emailed magic link: proving control of a mailbox says nothing about
+    # affiliation, and affiliation is the thing standing between an applicant
+    # and other people's medical records.
+    decision: Literal["approve", "revoke", "confirm-identity", "withdraw-identity"]
 
 
 class AdminContactDecision(BaseModel):
@@ -4192,17 +4315,47 @@ async def admin_researcher_decision(
     user_id: str, body: AdminResearcherDecision,
     token_data: Dict = Depends(require_role("admin")), db: Session = Depends(get_db),
 ):
+    """Record an operator's decision about one researcher account.
+
+    Two separate gates, deliberately kept apart. Confirming identity says the
+    operator established who this person is. Approving says they should have
+    research access. One person doing both in one click would make the second
+    decision invisible, so approval refuses to proceed until identity has been
+    confirmed as its own act.
+    """
     target = db.query(User).filter(User.id == user_id).with_for_update().first()
     if not target or target.user_type != "researcher":
         raise HTTPException(404, "Researcher not found")
-    if body.decision == "approve" and (not target.is_verified or not target.is_active):
-        raise HTTPException(409, "Researcher must verify their email and have an active account first.")
+
+    if body.decision in ("confirm-identity", "withdraw-identity"):
+        confirming = body.decision == "confirm-identity"
+        if not confirming and target.researcher_approved_at:
+            raise HTTPException(
+                409, "Revoke research access before withdrawing identity confirmation.")
+        target.is_verified = confirming
+        db.add(DataAccessLog(
+            user_id=token_data["sub"], access_type="researcher_" + body.decision,
+            data_type="account", purpose="Researcher account " + target.id))
+        db.commit()
+        return {"identity_confirmed": target.is_verified,
+                "approved": target.researcher_approved_at is not None}
+
+    if body.decision == "approve" and not target.is_verified:
+        raise HTTPException(
+            409,
+            "Confirm this researcher's identity and affiliation before "
+            "approving access. That is a separate decision, recorded separately.",
+        )
+    if body.decision == "approve" and not target.is_active:
+        raise HTTPException(409, "This account is inactive.")
+
     target.researcher_approved_at = datetime.utcnow() if body.decision == "approve" else None
     target.researcher_approved_by = token_data["sub"]
     db.add(DataAccessLog(user_id=token_data["sub"], access_type="researcher_" + body.decision,
                          data_type="account", purpose="Researcher account " + target.id))
     db.commit()
-    return {"approved": target.researcher_approved_at is not None}
+    return {"approved": target.researcher_approved_at is not None,
+            "identity_confirmed": target.is_verified}
 
 
 @app.post("/api/admin/contacts/{contact_id}/status")
@@ -4218,6 +4371,94 @@ async def admin_contact_status(
                          data_type="contact", purpose=contact.id + ": " + body.status))
     db.commit()
     return {"status": contact.status}
+
+class DateTruncationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    # Typed by a person who has read the preview. A stray or replayed POST
+    # must not destroy anything.
+    confirm: Literal["truncate-dates-permanently"]
+
+
+def date_truncation_state(db: Session) -> dict:
+    """How many stored clinical dates still carry a month and a day."""
+    # Probe the table first. Without this, a database error would look like
+    # "the column is already gone" and report nothing left to do.
+    db.execute(text("SELECT COUNT(*) FROM extracted_medical_data")).scalar()
+    try:
+        remaining = db.execute(text(
+            "SELECT COUNT(*) FROM extracted_medical_data "
+            "WHERE original_date IS NOT NULL"
+        )).scalar() or 0
+        column_present = True
+    except Exception:
+        db.rollback()
+        remaining, column_present = 0, False
+    # Deliberately no "applied" key. This describes the database; whether a
+    # request applied anything is a different question, and merging the two
+    # into one dict let a no-op report success.
+    return {
+        "column_present": column_present,
+        "rows_with_month_and_day": remaining,
+        "already_applied": not column_present,
+    }
+
+
+@app.get("/api/admin/maintenance/date-truncation")
+async def preview_date_truncation(
+    token_data: Dict = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    """What the date migration would destroy. Reads only.
+
+    Safe Harbor permits no date element more precise than a year. New records
+    have stored a year only for some time; this reports what is left over from
+    before that, so an operator sees the number before deciding.
+    """
+    state = date_truncation_state(db)
+    return {
+        **state,
+        "reversible": False,
+        "note": (
+            "Backfills original_year, destroys the month and day, then drops "
+            "the column. Restoring true dates would need a backup taken "
+            "beforehand, and would reintroduce the Safe Harbor contradiction "
+            "this removes."
+        ) if state["column_present"] else "Already applied; the column is absent.",
+    }
+
+
+@app.post("/api/admin/maintenance/date-truncation")
+async def run_date_truncation(
+    request: DateTruncationRequest,
+    token_data: Dict = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    """Truncate stored clinical dates to the year. Irreversible.
+
+    The same migration as `manage.py migrate-dates`, reachable by a named
+    admin with a real session instead of requiring a database URL. Authority
+    comes from a person's role, not from a shared secret, so the action is
+    attributable.
+    """
+    before = date_truncation_state(db)
+    if not before["column_present"]:
+        return {**before, "applied": False, "reason": "Already applied."}
+
+    audit_logger.warning(
+        f"AUDIT: date_truncation starting by={token_data['sub']} "
+        f"rows={before['rows_with_month_and_day']}"
+    )
+    migrate_truncate_original_dates(engine)
+    # Re-read rather than trusting the migration's account of itself.
+    after = date_truncation_state(db)
+    audit_logger.warning(f"AUDIT: date_truncation finished result={after}")
+    return {
+        "applied": True,
+        "rows_truncated": before["rows_with_month_and_day"],
+        "rows_remaining": after["rows_with_month_and_day"],
+        "column_present": after["column_present"],
+    }
+
 
 @app.get("/api/health/invariants")
 async def health_invariants(

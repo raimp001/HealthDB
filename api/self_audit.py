@@ -348,6 +348,43 @@ def check_export_threshold_not_lowered(db: Session) -> Finding:
     )
 
 
+def check_admin_bootstrap(db: Session) -> Finding:
+    """Report whether an admin exists, and whether the bootstrap is still armed.
+
+    Two failure modes, opposite in character. No admin at all means nobody can
+    approve a researcher or run these checks, and the operator surface is
+    decorative. A BOOTSTRAP_ADMIN_EMAIL left set after it has done its job
+    means an environment variable still confers admin, so anyone who can edit
+    deployment configuration can hand themselves the role quietly.
+
+    A warning rather than a blocker: neither state is a live privacy breach,
+    and making it red would train people to ignore a red audit.
+    """
+    from .models import User
+
+    admins = db.query(User).filter(User.user_type == "admin").count()
+    armed = bool(os.environ.get("BOOTSTRAP_ADMIN_EMAIL", "").strip())
+
+    if not admins:
+        summary = ("No admin account exists. Researcher approval, the operator "
+                   "inbox and these checks are all unreachable. Register an "
+                   "account, then set BOOTSTRAP_ADMIN_EMAIL to its address.")
+    elif armed:
+        summary = (f"{admins} admin account(s) exist and BOOTSTRAP_ADMIN_EMAIL "
+                   "is still set. Remove it: while it is set, deployment "
+                   "configuration alone grants the admin role.")
+    else:
+        summary = f"{admins} admin account(s) exist; the bootstrap is disarmed."
+
+    return Finding(
+        "admin_bootstrap", bool(admins) and not armed, WARNING, summary,
+        count=admins,
+        # The address itself is a real person's email; the verdict does not
+        # need it and a findings payload is the wrong place to carry one.
+        detail={"admin_count": admins, "bootstrap_armed": armed},
+    )
+
+
 def check_pilot_flags(db: Session) -> Finding:
     """Report which sensitive workflows a deployment has opened.
 
@@ -398,6 +435,7 @@ INVARIANTS: List[Callable[[Session], Finding]] = [
     check_revocations_are_tracked,
     check_no_unapproved_researcher_holds_studies,
     check_export_threshold_not_lowered,
+    check_admin_bootstrap,
     check_pilot_flags,
     check_secrets_configured,
 ]
