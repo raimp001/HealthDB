@@ -55,21 +55,22 @@ const LandingPage = () => (
           transition={{ duration: 0.7 }}
         >
           <p className="text-xs uppercase tracking-[0.24em] text-emerald-300 mb-6">
-            Oncology research infrastructure · closed pilot
+            HealthDB AI · Research data infrastructure
           </p>
           <h1 className="text-5xl md:text-7xl font-medium tracking-tight mb-7 max-w-4xl">
-            Design safer research data workflows before real data enters them.
+            Connect research teams. Turn health data into evidence.
           </h1>
           <p className="text-lg md:text-xl text-white/55 max-w-2xl mb-9 leading-relaxed">
-            HealthDB is a working technical prototype for consent, de-identification, cohort
-            feasibility, and research governance. Pilot evaluations use synthetic data only.
+            Build cohorts, coordinate cross-institution studies, and evaluate governed data access
+            for outcomes and real-world research. The current pilot uses synthetic data; live EHR
+            integrations and commercial dataset releases require institutional validation.
           </p>
           <div className="flex flex-col sm:flex-row flex-wrap gap-3">
             <Link to="/demo" className="px-7 py-3.5 bg-white text-black text-center font-medium hover:bg-gray-100 transition-colors">
               Try the research demo
             </Link>
-            <Link to="/care-guide" className="px-7 py-3.5 border border-white/20 text-center hover:bg-white/5 transition-colors">
-              Explore the care guide
+            <Link to="/developers" className="px-7 py-3.5 border border-white/20 text-center hover:bg-white/5 transition-colors">
+              Explore the research API
             </Link>
           </div>
         </motion.div>

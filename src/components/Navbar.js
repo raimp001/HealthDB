@@ -79,7 +79,7 @@ const Navbar = () => {
             <NavLink to="/institutions">Institutions</NavLink>
             <NavLink to="/demo">Demo</NavLink>
             <NavLink to="/developers">API</NavLink>
-            <NavLink to="/care-guide">Care guide</NavLink>
+            <NavLink to="/collaborations">Collaborate</NavLink>
           </div>
 
           {/* Right Side */}
@@ -157,7 +157,7 @@ const Navbar = () => {
         <div className="px-6 py-8 space-y-6">
           <MobileNavLink to="/researchers">Researchers</MobileNavLink>
           <MobileNavLink to="/patients">Patients</MobileNavLink>
-          <MobileNavLink to="/care-guide">Screening & care guide</MobileNavLink>
+          <MobileNavLink to="/collaborations">Research collaborations</MobileNavLink>
           <MobileNavLink to="/institutions">Institutions</MobileNavLink>
           <MobileNavLink to="/platform">Roadmap</MobileNavLink>
           <MobileNavLink to="/demo">Demo</MobileNavLink>
