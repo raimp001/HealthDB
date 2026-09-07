@@ -2708,9 +2708,9 @@ async def get_study_team(
 @app.post("/api/study/{study_id}/invite")
 async def invite_collaborator(
     study_id: str,
-    email: str,
-    role: str,
-    token_data: Dict = Depends(require_auth),
+    email: EmailStr,
+    role: Literal['co_investigator', 'analyst', 'statistician'],
+    token_data: Dict = Depends(require_role('researcher')),
     db: Session = Depends(get_db)
 ):
     """Invite a collaborator to a study"""
@@ -2722,10 +2722,14 @@ async def invite_collaborator(
     if study.user_id != token_data["sub"]:
         raise HTTPException(status_code=403, detail="Only the PI can invite collaborators")
     
+    email = str(email).strip().lower()
+    inviter = db.query(User).filter(User.id == token_data['sub']).first()
+    if inviter.email.lower() == email:
+        raise HTTPException(status_code=400, detail='The study owner already has access')
     # Check if already invited
     existing = db.query(StudyCollaborator).filter(
         StudyCollaborator.study_id == study_id,
-        StudyCollaborator.email == email
+        func.lower(StudyCollaborator.email) == email
     ).first()
     
     if existing:
@@ -2741,16 +2745,18 @@ async def invite_collaborator(
         permissions = {"data_access": True, "run_queries": True, "export": True, "edit_study": False}
     
     # Check if user exists
-    user = db.query(User).filter(User.email == email).first()
+    user = db.query(User).filter(func.lower(User.email) == email).first()
+    if user and user.user_type not in ('researcher', 'admin'):
+        raise HTTPException(status_code=400, detail='Collaborator must have a research account')
     
     collaborator = StudyCollaborator(
         study_id=study_id,
         user_id=str(user.id) if user else None,
         email=email,
         role=role,
-        status="invited" if not user else "accepted",  # Auto-accept if user exists
+        status="invited",
         permissions=permissions,
-        accepted_at=datetime.utcnow() if user else None,
+        accepted_at=None,
     )
     db.add(collaborator)
     db.commit()
@@ -2759,8 +2765,50 @@ async def invite_collaborator(
         "success": True,
         "collaborator_id": str(collaborator.id),
         "status": collaborator.status,
-        "message": f"Invitation sent to {email}",
+        "message": "Invitation recorded. No email was sent; ask the collaborator to open their HealthDB collaboration inbox.",
     }
+
+
+@app.get('/api/researcher/invitations')
+async def list_research_invitations(
+    token_data: Dict = Depends(require_role('researcher')),
+    db: Session = Depends(get_db),
+):
+    user = db.query(User).filter(User.id == token_data['sub']).first()
+    rows = db.query(StudyCollaborator).filter(
+        func.lower(StudyCollaborator.email) == user.email.lower(),
+        StudyCollaborator.status == 'invited',
+    ).all()
+    result = []
+    for invitation in rows:
+        study = db.query(Study).filter(Study.id == invitation.study_id).first()
+        if study:
+            result.append({'id': str(invitation.id), 'study_name': study.name,
+                           'role': invitation.role, 'status': invitation.status})
+    return result
+
+
+@app.post('/api/researcher/invitations/{invitation_id}/respond')
+async def respond_research_invitation(
+    invitation_id: str,
+    decision: Literal['accept', 'decline'],
+    token_data: Dict = Depends(require_role('researcher')),
+    db: Session = Depends(get_db),
+):
+    user = db.query(User).filter(User.id == token_data['sub']).first()
+    invitation = db.query(StudyCollaborator).filter(
+        StudyCollaborator.id == invitation_id,
+        func.lower(StudyCollaborator.email) == user.email.lower(),
+    ).first()
+    if not invitation:
+        raise HTTPException(status_code=404, detail='Invitation not found')
+    if invitation.status != 'invited':
+        raise HTTPException(status_code=409, detail='Invitation already answered')
+    invitation.user_id = user.id
+    invitation.status = 'accepted' if decision == 'accept' else 'declined'
+    invitation.accepted_at = datetime.utcnow() if decision == 'accept' else None
+    db.commit()
+    return {'status': invitation.status}
 
 
 @app.post("/api/study/{study_id}/comments")
