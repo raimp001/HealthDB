@@ -656,6 +656,31 @@ const ResearcherDashboard = () => {
       {/* Content */}
       <section className="py-12 px-6">
         <div className="max-w-6xl mx-auto">
+          {obligations.length > 0 && (
+            <div className="card-glass p-6 mb-6 border border-amber-400/30" data-testid="release-obligations">
+              <h3 className="text-sm uppercase tracking-wider text-amber-300 mb-2">
+                Withdrawal required ({obligations.length})
+              </h3>
+              <p className="text-white/45 text-sm mb-4">
+                A participant has revoked consent after these extracts were released.
+                This system cannot reach a file you already hold, so the obligation is yours.
+              </p>
+              <div className="space-y-2">
+                {obligations.map((item) => (
+                  <div key={item.id} className="py-3 border-b border-white/5 last:border-b-0">
+                    <p className="text-white/80 text-sm break-all">{item.study_name}</p>
+                    <p className="text-white/35 text-xs mt-1">
+                      Released {item.released_at ? new Date(item.released_at).toLocaleDateString() : 'unknown'}
+                      {' • '}revoked {new Date(item.withdrawal_required_at).toLocaleDateString()}
+                      {' • '}sha256:{(item.content_digest || '').slice(0, 12)}
+                    </p>
+                    <p className="text-amber-300/80 text-xs mt-1">{item.action_required}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <AnimatePresence mode="wait">
             {/* COHORT BUILDER TAB */}
             {activeTab === 'cohort' && (
@@ -1342,31 +1367,6 @@ const ResearcherDashboard = () => {
                         <p className="text-white/40 text-sm">No collaborators yet. Invite researchers from other institutions to work on this study.</p>
                       )}
                     </div>
-
-                    {obligations.length > 0 && (
-                      <div className="card-glass p-6 mb-6 border border-amber-400/30" data-testid="release-obligations">
-                        <h3 className="text-sm uppercase tracking-wider text-amber-300 mb-2">
-                          Withdrawal required ({obligations.length})
-                        </h3>
-                        <p className="text-white/45 text-sm mb-4">
-                          A participant has revoked consent after these extracts were released.
-                          This system cannot reach a file you already hold, so the obligation is yours.
-                        </p>
-                        <div className="space-y-2">
-                          {obligations.map((item) => (
-                            <div key={item.id} className="py-3 border-b border-white/5 last:border-b-0">
-                              <p className="text-white/80 text-sm break-all">{item.study_name}</p>
-                              <p className="text-white/35 text-xs mt-1">
-                                Released {item.released_at ? new Date(item.released_at).toLocaleDateString() : 'unknown'}
-                                {' • '}revoked {new Date(item.withdrawal_required_at).toLocaleDateString()}
-                                {' • '}sha256:{(item.content_digest || '').slice(0, 12)}
-                              </p>
-                              <p className="text-amber-300/80 text-xs mt-1">{item.action_required}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
 
                     {regulatoryStudies.find(s => s.id === selectedStudyId)?.mine && (
                       <div className="card-glass p-6 mb-6">
