@@ -25,6 +25,11 @@ const currentFlow = [
   },
   {
     step: '05',
+    title: 'Disclosure-risk measurement',
+    detail: 'Each extract is measured for k-anonymity and l-diversity per subject. Release is blocked below the configured threshold. The measurement is recorded; it is not a de-identification determination.',
+  },
+  {
+    step: '06',
     title: 'Authorized prototype query',
     detail: 'Role checks, active test consent, access logging, and small-cell suppression constrain cohort feasibility results.',
   },

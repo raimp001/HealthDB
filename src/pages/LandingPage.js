@@ -11,6 +11,7 @@ const statusGroups = [
       'FHIR R4 bundle parsing and identifier checks for supported synthetic fields',
       'Consent records, revocation states, and patient-visible access events',
       'Cohort feasibility with suppression of small aggregate results',
+      'Measured k-anonymity on every extract, with release blocked below the threshold',
     ],
   },
   {
@@ -19,7 +20,8 @@ const statusGroups = [
     items: [
       'Cohort criteria and variable-selection usability',
       'Study, regulatory, and data-request workflow design',
-      'De-identification test coverage and data-quality benchmarks',
+      'Statistician review of the disclosure-risk method and its thresholds',
+      'Data-quality benchmarks',
       'Institutional governance and audit requirements',
     ],
   },

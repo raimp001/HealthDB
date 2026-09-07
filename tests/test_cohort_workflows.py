@@ -94,6 +94,10 @@ def test_export_projection_and_consent_revocation(client, register, monkeypatch)
     import api.main as main
     from api.models import PatientProfile, Consent, ExtractedMedicalData, StudyEnrollment, RegulatorySubmission
     monkeypatch.setattr(main, 'MIN_AGGREGATE_CELL_SIZE', 1)
+    # One synthetic patient can never reach the real k threshold. This test
+    # is about variable projection and consent revocation; the disclosure
+    # gate itself is exercised in tests/test_export_disclosure_gate.py.
+    monkeypatch.setattr(main, 'MIN_EXPORT_K', 1)
     from tests.conftest import approve_researcher
     owner_body = register('export-owner@example.com').json()
     approve_researcher(client, owner_body['user']['id'])

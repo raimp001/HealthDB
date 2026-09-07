@@ -50,6 +50,7 @@ from .repositories import (
     CohortRepository, DataProductRepository, DataAccessLogRepository
 )
 from .deidentification import deidentify_record, find_residual_identifiers
+from .disclosure_risk import assess_records
 from .fhir_ingest import parse_fhir_bundle
 from .cohort_query import CohortCriteria, matching_patient_ids, payload
 from .demo import router as demo_router
@@ -131,6 +132,12 @@ JWT_ALGORITHM = "HS256"
 # hidden to prevent re-identification. Lower via env for demos/small datasets.
 MIN_AGGREGATE_CELL_SIZE = int(os.environ.get("MIN_AGGREGATE_CELL_SIZE", "11"))
 
+# Minimum equivalence-class size an extract must reach before it is released.
+# Removing direct identifiers does not stop a row that is unique on its year,
+# sex and diagnosis from being linked to a person, so every export is measured
+# and blocked below this floor. Defaults to the aggregate suppression floor.
+MIN_EXPORT_K = int(os.environ.get("MIN_EXPORT_K", str(MIN_AGGREGATE_CELL_SIZE)))
+
 
 def env_flag(name: str, default: bool = False) -> bool:
     """Read an opt-in feature flag from the environment.
@@ -174,6 +181,7 @@ SCHEMA_SYNC_STATEMENTS = [
     # migrate_truncate_original_dates() backfills it and then destroys the
     # month/day values; this statement only creates the column.
     "ALTER TABLE extracted_medical_data ADD COLUMN original_year INTEGER",
+    "ALTER TABLE extraction_jobs ADD COLUMN disclosure_risk JSON",
     "ALTER TABLE users ADD COLUMN researcher_approved_at TIMESTAMP",
     "ALTER TABLE users ADD COLUMN researcher_approved_by VARCHAR(36)",
 ]
@@ -869,6 +877,7 @@ def process_extraction_job(db: Session, job: ExtractionJob, study: Study, reques
     rows_by_patient: Dict[str, int] = {}
     export_rows = []
     scrubbed_records = []
+    risk_rows = []
     for record in records:
         patient_id = str(record.patient_id)
         projected = {key: value for key, value in payload(record).items()
@@ -880,14 +889,25 @@ def process_extraction_job(db: Session, job: ExtractionJob, study: Study, reques
         patient_pseudonym = "P-" + hashlib.sha256(f"{study.id}:{patient_id}".encode()).hexdigest()[:12]
         scrubbed = deidentify_record(projected)
         scrubbed_records.append(scrubbed)
+        scrubbed_type = deidentify_record(record.data_type or "")
         export_rows.append([
             patient_pseudonym,
             record.data_category,
-            csv_cell(deidentify_record(record.data_type or "")),
+            csv_cell(scrubbed_type),
             record.original_year if record.original_year is not None else "",
             record.data_quality_score if record.data_quality_score is not None else "",
             json.dumps(scrubbed),
         ])
+        # Measure what the file actually discloses, not what the database
+        # holds: the pseudonym, the year and the scrubbed payload are the only
+        # things a recipient sees, and they are what an adversary would link on.
+        risk_rows.append({
+            "subject_id": patient_pseudonym,
+            "data_category": record.data_category,
+            "data_type": scrubbed_type,
+            "original_year": record.original_year,
+            "payload": scrubbed,
+        })
 
     residual_count = sum(
         len(find_residual_identifiers(scrubbed))
@@ -898,6 +918,27 @@ def process_extraction_job(db: Session, job: ExtractionJob, study: Study, reques
         job.error_message = (
             "De-identification verification failed: "
             f"{residual_count} potential identifier(s) detected; export blocked"
+        )
+        job.result_csv = None
+        job.completed_at = now
+        db.commit()
+        return
+
+    # Direct identifiers are gone; residual re-identification risk is not.
+    # Subjects contribute several rows each, so the linkable unit is the
+    # subject, not the row.
+    risk = assess_records(
+        risk_rows, threshold_k=MIN_EXPORT_K, collapse_by_subject=True
+    )
+    job.disclosure_risk = risk.as_dict()
+    if not risk.meets_threshold:
+        job.status = "failed"
+        job.error_message = (
+            "Disclosure risk above threshold: "
+            f"smallest group contains {risk.min_k} subject(s), "
+            f"minimum {MIN_EXPORT_K} required; "
+            f"{risk.at_risk_records} subject(s) affected. Export blocked. "
+            "Broaden the cohort or drop identifying variables."
         )
         job.result_csv = None
         job.completed_at = now
@@ -2343,6 +2384,8 @@ async def get_study_detail(
             "output_format": job.output_format,
             "estimated_completion": job.estimated_completion.isoformat() if job.estimated_completion else None,
             "download_url": job.download_url,
+            "error_message": job.error_message,
+            "disclosure_risk": job.disclosure_risk,
             "created_at": job.created_at.isoformat(),
         }
         for job in jobs
@@ -2778,6 +2821,8 @@ async def get_extraction_jobs(
             "estimated_completion": job.estimated_completion.isoformat() if job.estimated_completion else None,
             "completed_at": job.completed_at.isoformat() if job.completed_at else None,
             "download_url": job.download_url,
+            "error_message": job.error_message,
+            "disclosure_risk": job.disclosure_risk,
             "created_at": job.created_at.isoformat(),
         }
         for job in jobs

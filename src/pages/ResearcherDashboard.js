@@ -1342,6 +1342,15 @@ const ResearcherDashboard = () => {
                                   <p className="text-white/30 text-xs">
                                     {job.patient_count || 0} test profile{job.patient_count === 1 ? '' : 's'} • {new Date(job.created_at).toLocaleDateString()}
                                   </p>
+                                  {job.disclosure_risk && (
+                                    <p className="text-white/40 text-xs mt-1">
+                                      Re-identification check: smallest group k={job.disclosure_risk.min_k} of {job.disclosure_risk.threshold_k} required
+                                      {job.disclosure_risk.meets_threshold ? ' — met' : ' — not met'}
+                                    </p>
+                                  )}
+                                  {job.status === 'failed' && job.error_message && (
+                                    <p className="text-amber-300/80 text-xs mt-1">{job.error_message}</p>
+                                  )}
                                 </div>
                                 <div className="flex flex-wrap items-center gap-3">
                                   <span className={`px-2 py-0.5 text-xs uppercase ${jobStatusStyle(job.status)}`}>{job.status}</span>

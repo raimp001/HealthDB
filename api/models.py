@@ -494,6 +494,9 @@ class ExtractionJob(Base):
     selected_variables = Column(JSON)
     source_patient_ids = Column(JSON)
     source_record_ids = Column(JSON)
+    # Measured re-identification risk for the rows this job released, kept so a
+    # reviewer can see the numbers behind a pass as well as a block.
+    disclosure_risk = Column(JSON)
     error_message = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
 
