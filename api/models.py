@@ -364,7 +364,10 @@ class ExtractedMedicalData(Base):
     data_category = Column(String(100), nullable=False)  # demographics, diagnosis, treatment, lab_results, imaging, medications
     data_type = Column(String(100))  # Specific type within category
     extracted_date = Column(DateTime, default=datetime.utcnow)
-    original_date = Column(Date)  # Date from the medical record
+    # Year only. HIPAA Safe Harbor requires removing every date element more
+    # precise than the year for dates tied to an individual, so the source
+    # month and day are never persisted. See docs/MIGRATIONS.md.
+    original_year = Column(Integer)
     deidentified_data = Column(JSON)  # De-identified structured data
     data_quality_score = Column(Float)  # 0-100 quality/completeness score
     is_verified = Column(Boolean, default=False)

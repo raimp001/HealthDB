@@ -35,7 +35,7 @@ PBKDF2_ITERATIONS = 600_000
 
 from sqlalchemy.orm import Session
 
-from sqlalchemy import text, func, or_
+from sqlalchemy import text, func, or_, inspect
 from .database import get_db, init_db, engine
 from .models import (
     Base, User, PatientProfile, Consent, ConsentTemplate,
@@ -170,6 +170,10 @@ SCHEMA_SYNC_STATEMENTS = [
     "ALTER TABLE extraction_jobs ADD COLUMN selected_variables JSON",
     "ALTER TABLE extraction_jobs ADD COLUMN source_patient_ids JSON",
     "ALTER TABLE extraction_jobs ADD COLUMN source_record_ids JSON",
+    # Safe Harbor: destination column for the year-only clinical date.
+    # migrate_truncate_original_dates() backfills it and then destroys the
+    # month/day values; this statement only creates the column.
+    "ALTER TABLE extracted_medical_data ADD COLUMN original_year INTEGER",
 ]
 
 # Local development fixtures ONLY. These are deliberately fictional: seeding
@@ -180,6 +184,58 @@ SAMPLE_INSTITUTIONS = [
     {"name": "Sample Academic Medical Center (demo)", "type": "Academic Medical Center", "city": "Springfield", "state": "OR", "country": "USA", "emr_system": "Epic"},
     {"name": "Sample Comprehensive Cancer Center (demo)", "type": "Comprehensive Cancer Center", "city": "Rivertown", "state": "WA", "country": "USA", "emr_system": "Cerner"},
 ]
+
+
+def migrate_truncate_original_dates(engine) -> None:
+    """Remove month and day from previously stored clinical dates.
+
+    extracted_medical_data.original_date stored a full DATE parsed from the
+    uploaded FHIR resource, which contradicted the Safe Harbor claim made
+    elsewhere in the product. This backfills original_year from it, then
+    destroys the month/day values.
+
+    Idempotent and safe on every boot. Ordering matters: the year is copied
+    before anything is destroyed, and the column is dropped only after its
+    values are already NULL, so an interrupted run cannot lose the year while
+    leaving month/day behind.
+    """
+    try:
+        columns = {c["name"] for c in inspect(engine).get_columns("extracted_medical_data")}
+    except Exception:
+        return
+    if "original_date" not in columns:
+        return  # already migrated
+
+    with engine.begin() as conn:
+        # 1. Preserve the year.
+        try:
+            conn.execute(text(
+                "UPDATE extracted_medical_data "
+                "SET original_year = CAST(strftime('%Y', original_date) AS INTEGER) "
+                "WHERE original_year IS NULL AND original_date IS NOT NULL"
+            ))
+        except Exception:
+            # PostgreSQL has no strftime.
+            conn.execute(text(
+                "UPDATE extracted_medical_data "
+                "SET original_year = EXTRACT(YEAR FROM original_date)::int "
+                "WHERE original_year IS NULL AND original_date IS NOT NULL"
+            ))
+
+        # 2. Destroy month/day. This is the step that satisfies the privacy
+        #    requirement; the DROP below is cleanup.
+        conn.execute(text(
+            "UPDATE extracted_medical_data SET original_date = NULL "
+            "WHERE original_date IS NOT NULL"
+        ))
+
+    # 3. Drop the column. Needs SQLite >= 3.35; if it fails the values are
+    #    already NULL, so no month/day survives either way.
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE extracted_medical_data DROP COLUMN original_date"))
+    except Exception as exc:
+        print(f"original_date nulled but not dropped: {exc}")
 
 
 def initialize_database():
@@ -194,6 +250,8 @@ def initialize_database():
                 conn.execute(text(statement))
         except Exception:
             pass
+
+    migrate_truncate_original_dates(engine)
 
     # Clean up any placeholder/mock data products (no real patient data)
     db = next(get_db())
@@ -487,7 +545,7 @@ class ExtractedDataResponse(BaseModel):
     data_category: str
     data_type: Optional[str]
     extracted_date: datetime
-    original_date: Optional[date]
+    original_year: Optional[int]
     data_quality_score: Optional[float]
     summary: Dict[str, Any]  # De-identified summary for patient view
 
@@ -645,7 +703,7 @@ def eligible_export_records(db: Session, study: Study):
     ).all()}
     records = db.query(ExtractedMedicalData).filter(
         ExtractedMedicalData.patient_id.in_(enrolled)
-    ).order_by(ExtractedMedicalData.patient_id, ExtractedMedicalData.original_date, ExtractedMedicalData.created_at).all() if enrolled else []
+    ).order_by(ExtractedMedicalData.patient_id, ExtractedMedicalData.original_year, ExtractedMedicalData.created_at).all() if enrolled else []
     if study.cohort_id:
         cohort = db.query(ResearchCohort).filter(ResearchCohort.id == study.cohort_id).first()
         if not cohort:
@@ -685,7 +743,7 @@ def process_extraction_job(db: Session, job: ExtractionJob, study: Study, reques
             patient_pseudonym,
             record.data_category,
             csv_cell(deidentify_record(record.data_type or "")),
-            record.original_date.year if record.original_date else "",
+            record.original_year if record.original_year is not None else "",
             record.data_quality_score if record.data_quality_score is not None else "",
             json.dumps(scrubbed),
         ])
@@ -1304,22 +1362,19 @@ async def get_medical_connections(
     ]
 
 
-def _parse_fhir_original_date(value: Any) -> Optional[date]:
-    """Convert a FHIR date/dateTime to a Date, padding partial dates safely."""
+def _parse_fhir_year(value: Any) -> Optional[int]:
+    """Extract the year from a FHIR date/dateTime, discarding month and day.
+
+    HIPAA Safe Harbor requires removing every date element more precise than
+    the year for dates tied to an individual. The previous implementation
+    padded partial dates and returned a full ``date``, which persisted the
+    source month and day. Only the year survives this function, and the
+    parse boundary in fhir_ingest already truncates, so both layers agree.
+    """
     if not isinstance(value, str):
         return None
-    match = re.match(
-        r"^((?:19|20)\d{2})(?:-(0[1-9]|1[0-2])"
-        r"(?:-(0[1-9]|[12]\d|3[01])(?:T.*)?)?)?$",
-        value.strip(),
-    )
-    if not match:
-        return None
-    year, month, day = match.groups()
-    try:
-        return date.fromisoformat(f"{year}-{month or '01'}-{day or '01'}")
-    except ValueError:
-        return None
+    match = re.match(r"^((?:19|20)\d{2})(?:-\d{2}(?:-\d{2}(?:T.*)?)?)?$", value.strip())
+    return int(match.group(1)) if match else None
 
 
 @app.post("/api/patient/connections/fhir")
@@ -1393,7 +1448,7 @@ async def connect_fhir_records(
             patient_id=profile.id,
             data_category=record["data_category"],
             data_type=record["data_type"],
-            original_date=_parse_fhir_original_date(record.get("original_date")),
+            original_year=_parse_fhir_year(record.get("original_year")),
             deidentified_data=scrubbed_data,
             data_quality_score=100.0,
             is_verified=True,
@@ -1446,7 +1501,7 @@ async def get_extracted_data(
             data_category=e.data_category,
             data_type=e.data_type,
             extracted_date=e.extracted_date,
-            original_date=e.original_date,
+            original_year=e.original_year,
             data_quality_score=e.data_quality_score,
             summary=e.deidentified_data or {},
         )
