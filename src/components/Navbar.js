@@ -4,6 +4,7 @@ import { clearSession, SESSION_EVENT } from '../lib/api';
 
 // Where each role lands after signing in.
 const DASHBOARD_BY_ROLE = {
+  admin: '/admin',
   patient: '/patient',
   institution: '/institution',
   researcher: '/research',
