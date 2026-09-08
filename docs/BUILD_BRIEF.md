@@ -25,6 +25,9 @@ suspected tumor flare/pseudoprogression. This is not OpenRx or a screening app.
   submissions, owner review, disputes and resubmission without self-approval.
 - `/collaborations`: explicit invitation acceptance.
 - `/research-readiness`: references to externally reviewed governance evidence.
+  Includes study-level consent/authorization process and withdrawal procedure;
+  open evidence withdrawals block that scope even with replacement evidence.
+  Independent admin disposition records external actions; no patient-level intake.
 - Patient portal: consent simulation and contribution visibility; read current code.
 
 ## Minimal working loop
@@ -49,7 +52,7 @@ Vercel production revision and affected routes. Report changes, evidence, and an
 remaining blocker in under 200 words. Do not claim functionality you cannot verify.
 
 ## Next bounded tickets
-1. Study-scoped consent/authorization evidence and withdrawal obligations, designed
-   with privacy/IRB teams; no production e-consent claim from a checkbox.
-2. Reproducible analysis manifests and independent result review, then a governed
+1. Reproducible analysis manifests and independent result review, then a governed
    safety-report preparation workflow. No automatic sponsor/FDA submission.
+2. Institutional validation of consent/authorization workflow and actual enforcement
+   integration. Administrative evidence tracking is not patient e-consent.

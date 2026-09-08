@@ -4525,7 +4525,7 @@ def require_readiness_user(user: User = Depends(current_user)) -> User:
 
 class ResearchEvidenceRequest(BaseModel):
     model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
-    category: Literal['ehr_validation', 'deidentification', 'institution_agreement', 'research_authority', 'data_license', 'security_review']
+    category: Literal['ehr_validation', 'deidentification', 'institution_agreement', 'research_authority', 'data_license', 'security_review', 'consent_authorization', 'withdrawal_procedure']
     reference: str = Field(min_length=3, max_length=120, pattern=r'^[A-Za-z0-9_.:/-]+$')
     sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
     scope: str = Field(min_length=10, max_length=200)
@@ -4533,13 +4533,20 @@ class ResearchEvidenceRequest(BaseModel):
 
 
 @app.get('/api/researcher/studies/{study_id}/readiness')
-def get_research_readiness(study_id: str, user: User = Depends(require_readiness_user), db: Session = Depends(get_db)):
+def get_research_readiness(study_id: str, response: Response, user: User = Depends(require_readiness_user), db: Session = Depends(get_db)):
+    response.headers['Cache-Control'] = 'no-store'
     if user.user_type != 'admin':
         require_study_access(db, study_id, user.id)
     elif not db.query(Study).filter(Study.id == study_id).first():
         raise HTTPException(404, 'Study not found')
-    report = readiness_report(db.query(ResearchEvidence).filter(ResearchEvidence.study_id == study_id).order_by(ResearchEvidence.created_at.desc()).all())
+    rows = db.query(ResearchEvidence).filter(ResearchEvidence.study_id == study_id).order_by(ResearchEvidence.created_at.desc()).all()
+    report = readiness_report(rows)
     study = db.query(Study).filter(Study.id == study_id).first()
+    submitters = {row.id: row.submitted_by for row in rows}
+    for item in report['evidence']:
+        item['can_independently_review'] = user.user_type == 'admin' and submitters[item['id']] != user.id
+        history = item['review_history']
+        item['can_close_withdrawal'] = item['can_independently_review'] and item['status'] == 'withdrawn' and bool(history) and history[-1].get('reviewer_id') != user.id
     return {**report, 'can_review': user.user_type == 'admin', 'can_submit': study.user_id == user.id}
 
 
@@ -4598,6 +4605,8 @@ from .site_feasibility import register_site_feasibility
 register_site_feasibility(app, get_db, require_readiness_user, require_study_access)
 from .work_ledger import register_work_ledger
 register_work_ledger(app, get_db, require_readiness_user, require_study_access)
+from .evidence_withdrawal import register_evidence_withdrawal
+register_evidence_withdrawal(app, get_db, require_readiness_user)
 
 if __name__ == "__main__":
     import uvicorn
