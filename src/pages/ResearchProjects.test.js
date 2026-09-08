@@ -5,6 +5,8 @@ import { MemoryRouter } from 'react-router-dom';
 import ResearchProjects from './ResearchProjects';
 import { apiRequest } from '../lib/api';
 jest.mock('../lib/api', () => ({ apiRequest: jest.fn(), readSessionUser: () => ({ user_type: 'researcher' }) }));
+jest.mock('../components/SiteFeasibility', () => () => null);
+jest.mock('../components/WorkLedger', () => () => null);
 let root, container;
 const report = { id: 's1', name: 'Study one', revision: 1, listed: false, can_edit: true, plan: { question: 'Original question', population: '', exposure: '', outcome: '', analysis: '', impact: '', seeking: '', variables: [], milestones: [] } };
 beforeEach(() => { global.IS_REACT_ACT_ENVIRONMENT = true; container = document.createElement('div'); root = createRoot(container); });

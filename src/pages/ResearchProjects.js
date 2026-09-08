@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { apiRequest, readSessionUser } from '../lib/api';
 import { myelomaPilot } from '../data/myelomaPilot';
+import SiteFeasibility from '../components/SiteFeasibility';
+import WorkLedger from '../components/WorkLedger';
 
 const request = (path, options = {}) => apiRequest(`/api/workspace${path}`, { ...options, headers: { Authorization: `Bearer ${sessionStorage.getItem('token')}`, 'Content-Type': 'application/json' } });
 const input = 'w-full bg-black border border-white/30 rounded-lg p-3 mt-2 text-white';
@@ -109,6 +111,8 @@ export default function ResearchProjects() {
           {report.can_edit && <button className="bg-emerald-300 text-black rounded-lg px-6 py-3 disabled:opacity-40" disabled={!dirty}>Save plan</button>}
         </fieldset>
       </form>
+      <SiteFeasibility key={id} studyId={id} planRevision={report.revision} planDirty={dirty} />
+      <WorkLedger key={'ledger-' + id} studyId={id} />
       <h3 className="text-2xl mt-8 mb-3">Team discussion</h3>
       <form onSubmit={e => { e.preventDefault(); mutate(`/projects/${id}/discussion`, { message: comment }, async () => { setComment(''); setComments(await request(`/projects/${id}/discussion`)); }); }}><label>Suggest a change or share an update<textarea className={input} required minLength={10} maxLength={1000} value={comment} onChange={e => setComment(e.target.value)} /></label><button className={button} disabled={busy}>Post update</button></form>
       {!comments.length && <p className="my-4 text-white/60">No updates yet.</p>}{comments.map(c => <div key={c.id} className="border-b border-white/20 py-4"><strong>{c.name}</strong><p className="whitespace-pre-wrap break-words">{c.message}</p></div>)}

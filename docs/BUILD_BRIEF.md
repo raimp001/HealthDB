@@ -20,7 +20,9 @@ suspected tumor flare/pseudoprogression. This is not OpenRx or a screening app.
 ## Current surfaces
 - `/admin`: requests, identity/affiliation confirmation, approval and checks.
 - `/projects`: private plans, dictionary, milestones, discussion, opt-in discovery;
-  new empty plans can load a proposed myeloma scaffold.
+  new empty plans can load a proposed myeloma scaffold. Site declarations map
+  saved variables to expected sources and flag stale plans. Work ledger records
+  submissions, owner review, disputes and resubmission without self-approval.
 - `/collaborations`: explicit invitation acceptance.
 - `/research-readiness`: references to externally reviewed governance evidence.
 - Patient portal: consent simulation and contribution visibility; read current code.
@@ -47,11 +49,7 @@ Vercel production revision and affected routes. Report changes, evidence, and an
 remaining blocker in under 200 words. Do not claim functionality you cannot verify.
 
 ## Next bounded tickets
-1. Site feasibility declarations: variable availability and source/mapping metadata,
-   no patient counts or records initially; owner permissions and audit trail.
-2. Contribution ledger: accepted tasks, reviewer, compensation policy reference,
-   dispute state; no cash promise or transfer until funded and approved.
-3. Study-scoped consent/authorization evidence and withdrawal obligations, designed
+1. Study-scoped consent/authorization evidence and withdrawal obligations, designed
    with privacy/IRB teams; no production e-consent claim from a checkbox.
-4. Reproducible analysis manifests and independent result review, then a governed
+2. Reproducible analysis manifests and independent result review, then a governed
    safety-report preparation workflow. No automatic sponsor/FDA submission.
