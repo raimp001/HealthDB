@@ -56,3 +56,21 @@ this is application-level append-only history, not tamper-proof storage against
 database administrators. Policy references are unvalidated references, not payment
 authorization or authorship assignments. No patient values or sensitive links
 belong in these forms. The pilot UI is bounded to 200 work entries per project.
+# Authorization evidence and withdrawal follow-up
+
+Institutional readiness now also requires references to the reviewed study-level
+consent/authorization process and withdrawal procedure. Individual signatures,
+patient-level references and linkage remain outside this pilot.
+
+An owner or administrator can withdraw submitted, verified or revoked evidence,
+providing an administrative reference and reason. Its scope remains blocked even
+if replacement evidence is verified. An administrator other than the submitter
+and withdrawal initiator must record external future-use, recipient-notification
+and retained-data outcomes before closing the follow-up. Closed evidence stays
+withdrawn; only separately verified replacement evidence can satisfy readiness.
+
+The history and access log retain withdrawal and disposition events. This is
+administrative tracking, not enforcement on external systems, patient e-consent,
+legal advice, automatic deletion or a compliance certification. Live intake and
+commercial release remain disabled. Institutional privacy/IRB review must define
+the applicable retention and withdrawal obligations before real use.

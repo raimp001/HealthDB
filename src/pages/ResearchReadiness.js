@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { apiRequest } from '../lib/api';
 import { useSearchParams } from 'react-router-dom';
+import EvidenceWithdrawal from '../components/EvidenceWithdrawal';
 
 const request = (path, options = {}) => apiRequest(path, { ...options,
   headers: { Authorization: `Bearer ${sessionStorage.getItem('token')}`, 'Content-Type': 'application/json' },
@@ -52,10 +53,12 @@ export default function ResearchReadiness() {
       <p className="border border-amber-300 p-4 mb-6">{report.notice}</p>
       <h2 className="text-2xl mb-4">{report.evidence_complete ? 'Evidence references complete — launch still blocked' : 'Evidence still needed'}</h2>
       <ul className="space-y-3 mb-8">{report.requirements.map(r => <li key={r.category}>{r.evidence_current ? '✓ Current reviewed evidence' : '○ Missing or expired'} — {r.title}</li>)}</ul>
-      <p className="mb-6">All six references must cover the same scope. Current complete scopes: {report.complete_scopes.join('; ') || 'None'}.</p>
+      <p className="mb-6">All {report.requirements.length} requirement references must cover the same scope. Current complete scopes: {report.complete_scopes.join('; ') || 'None'}.</p>
+      {!!report.open_withdrawals && <p className="border border-amber-300 p-4 mb-6">{report.open_withdrawals} open withdrawal follow-up(s). Blocked scopes: {(report.blocked_scopes || []).join('; ')}. Replacement evidence cannot clear an unresolved withdrawal.</p>}
       {report.can_submit && <>
       <h2 className="text-2xl mb-4">Submit an evidence reference</h2>
       <p className="text-white/60 mb-4">Study owners only. An independent platform administrator must inspect the source document outside this app before verifying its reference. This is not an electronic signature.</p>
+      <p className="text-white/60 mb-4">Consent and authorization references cover the study’s reviewed process and document version, not individual participants. Store signed consent and patient linkage only in the institution’s approved system.</p>
       <form onSubmit={submit} className="grid gap-4">
         <label>Requirement<select value={category} onChange={e => setCategory(e.target.value)} className="block bg-black border p-3 w-full">{report.requirements.map(r => <option key={r.category} value={r.category}>{r.title}</option>)}</select></label>
         <label>Document reference ID<input required pattern="[A-Za-z0-9_.:/-]+" maxLength={120} value={reference} onChange={e => setReference(e.target.value)} className="block bg-black border p-3 w-full" /></label>
@@ -70,11 +73,12 @@ export default function ResearchReadiness() {
       {report.evidence.map(item => <section key={item.id} className="border border-white/20 p-4 mb-3 break-words">
         <h3>{item.category} · {item.status}</h3><p>{item.reference} — {item.scope}</p>
         <p>Expires: {new Date(item.expires_at).toLocaleString()}</p><p className="text-sm text-white/60">SHA-256: {item.sha256}</p>
-        {item.review_history.map((event, index) => <p key={index} className="text-sm">{event.decision} · {new Date(event.at).toLocaleString()} · reviewer {event.reviewer_id}</p>)}
-        {report.can_review && <div className="flex gap-4 mt-4">
+        {item.review_history.map((event, index) => <div key={index} className="text-sm border-l pl-3 mt-2"><p>{event.decision} · {new Date(event.at).toLocaleString()} · reviewer {event.reviewer_id}</p>{event.reference && <p>Reference: {event.reference}</p>}{event.reason && <p>{event.reason}</p>}{event.future_use && <p>Future use: {event.future_use} · Recipients: {event.recipients} · Held data: {event.retained_data}</p>}</div>)}
+        {report.can_review && item.can_independently_review !== false && <div className="flex gap-4 mt-4">
           {item.status === 'submitted' && <><button disabled={busy} onClick={() => review(item.id, 'verified')} className="border p-2">Verify reviewed evidence</button><button disabled={busy} onClick={() => review(item.id, 'rejected')} className="border p-2">Reject</button></>}
           {item.status === 'verified' && <button disabled={busy} onClick={() => review(item.id, 'revoked')} className="border p-2">Revoke verification</button>}
         </div>}
+        <EvidenceWithdrawal item={item} canWithdraw={report.can_submit || report.can_review} disabled={busy} onSaved={load} />
       </section>)}
     </>}
   </article>;
