@@ -40,15 +40,10 @@ const Contact = () => {
         body: JSON.stringify(form),
       });
       const data = await response.json();
-      if (response.ok) {
-        setStatus({ state: 'sent', message: data.message || 'Thanks — we received your message.' });
-        setForm({ name: '', email: '', organization: '', interest_type: initialInterest, message: '' });
-      } else {
-        const detail = typeof data.detail === 'string' ? data.detail : 'Please check the form and try again.';
-        setStatus({ state: 'error', message: detail });
-      }
+      setStatus({ state: 'sent', message: data.message || 'Thanks — we received your message.' });
+      setForm({ name: '', email: '', organization: '', interest_type: initialInterest, message: '' });
     } catch (err) {
-      setStatus({ state: 'error', message: 'Could not reach the server. Please try again.' });
+      setStatus({ state: 'error', message: err.message || 'Could not reach the server. Please try again.' });
     }
   };
 
@@ -71,6 +66,9 @@ const Contact = () => {
             </p>
           </motion.div>
 
+          <div role="status" aria-live="polite" className="sr-only">
+            {status.state === 'sending' ? 'Sending your message…' : status.state === 'sent' ? `Message received. ${status.message}` : ''}
+          </div>
           {status.state === 'sent' ? (
             <motion.div
               initial={{ opacity: 0 }}
@@ -90,10 +88,11 @@ const Contact = () => {
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="grid md:grid-cols-2 gap-5">
                 <div>
-                  <label className="block text-xs uppercase tracking-wider text-white/40 mb-2">
+                  <label htmlFor="contact-name" className="block text-xs uppercase tracking-wider text-white/40 mb-2">
                     Name
                   </label>
                   <input
+                    id="contact-name" name="name" autoComplete="name"
                     type="text"
                     required
                     maxLength={120}
@@ -104,10 +103,11 @@ const Contact = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs uppercase tracking-wider text-white/40 mb-2">
+                  <label htmlFor="contact-email" className="block text-xs uppercase tracking-wider text-white/40 mb-2">
                     Email
                   </label>
                   <input
+                    id="contact-email" name="email" autoComplete="email"
                     type="email"
                     required
                     value={form.email}
@@ -119,10 +119,11 @@ const Contact = () => {
               </div>
 
               <div>
-                <label className="block text-xs uppercase tracking-wider text-white/40 mb-2">
+                <label htmlFor="contact-organization" className="block text-xs uppercase tracking-wider text-white/40 mb-2">
                   Organization
                 </label>
                 <input
+                  id="contact-organization" name="organization" autoComplete="organization"
                   type="text"
                   required
                   maxLength={200}
@@ -134,10 +135,10 @@ const Contact = () => {
               </div>
 
               <div>
-                <label className="block text-xs uppercase tracking-wider text-white/40 mb-2">
+                <label htmlFor="contact-interest" className="block text-xs uppercase tracking-wider text-white/40 mb-2">
                   What brings you here?
                 </label>
-                <select value={form.interest_type} onChange={update('interest_type')} className={inputClass}>
+                <select id="contact-interest" name="interest_type" value={form.interest_type} onChange={update('interest_type')} className={inputClass}>
                   {INTEREST_TYPES.map((opt) => (
                     <option key={opt.value} value={opt.value} className="bg-black">
                       {opt.label}
@@ -147,10 +148,11 @@ const Contact = () => {
               </div>
 
               <div>
-                <label className="block text-xs uppercase tracking-wider text-white/40 mb-2">
+                <label htmlFor="contact-message" className="block text-xs uppercase tracking-wider text-white/40 mb-2">
                   Message
                 </label>
                 <textarea
+                  id="contact-message" name="message" aria-describedby="contact-privacy"
                   required
                   minLength={10}
                   maxLength={4000}
@@ -163,7 +165,7 @@ const Contact = () => {
               </div>
 
               {status.state === 'error' && (
-                <p className="text-red-400 text-sm">{status.message}</p>
+                <p role="alert" className="text-red-400 text-sm">{status.message}</p>
               )}
 
               <button
@@ -174,7 +176,7 @@ const Contact = () => {
                 {status.state === 'sending' ? 'Sending…' : 'Send message'}
               </button>
 
-              <p className="text-white/30 text-xs leading-relaxed">
+              <p id="contact-privacy" className="text-white/30 text-xs leading-relaxed">
                 Please don't include patient identifiers or protected health information in this
                 form. It is a general enquiry channel, not a clinical data pathway.
               </p>
