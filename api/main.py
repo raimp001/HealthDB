@@ -340,6 +340,58 @@ def promote_bootstrap_admin(session_factory=None) -> bool:
         return False
 
 
+def releasability_preview(records, matching) -> tuple:
+    """Would an extract from this cohort clear the disclosure gate?
+
+    Answered while the researcher is still designing, because the alternative
+    is what the pipeline used to do to them: design a cohort, build a study
+    around it, obtain IRB approval, negotiate and sign a data-use agreement,
+    request the extract — and only then be told it cannot be released because
+    two participants are unique on their combination of year and diagnosis.
+    Months, to learn something knowable on day one.
+
+    Returns (releasable, note). The note names the lever to pull; it never
+    names a patient or a group.
+
+    **No numbers.** Not k, not class sizes, not how many subjects are at
+    risk. A researcher can already obtain those from a real extract attempt,
+    but that path is gated behind IRB approval and a signed DUA, and this one
+    is not. Reporting the verdict removes a pointless delay; reporting the
+    measurements would widen who can count small groups, which is the exact
+    thing the gate exists to stop.
+    """
+    if not matching:
+        return None, None
+
+    rows = []
+    for record in records:
+        patient_id = str(record.patient_id)
+        if patient_id not in matching:
+            continue
+        rows.append({
+            "subject_id": patient_id,
+            "data_category": record.data_category,
+            "original_year": record.original_year,
+            "payload": payload(record),
+        })
+    if not rows:
+        return None, None
+
+    risk = assess_records(rows, threshold_k=MIN_EXPORT_K, collapse_by_subject=True)
+    if risk.meets_threshold:
+        return True, (
+            "An extract from this cohort would pass the re-identification "
+            "check. That is not an approval — an extract still needs an "
+            "unexpired IRB approval and a signed DUA."
+        )
+    return False, (
+        "An extract from this cohort would be blocked: some participants are "
+        "unique, or nearly unique, on their combination of recorded values. "
+        "Broadening the criteria or removing a variable usually resolves it. "
+        "Worth settling before you build a study around this cohort."
+    )
+
+
 def servable_institutions(db):
     """Institutions this deployment is allowed to present as real.
 
@@ -639,6 +691,11 @@ class CohortResult(BaseModel):
     # can tell "too few patients" from "too close to your last query" and act
     # on it instead of guessing.
     suppression_reason: Optional[str] = None
+    # Whether an extract drawn from this cohort could be released, answered
+    # now rather than after an IRB approval and a signed DUA. Deliberately a
+    # verdict and guidance, never a number — see releasability_preview().
+    releasable: Optional[bool] = None
+    releasability_note: Optional[str] = None
 
 class SaveCohortRequest(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
@@ -2486,6 +2543,8 @@ async def build_cohort(
     # let the caller label it as such rather than as contributors.
     institution_names = [inst.name for inst in servable_institutions(db).all()]
 
+    releasable, releasability_note = releasability_preview(records, matching)
+
     return CohortResult(
         patient_count=patient_count,
         data_points=len(matched_records),
@@ -2496,6 +2555,8 @@ async def build_cohort(
         data_completeness=round(completeness, 3),
         min_cell_size=MIN_AGGREGATE_CELL_SIZE,
         suppressed=False,
+        releasable=releasable,
+        releasability_note=releasability_note,
     )
 
 

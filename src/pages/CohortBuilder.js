@@ -578,6 +578,26 @@ const CohortBuilder = () => {
                       <div className="text-white/40 text-sm">matching test profiles</div>
                     </div>
 
+                    {/* Whether an extract could actually be released. Shown
+                        here because the alternative is finding out after an
+                        IRB approval and a signed DUA. */}
+                    {cohortResult?.releasable === false && (
+                      <div
+                        className="mb-4 p-4 border border-amber-400/30 bg-amber-400/5"
+                        role="status"
+                        data-testid="releasability-warning"
+                      >
+                        <p className="text-amber-300 text-xs uppercase tracking-wider mb-2">Extract would be blocked</p>
+                        <p className="text-white/60 text-sm leading-relaxed">{cohortResult.releasability_note}</p>
+                      </div>
+                    )}
+                    {cohortResult?.releasable === true && (
+                      <div className="mb-4 p-4 border border-emerald-400/20" role="status" data-testid="releasability-ok">
+                        <p className="text-emerald-300 text-xs uppercase tracking-wider mb-2">Re-identification check would pass</p>
+                        <p className="text-white/50 text-sm leading-relaxed">{cohortResult.releasability_note}</p>
+                      </div>
+                    )}
+
                     {/* A zero with no explanation reads as "no such patients".
                         It usually means the opposite: too few to reveal, or
                         too close to what this researcher was already told. */}
