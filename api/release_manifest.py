@@ -25,9 +25,20 @@ import hashlib
 import json
 from typing import Any, Mapping, Sequence
 
-# Bumped when the manifest field set changes, so an old manifest is never
-# silently re-hashed under new rules and reported as tampered.
-MANIFEST_SCHEMA_VERSION = 1
+# Bumped when the manifest field set changes.
+MANIFEST_SCHEMA_VERSION = 2
+
+# Every version this code can still verify. A manifest is a record of what was
+# supplied at the time it was written, and that record does not stop being
+# true when the format moves on. Verification therefore checks the digest
+# against the manifest's own content and only requires that its version is one
+# we recognise — an older manifest still hashes correctly, because the digest
+# was computed over its own fields.
+#
+# Refusing anything but the current version, which is what this did before,
+# would have made every manifest written before today report as tampered the
+# moment a field was added.
+KNOWN_SCHEMA_VERSIONS = frozenset({1, 2})
 
 
 def canonical_json(payload: Mapping[str, Any]) -> str:
@@ -60,6 +71,7 @@ def build_manifest(
     disclosure_risk: Mapping[str, Any] | None,
     approvals: Sequence[Mapping[str, Any]],
     deidentification_level: str,
+    provenance: Mapping[str, Any] | None = None,
 ) -> dict:
     """The hashed content of a release.
 
@@ -81,6 +93,9 @@ def build_manifest(
         "content_digest": content_digest,
         "cohort_criteria": cohort_criteria,
         "disclosure_risk": disclosure_risk,
+        # What the data is made of, by source class. Counts only — a manifest
+        # must not become a per-record trace back to origins.
+        "provenance": provenance,
         "approvals": sorted(
             [dict(a) for a in approvals],
             key=lambda a: (str(a.get("document_type")), str(a.get("id"))),
@@ -96,9 +111,12 @@ def verify_manifest(manifest: Mapping[str, Any], expected_digest: str) -> bool:
     """True when the manifest still hashes to the digest recorded at release.
 
     A false result means the stored manifest has been altered since release,
-    or was written under a different schema version. Either way it can no
-    longer be cited as evidence of what was supplied.
+    or was written under a schema this code no longer recognises. Either way
+    it can no longer be cited as evidence of what was supplied.
+
+    An older but recognised schema still verifies. Its digest was computed
+    over its own fields, so it is still a true record of its own release.
     """
-    if manifest.get("schema_version") != MANIFEST_SCHEMA_VERSION:
+    if manifest.get("schema_version") not in KNOWN_SCHEMA_VERSIONS:
         return False
     return manifest_digest(manifest) == expected_digest

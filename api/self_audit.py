@@ -25,7 +25,7 @@ import os
 from dataclasses import dataclass, field
 from typing import Any, Callable, List
 
-from sqlalchemy import text
+from sqlalchemy import JSON, or_, text
 from sqlalchemy.orm import Session
 
 # Severity drives what an operator does, not how alarming it sounds.
@@ -348,6 +348,39 @@ def check_export_threshold_not_lowered(db: Session) -> Finding:
     )
 
 
+def check_records_carry_provenance(db: Session) -> Finding:
+    """Records should record where they came from.
+
+    A warning, not a blocker, and the distinction is the point. Records
+    ingested before provenance existed have none and never will; failing the
+    audit over history would train people to ignore a red audit. What this
+    catches is the live regression — a new ingest path added later that
+    forgets to record an origin, leaving data nobody can appraise.
+    """
+    from .models import ExtractedMedicalData
+
+    total = db.query(ExtractedMedicalData).count()
+    if not total:
+        return Finding("records_carry_provenance", True, WARNING,
+                       "No records stored; nothing to trace.")
+    # Both spellings of absent. SQLAlchemy's JSON type stores Python None as
+    # JSON null rather than SQL NULL, so an `IS NULL` filter alone matches
+    # nothing and this check could never have fired.
+    missing = db.query(ExtractedMedicalData).filter(
+        or_(ExtractedMedicalData.provenance.is_(None),
+            ExtractedMedicalData.provenance == JSON.NULL)
+    ).count()
+    return Finding(
+        "records_carry_provenance", missing == 0, WARNING,
+        f"All {total} record(s) record where they came from."
+        if missing == 0 else
+        f"{missing} of {total} record(s) have no recorded origin. Older rows "
+        "predate provenance tracking; a rising count means an ingest path is "
+        "not recording it.",
+        count=missing,
+    )
+
+
 def check_admin_bootstrap(db: Session) -> Finding:
     """Report whether an admin exists, and whether the bootstrap is still armed.
 
@@ -435,6 +468,7 @@ INVARIANTS: List[Callable[[Session], Finding]] = [
     check_revocations_are_tracked,
     check_no_unapproved_researcher_holds_studies,
     check_export_threshold_not_lowered,
+    check_records_carry_provenance,
     check_admin_bootstrap,
     check_pilot_flags,
     check_secrets_configured,

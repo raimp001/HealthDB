@@ -51,6 +51,7 @@ from .repositories import (
 )
 from .deidentification import deidentify_record, find_residual_identifiers
 from .disclosure_risk import assess_records
+from . import provenance as provenance_module
 from .release_manifest import build_manifest, digest, manifest_digest, verify_manifest
 from .fhir_ingest import parse_fhir_bundle
 from .cohort_query import CohortCriteria, matching_patient_ids, payload
@@ -184,6 +185,7 @@ SCHEMA_SYNC_STATEMENTS = [
     # month/day values; this statement only creates the column.
     "ALTER TABLE extracted_medical_data ADD COLUMN original_year INTEGER",
     "ALTER TABLE extraction_jobs ADD COLUMN disclosure_risk JSON",
+    "ALTER TABLE extracted_medical_data ADD COLUMN provenance JSON",
     "ALTER TABLE users ADD COLUMN researcher_approved_at TIMESTAMP",
     "ALTER TABLE users ADD COLUMN researcher_approved_by VARCHAR(36)",
 ]
@@ -875,6 +877,9 @@ class ExtractedDataResponse(BaseModel):
     original_year: Optional[int]
     data_quality_score: Optional[float]
     summary: Dict[str, Any]  # De-identified summary for patient view
+    # Where this record came from, in one plain sentence. Control over data
+    # you cannot trace is not really control.
+    origin: Optional[str] = None
 
 class PatientDataSummary(BaseModel):
     total_records: int
@@ -1176,6 +1181,7 @@ def process_extraction_job(db: Session, job: ExtractionJob, study: Study, reques
     export_rows = []
     scrubbed_records = []
     risk_rows = []
+    exported_provenance = []
     for record in records:
         patient_id = str(record.patient_id)
         projected = {key: value for key, value in payload(record).items()
@@ -1196,6 +1202,7 @@ def process_extraction_job(db: Session, job: ExtractionJob, study: Study, reques
             record.data_quality_score if record.data_quality_score is not None else "",
             json.dumps(scrubbed),
         ])
+        exported_provenance.append(record.provenance)
         # Measure what the file actually discloses, not what the database
         # holds: the pseudonym, the year and the scrubbed payload are the only
         # things a recipient sees, and they are what an adversary would link on.
@@ -1277,6 +1284,7 @@ def process_extraction_job(db: Session, job: ExtractionJob, study: Study, reques
         content_digest=digest(csv_content),
         cohort_criteria=cohort_criteria,
         disclosure_risk=job.disclosure_risk,
+        provenance=provenance_module.summarize(exported_provenance),
         approvals=[
             {"id": str(a.id), "document_type": a.document_type,
              "status": a.status,
@@ -2186,6 +2194,7 @@ async def connect_fhir_records(
             data_quality_score=100.0,
             is_verified=True,
             verification_date=datetime.utcnow(),
+            provenance=record.get("provenance"),
         ))
 
     records_imported = len(prepared_records)
@@ -2237,6 +2246,7 @@ async def get_extracted_data(
             original_year=e.original_year,
             data_quality_score=e.data_quality_score,
             summary=e.deidentified_data or {},
+            origin=provenance_module.describe_for_patient(e.provenance),
         )
         for e in extracted
     ]

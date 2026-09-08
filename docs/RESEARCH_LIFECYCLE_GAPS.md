@@ -41,7 +41,7 @@ with a beautiful workflow around an empty centre.
 | Live EHR connection (SMART on FHIR, Bulk FHIR) | **Missing** | Blocked on de-identification review, not on code |
 | HL7v2, claims, lab feeds | **Missing** | |
 | Terminology normalization (ICD-10) | Partial | `api/terminology.py` codes diagnoses on ingest and matches cohorts on the code, so three spellings of one disease form one cohort. Starter map, not coder-reviewed. SNOMED, LOINC and RxNorm are not covered |
-| Provenance: which system, which extraction, when | **Missing** | A record's origin is not stored |
+| Provenance: which system, which extraction, when | Built | `api/provenance.py` records source class, resource type, parser version and arrival on every ingested record, plus a salted digest for integrity. Carries no source identifier — that would be a linkage key back to the patient. Institution-level provenance still requires real site onboarding |
 | Ingest validation and rejection reporting | **Missing** | Bad data is stored, not quarantined |
 
 ## Stage 3 — A researcher asks a question
@@ -182,7 +182,8 @@ Items 2, 3 and 5 of the original list are now built. What is left:
    deliberately left out and why, so a reviewer can start there.
 3. **Institutional onboarding.** A real, audited path for one institution,
    with executed agreements rather than a status string.
-4. **Provenance on ingest.** Which system a record came from, and when. The
-   release manifest can say what was supplied but not where it originated.
-5. **Alerting.** A failing GitHub Action is not a page. The monitor and the
+4. **Alerting.** A failing GitHub Action is not a page. The monitor and the
    self-audit both produce a clear signal; nothing carries it to a person.
+5. **Query budgeting across accounts.** The differencing defence is per
+   researcher. Two colleagues, or one person with two accounts, are not
+   stopped by it.

@@ -7,6 +7,7 @@ identifiers and raw birth dates are never included in the returned data payloads
 from datetime import date, datetime
 import re
 
+from .provenance import build as build_provenance
 from .terminology import annotate
 
 
@@ -180,7 +181,8 @@ def _year_only(value):
     return int(match.group(1)) if match else None
 
 
-def _record(data_category, data_type, source_date, data):
+def _record(data_category, data_type, source_date, data, raw=None,
+            resource_type=None):
     if data_category == "diagnosis":
         # Annotate with a coded concept so cohorts can match across sites that
         # word the same disease differently. Additive: the source wording is
@@ -192,6 +194,13 @@ def _record(data_category, data_type, source_date, data):
         # Year only; the source month and day are discarded, never returned.
         "original_year": _year_only(source_date),
         "data": data,
+        # Built here because this is the last point at which the raw resource
+        # exists. It carries no source identifier — see api/provenance.py.
+        "provenance": build_provenance(
+            source_system="synthetic_fhir_bundle",
+            resource_type=resource_type or data_type,
+            raw=raw,
+        ),
     }
 
 
@@ -240,23 +249,23 @@ def parse_fhir_bundle(bundle: dict, ref_date=None) -> list[dict]:
                     if resource.get("deceasedBoolean")
                     else None,
                 }
-                records.append(_record("demographics", "patient", None, data))
+                records.append(_record("demographics", "patient", None, data, raw=resource, resource_type=resource_type))
 
                 # Vital status as a de-identified outcome (death year only, never
                 # a full death date). Emitted only when the bundle states it.
                 deceased_datetime = resource.get("deceasedDateTime")
                 if isinstance(deceased_datetime, str) and deceased_datetime.strip():
-                    records.append(_record("outcome", "vital_status", deceased_datetime, {
+                    records.append(_record("outcome", "vital_status", deceased_datetime, raw=resource, resource_type=resource_type, data={
                         "vital_status": "Deceased",
                         "death_year": _year(deceased_datetime),
                     }))
                 elif resource.get("deceasedBoolean") is True:
-                    records.append(_record("outcome", "vital_status", None, {
+                    records.append(_record("outcome", "vital_status", None, raw=resource, resource_type=resource_type, data={
                         "vital_status": "Deceased",
                         "death_year": None,
                     }))
                 elif resource.get("deceasedBoolean") is False:
-                    records.append(_record("outcome", "vital_status", None, {
+                    records.append(_record("outcome", "vital_status", None, raw=resource, resource_type=resource_type, data={
                         "vital_status": "Alive",
                         "death_year": None,
                     }))
@@ -277,7 +286,7 @@ def parse_fhir_bundle(bundle: dict, ref_date=None) -> list[dict]:
                     "clinical_status": _coding_text(resource.get("clinicalStatus")),
                     "diagnosis_year": _year(onset),
                 }
-                records.append(_record("diagnosis", "condition", onset, data))
+                records.append(_record("diagnosis", "condition", onset, data, raw=resource, resource_type=resource_type))
 
             elif resource_type == "Observation":
                 code_concept = resource.get("code")
@@ -300,7 +309,7 @@ def parse_fhir_bundle(bundle: dict, ref_date=None) -> list[dict]:
                     "interpretation": _first_interpretation(resource),
                     "year": _year(effective),
                 }
-                records.append(_record("lab_results", data_type, effective, data))
+                records.append(_record("lab_results", data_type, effective, data, raw=resource, resource_type=resource_type))
 
             elif resource_type in ("MedicationRequest", "MedicationStatement"):
                 medication = resource.get("medicationCodeableConcept")
@@ -318,7 +327,7 @@ def parse_fhir_bundle(bundle: dict, ref_date=None) -> list[dict]:
                     "status": resource.get("status"),
                     "start_year": _year(start),
                 }
-                records.append(_record("treatment", "medication", start, data))
+                records.append(_record("treatment", "medication", start, data, raw=resource, resource_type=resource_type))
 
             elif resource_type == "Procedure":
                 code_concept = resource.get("code")
@@ -335,7 +344,7 @@ def parse_fhir_bundle(bundle: dict, ref_date=None) -> list[dict]:
                     "status": resource.get("status"),
                     "year": _year(performed),
                 }
-                records.append(_record("treatment", "procedure", performed, data))
+                records.append(_record("treatment", "procedure", performed, data, raw=resource, resource_type=resource_type))
         except Exception:
             continue
 

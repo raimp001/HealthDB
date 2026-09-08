@@ -378,6 +378,10 @@ class ExtractedMedicalData(Base):
     data_quality_score = Column(Float)  # 0-100 quality/completeness score
     is_verified = Column(Boolean, default=False)
     verification_date = Column(DateTime)
+    # Where this came from and what interpreted it. Carries no source record
+    # identifier — that would be a linkage key back to the patient. See
+    # api/provenance.py.
+    provenance = Column(JSON)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
