@@ -457,6 +457,37 @@ class ResearchPlan(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class SiteFeasibility(Base):
+    """Reporter-owned planning declarations, not validated site data access."""
+    __tablename__ = 'site_feasibility'
+    study_id = Column(String(36), ForeignKey('studies.id'), primary_key=True)
+    user_id = Column(String(36), ForeignKey('users.id'), primary_key=True)
+    revision = Column(Integer, nullable=False)
+    plan_revision = Column(Integer, nullable=False)
+    content = Column(JSON, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class WorkContribution(Base):
+    __tablename__ = 'work_contributions'
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    study_id = Column(String(36), ForeignKey('studies.id'), nullable=False, index=True)
+    user_id = Column(String(36), ForeignKey('users.id'), nullable=False)
+    revision = Column(Integer, nullable=False, default=1)
+    status = Column(String(30), nullable=False, default='submitted')
+    content = Column(JSON, nullable=False)
+
+
+class WorkContributionEvent(Base):
+    __tablename__ = 'work_contribution_events'
+    contribution_id = Column(String(36), ForeignKey('work_contributions.id'), primary_key=True)
+    revision = Column(Integer, primary_key=True)
+    actor_id = Column(String(36), ForeignKey('users.id'), nullable=False)
+    action = Column(String(30), nullable=False)
+    content = Column(JSON, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class ResearchInterest(Base):
     __tablename__ = 'research_interests'
     id = Column(String(36), primary_key=True, default=generate_uuid)

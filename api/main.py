@@ -4594,6 +4594,10 @@ def review_research_evidence(evidence_id: str, request: EvidenceReviewRequest, t
 # Run with: uvicorn api.main:app --reload
 from .research_workspace import register_workspace
 register_workspace(app, get_db, require_readiness_user, require_study_access)
+from .site_feasibility import register_site_feasibility
+register_site_feasibility(app, get_db, require_readiness_user, require_study_access)
+from .work_ledger import register_work_ledger
+register_work_ledger(app, get_db, require_readiness_user, require_study_access)
 
 if __name__ == "__main__":
     import uvicorn

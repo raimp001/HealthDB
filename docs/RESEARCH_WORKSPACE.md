@@ -38,3 +38,21 @@ plans. Listings are not claims that datasets or validated results are available.
 Automated coverage includes private-plan authorization, opt-in listing, duplicate
 requests, invitation acceptance, collaborator read-only access and discussion,
 schema validation, stale-save conflicts, and UI preservation of unsaved edits.
+# Site feasibility and work credit
+
+Accepted team members can save one self-reported site declaration per project.
+Every saved variable needs an availability status. Available/derivable fields
+need a source; derivable fields need a transformation description. A changed plan
+marks declarations stale and requires reconciliation. These are planning
+declarations, not validated institutional commitments or patient data access.
+
+The contribution ledger accepts work descriptions, reported minutes and evidence
+references. The project owner can accept another member's work or request changes;
+contributors can dispute a decision or resubmit with an explanation. Self-approval
+is forbidden. Owner-submitted work remains unreviewed until a future independent
+reviewer workflow exists. Every transition creates a new timestamped event in the
+same transaction. The API provides no edit/delete operation for those events;
+this is application-level append-only history, not tamper-proof storage against
+database administrators. Policy references are unvalidated references, not payment
+authorization or authorship assignments. No patient values or sensitive links
+belong in these forms. The pilot UI is bounded to 200 work entries per project.
