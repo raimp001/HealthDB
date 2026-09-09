@@ -53,7 +53,7 @@ with a beautiful workflow around an empty centre.
 | Saved cohorts | Built | |
 | Variable inventory | Built | |
 | Query budget across repeated cohorts | Built | `api/query_budget.py` compares each result set against the researcher's recent ones and withholds a count differing by fewer than the floor. Per researcher, bounded history — a mitigation, not a proof |
-| Cohort versioning | Partial | The manifest snapshots criteria at release; editing a cohort still silently changes what "the cohort" means |
+| Cohort definition pinned to its approval | Built | An approval records the population it was granted for; redefining the cohort afterwards blocks the extract until the definition is restored or re-approved. Approvals predating the pin are not blocked — that would be a guess about what a reviewer saw |
 
 ## Stage 4 — Governance
 

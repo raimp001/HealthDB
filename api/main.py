@@ -52,7 +52,8 @@ from .repositories import (
 from .deidentification import deidentify_record, find_residual_identifiers
 from .disclosure_risk import assess_records
 from . import provenance as provenance_module
-from .release_manifest import build_manifest, digest, manifest_digest, verify_manifest
+from .release_manifest import (build_manifest, criteria_digest, digest,
+                               manifest_digest, verify_manifest)
 from .fhir_ingest import parse_fhir_bundle
 from .cohort_query import CohortCriteria, matching_patient_ids, payload
 from .query_budget import find_differencing_risk, prune_history, recent_history
@@ -186,6 +187,7 @@ SCHEMA_SYNC_STATEMENTS = [
     "ALTER TABLE extracted_medical_data ADD COLUMN original_year INTEGER",
     "ALTER TABLE extraction_jobs ADD COLUMN disclosure_risk JSON",
     "ALTER TABLE extracted_medical_data ADD COLUMN provenance JSON",
+    "ALTER TABLE regulatory_submissions ADD COLUMN approved_cohort_digest VARCHAR(64)",
     "ALTER TABLE users ADD COLUMN researcher_approved_at TIMESTAMP",
     "ALTER TABLE users ADD COLUMN researcher_approved_by VARCHAR(36)",
 ]
@@ -1092,6 +1094,22 @@ def scrub_deidentified_data(value: Any) -> Any:
     return deidentify_record(value)
 
 
+def study_cohort_digest(db: Session, study_id: str) -> Optional[str]:
+    """Fingerprint of the population a study currently draws on.
+
+    None when the study has no cohort attached, which is a real state: a
+    study can exist before its population is defined, and there is nothing to
+    pin until it is.
+    """
+    study = db.query(Study).filter(Study.id == study_id).first()
+    if not study or not study.cohort_id:
+        return None
+    cohort = db.query(ResearchCohort).filter(
+        ResearchCohort.id == study.cohort_id
+    ).first()
+    return criteria_digest(cohort.criteria) if cohort else None
+
+
 def current_export_approvals(db: Session, study_id: str) -> List[RegulatorySubmission]:
     """Study-level regulatory submissions that have not expired."""
     now = datetime.utcnow()
@@ -1113,6 +1131,34 @@ def require_current_export_approvals(db: Session, study_id: str) -> None:
     dua = any(s.document_type == "dua" and s.status in {"approved", "signed"} for s in submissions)
     if not irb or not dua:
         raise HTTPException(status_code=400, detail="An unexpired study-level IRB approval and signed DUA are required")
+
+    # An approval covers a population, not a study name. If the cohort has
+    # been redefined since it was granted, the extract would draw people no
+    # reviewer ever saw — and the approval would travel silently with it.
+    #
+    # Approvals recorded before the population was pinned carry no digest.
+    # Those are not blocked: this cannot retroactively know what a reviewer
+    # was shown, and refusing every historical approval would be a guess
+    # dressed as a control. The self-audit reports them instead.
+    current = study_cohort_digest(db, study_id)
+    stale = [
+        s for s in submissions
+        if s.approved_cohort_digest and s.approved_cohort_digest != current
+    ]
+    if stale:
+        audit_logger.warning(
+            f"AUDIT: export_blocked_population_changed study={study_id} "
+            f"approvals={[str(s.id) for s in stale]}"
+        )
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "The cohort has been redefined since this study was approved, "
+                "so the approval no longer describes the people who would be "
+                "released. Restore the approved definition, or seek approval "
+                "for the new one."
+            ),
+        )
 
 
 def eligible_export_records(db: Session, study: Study):
@@ -3103,6 +3149,10 @@ async def approve_regulatory(
 
     submission.status = "approved"
     submission.approved_at = datetime.utcnow()
+    # Record the population this approval covers. A reviewer approves a study
+    # of particular people; without this the cohort could be redefined
+    # afterwards and the approval would silently travel with it.
+    submission.approved_cohort_digest = study_cohort_digest(db, submission.study_id)
     
     # Set expiration (1 year for IRB, 2 years for DUA)
     if submission.document_type == "irb_protocol":

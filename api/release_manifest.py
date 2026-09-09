@@ -56,6 +56,18 @@ def digest(content: str | bytes) -> str:
     return hashlib.sha256(content).hexdigest()
 
 
+def criteria_digest(criteria) -> str:
+    """Fingerprint of a cohort definition.
+
+    An approval is granted for a population, not for a study name. This is
+    what makes "the population the reviewer saw" a comparable value, so an
+    edit after approval can be detected rather than assumed away. Reuses the
+    manifest canonicalisation deliberately: two places deciding separately
+    what counts as the same content is how they drift apart.
+    """
+    return digest(canonical_json(criteria or {}))
+
+
 def build_manifest(
     *,
     job_id: str,

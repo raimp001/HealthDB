@@ -537,6 +537,10 @@ class RegulatorySubmission(Base):
     approved_at = Column(DateTime)
     expires_at = Column(DateTime)
     document_url = Column(Text)  # Link to PDF/document storage
+    # Fingerprint of the cohort definition this approval was granted against.
+    # An approval covers a population; if the population is redefined
+    # afterwards, the approval no longer describes what would be released.
+    approved_cohort_digest = Column(String(64))
     signatory_name = Column(String(255))
     signatory_email = Column(String(255))
     notes = Column(Text)
