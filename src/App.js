@@ -33,6 +33,7 @@ import PilotBanner from './components/PilotBanner';
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import Demo from './pages/Demo';
+import GuestWorkspace from './pages/GuestWorkspace';
 import CollaborationInbox from './pages/CollaborationInbox';
 import Developers from './pages/Developers';
 import ResearchReadiness from './pages/ResearchReadiness';
@@ -62,6 +63,7 @@ function App() {
             <Route path="/collaborations" element={<ProtectedRoute roles={['researcher']}><CollaborationInbox /></ProtectedRoute>} />
             <Route path="/research-readiness" element={<ProtectedRoute roles={['researcher', 'admin']}><ResearchReadiness /></ProtectedRoute>} />
             <Route path="/demo" element={<Demo />} />
+            <Route path="/explore" element={<GuestWorkspace />} />
             <Route path="/developers" element={<Developers />} />
             {/* Public info pages */}
             <Route path="/patients" element={<ForPatients />} />

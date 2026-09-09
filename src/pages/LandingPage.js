@@ -70,7 +70,7 @@ const LandingPage = () => (
             integrations and commercial dataset releases require institutional validation.
           </p>
           <div className="flex flex-col sm:flex-row flex-wrap gap-3">
-            <Link to="/projects" className="px-7 py-3.5 bg-emerald-300 text-black text-center font-medium hover:bg-emerald-200 transition-colors">Plan a research project</Link>
+            <Link to="/explore" className="px-7 py-3.5 bg-emerald-300 text-black text-center font-medium hover:bg-emerald-200 transition-colors">Try the workspace — no sign-in</Link>
             <Link to="/demo" className="px-7 py-3.5 bg-white text-black text-center font-medium hover:bg-gray-100 transition-colors">
               Try the research demo
             </Link>
