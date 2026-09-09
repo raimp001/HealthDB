@@ -92,6 +92,45 @@ def find_differencing_risk(
     return None
 
 
+def find_cross_account_pairs(logs, *, threshold: int, max_comparisons: int = 40000):
+    """Result sets from *different* accounts that are close enough to subtract.
+
+    The per-researcher check cannot see this. Two accounts each ask one
+    question, neither is refused because neither has a history containing the
+    other, and whoever holds both answers subtracts them. One person with two
+    logins is the same adversary wearing two coats.
+
+    This does not block, and the reason is worth stating rather than
+    apologising for. Blocking every cohort that lands near another
+    researcher's would fire constantly on legitimate work — two people
+    studying the same disease produce overlapping cohorts by nature, not by
+    conspiracy — and a control that fires on everything is one people learn to
+    route around. A control everyone routes around protects nobody.
+
+    So the posture is: prevention within an account, detection across
+    accounts, and accountability through identity, since every researcher
+    here was confirmed by a named operator before being approved.
+
+    Returns a list of (left_log, right_log, difference), bounded by
+    `max_comparisons` so a large window cannot turn the audit into a
+    quadratic scan.
+    """
+    findings = []
+    comparisons = 0
+    for index, left in enumerate(logs):
+        left_set = _as_set(left.patient_set or [])
+        for right in logs[index + 1:]:
+            if comparisons >= max_comparisons:
+                return findings
+            comparisons += 1
+            if str(left.user_id) == str(right.user_id):
+                continue  # already covered by the per-account check
+            difference = len(left_set ^ _as_set(right.patient_set or []))
+            if 0 < difference < threshold:
+                findings.append((left, right, difference))
+    return findings
+
+
 def recent_history(db, model, user_id: str, depth: int = DEFAULT_HISTORY_DEPTH) -> List:
     """The result sets this researcher has most recently been shown."""
     return db.query(model).filter(

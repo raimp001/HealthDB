@@ -184,6 +184,9 @@ Items 2, 3 and 5 of the original list are now built. What is left:
    with executed agreements rather than a status string.
 4. **Alerting.** A failing GitHub Action is not a page. The monitor and the
    self-audit both produce a clear signal; nothing carries it to a person.
-5. **Query budgeting across accounts.** The differencing defence is per
-   researcher. Two colleagues, or one person with two accounts, are not
-   stopped by it.
+5. **Preventing cross-account differencing in real time.** Two accounts are
+   now *detected* by the self-audit, and identity makes them accountable, but
+   nothing stops the second query as it happens. Blocking would fire on
+   honest overlapping work; a control everyone routes around protects nobody.
+   A real answer needs a disclosure budget per release population rather than
+   per account, which is a design decision for the statistician review.

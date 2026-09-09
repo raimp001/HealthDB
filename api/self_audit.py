@@ -348,6 +348,49 @@ def check_export_threshold_not_lowered(db: Session) -> Finding:
     )
 
 
+def check_cross_account_differencing(db: Session) -> Finding:
+    """Cohorts from different accounts that are close enough to subtract.
+
+    Small-cell suppression protects one query and the per-researcher budget
+    protects one account's sequence. Neither can see two accounts each asking
+    one question and someone holding both answers — which is the same
+    adversary whether it is two colleagues or one person with two logins.
+
+    A warning, not a blocker, and deliberately so. Two people studying the
+    same disease produce overlapping cohorts by nature; treating that as an
+    attack would make this fire constantly and teach everyone to ignore it.
+    What it gives an operator is a place to look, and identity to look at,
+    since every approved researcher here was confirmed by a named person.
+    """
+    from .main import MIN_AGGREGATE_CELL_SIZE
+    from .models import CohortQueryLog
+    from .query_budget import find_cross_account_pairs
+
+    logs = db.query(CohortQueryLog).order_by(
+        CohortQueryLog.created_at.desc()
+    ).limit(200).all()
+    pairs = find_cross_account_pairs(logs, threshold=MIN_AGGREGATE_CELL_SIZE)
+
+    accounts = sorted({
+        tuple(sorted((str(left.user_id), str(right.user_id))))
+        for left, right, _ in pairs
+    })
+    return Finding(
+        "cross_account_differencing", not pairs, WARNING,
+        f"No cohort from one account lands within {MIN_AGGREGATE_CELL_SIZE} "
+        "patients of another account's."
+        if not pairs else
+        f"{len(pairs)} pair(s) of cohorts from different accounts differ by "
+        "fewer patients than the suppression floor. Overlapping work in one "
+        "disease area looks like this too, so review rather than assume — but "
+        "subtracting two such answers would identify the people between them.",
+        count=len(pairs),
+        # Account ids, so an operator has somewhere to look. Never the
+        # patients, and never a claim that anything improper occurred.
+        detail={"account_pairs": [list(pair) for pair in accounts]},
+    )
+
+
 def check_records_carry_provenance(db: Session) -> Finding:
     """Records should record where they came from.
 
@@ -468,6 +511,7 @@ INVARIANTS: List[Callable[[Session], Finding]] = [
     check_revocations_are_tracked,
     check_no_unapproved_researcher_holds_studies,
     check_export_threshold_not_lowered,
+    check_cross_account_differencing,
     check_records_carry_provenance,
     check_admin_bootstrap,
     check_pilot_flags,
