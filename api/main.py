@@ -1322,7 +1322,7 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a password against a PBKDF2 hash, or a legacy bcrypt hash"""
+    """Verify current hashes and legacy formats for upgrade on successful login."""
     if not hashed_password:
         return False
 
@@ -1335,6 +1335,11 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
             return hmac.compare_digest(candidate, digest)
         except (ValueError, TypeError):
             return False
+
+    # The original API stored lowercase SHA-256 hex (ef2b4a08). Only accept
+    # that exact format; login immediately replaces it with salted PBKDF2.
+    if len(hashed_password) == 64 and all(c in '0123456789abcdef' for c in hashed_password):
+        return hmac.compare_digest(hashlib.sha256(plain_password.encode()).hexdigest(), hashed_password)
 
     # Legacy bcrypt hash from earlier deployments; bcrypt truncates at 72 bytes
     try:
@@ -1471,7 +1476,7 @@ async def login(credentials: UserLogin, db: Session = Depends(get_db)):
         audit_logger.warning(f"Failed login attempt for email: {credentials.email}")
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    # Transparently upgrade legacy bcrypt hashes to PBKDF2
+    # Transparently upgrade legacy SHA-256 and bcrypt hashes to PBKDF2
     if is_legacy_password_hash(user.password_hash):
         user.password_hash = hash_password(credentials.password)
         db.commit()
