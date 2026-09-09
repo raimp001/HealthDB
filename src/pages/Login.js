@@ -57,6 +57,7 @@ const Login = () => {
           </Link>
           <h1 className="heading-display text-3xl text-white mb-2">Sign in</h1>
           <p className="text-white/40">Invited pilot accounts only</p>
+          <Link to="/explore" className="block mt-5 rounded bg-emerald-300 px-5 py-3 text-black font-medium">Continue as guest — no sign-in</Link>
         </div>
 
         {/* Form */}

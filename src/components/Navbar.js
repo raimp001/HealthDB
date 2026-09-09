@@ -78,7 +78,7 @@ const Navbar = () => {
             <NavLink to="/researchers">Researchers</NavLink>
             <NavLink to="/patients">Patients</NavLink>
             <NavLink to="/institutions">Institutions</NavLink>
-            <NavLink to="/demo">Demo</NavLink>
+            <NavLink to="/explore">Try workspace</NavLink>
             <NavLink to="/developers">API</NavLink>
             <NavLink to="/collaborations">Collaborate</NavLink>
           </div>
@@ -161,7 +161,7 @@ const Navbar = () => {
           <MobileNavLink to="/collaborations">Research collaborations</MobileNavLink>
           <MobileNavLink to="/institutions">Institutions</MobileNavLink>
           <MobileNavLink to="/platform">Roadmap</MobileNavLink>
-          <MobileNavLink to="/demo">Demo</MobileNavLink>
+          <MobileNavLink to="/explore">Try workspace</MobileNavLink>
           <MobileNavLink to="/developers">API for developers and agents</MobileNavLink>
           <MobileNavLink to="/about">About</MobileNavLink>
           <div className="pt-6 border-t border-white/10 space-y-4">
