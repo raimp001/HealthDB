@@ -11,6 +11,10 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+  issues: write
+
 jobs:
   probe:
     name: Probe production
@@ -24,8 +28,35 @@ jobs:
         if: github.event_name == 'push'
         run: sleep 120
       - name: Probe
+        id: probe
         env:
           # Optional. With it the probe also runs the server-side safety
           # invariants; without it, only reachability and behaviour.
           ADMIN_TOKEN: ${{ secrets.MONITOR_ADMIN_TOKEN }}
-        run: python scripts/monitor.py "${MONITOR_URL:-https://healthdb.ai}"
+        run: |
+          set +e
+          python scripts/monitor.py "${MONITOR_URL:-https://healthdb.ai}" | tee probe.log
+          echo "exit=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      # A red tick in a workflow list is not an alert; nobody is reading that
+      # list at three in the morning. This opens one tracking issue, stays
+      # quiet while nothing changes, and closes it on recovery.
+      - name: Carry the result to a person
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+        run: |
+          # An `&&` chain here would fail the step whenever the probe passed,
+          # because Actions runs with `bash -e` and a false test returns 1.
+          if [ "${{ steps.probe.outputs.exit }}" = "0" ]; then
+            STATE=ok
+          else
+            STATE=failed
+          fi
+          python scripts/alert.py --state "$STATE" \
+            --summary "$(grep -E '^\[(ok|FAIL|skip)' probe.log | tail -20)"
+
+      - name: Fail the run if the probe failed
+        if: steps.probe.outputs.exit != '0'
+        run: exit 1

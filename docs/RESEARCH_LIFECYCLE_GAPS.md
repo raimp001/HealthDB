@@ -98,10 +98,10 @@ with a beautiful workflow around an empty centre.
 | Health endpoint with a real database probe | Built | |
 | Behavioural production probe | Built | `scripts/monitor.py` — catches the SPA swallowing `/api`, which a liveness check cannot |
 | Scheduled monitoring | Built | Hourly, plus after every deploy |
-| Self-audit invariants over live data | Built | 11 checks, `python -m api.manage self-audit`, exit code as the alarm |
+| Self-audit invariants over live data | Built | 15 checks, `python -m api.manage self-audit`, exit code as the alarm |
 | Invariants in CI on a fresh database | Built | Catches drift between checker and schema |
 | Structured request logs | Partial | Audit lines exist; no request id, no aggregation |
-| Alerting to a human | **Missing** | A failing GitHub Action is not a page |
+| Alerting to a human | Built | `scripts/alert.py` opens one tracking issue on failure, stays quiet while nothing changes, and closes it on recovery. Runs on the token Actions already provides; an optional webhook carries the same summary |
 | Backup and restore drill | **Missing** | Never tested |
 | Incident procedure | **Missing** | |
 
@@ -131,7 +131,7 @@ Three rules make it trustworthy, and they matter more than the checks:
    most dangerous bug this file could have is one that makes it always green,
    so there is a test that a raising check fails.
 
-`no_placeholder_institutions` fails against production right now:
+`no_placeholder_institutions_stored` still reports work owed against production:
 `GET /api/institutions` still returns eight real hospital names with no
 relationship to HealthDB. `no_precise_clinical_dates` will fail too for any
 row that predates the year-only schema. Neither migration has been run. That
@@ -182,9 +182,7 @@ Items 2, 3 and 5 of the original list are now built. What is left:
    deliberately left out and why, so a reviewer can start there.
 3. **Institutional onboarding.** A real, audited path for one institution,
    with executed agreements rather than a status string.
-4. **Alerting.** A failing GitHub Action is not a page. The monitor and the
-   self-audit both produce a clear signal; nothing carries it to a person.
-5. **Preventing cross-account differencing in real time.** Two accounts are
+4. **Preventing cross-account differencing in real time.** Two accounts are
    now *detected* by the self-audit, and identity makes them accountable, but
    nothing stops the second query as it happens. Blocking would fire on
    honest overlapping work; a control everyone routes around protects nobody.
