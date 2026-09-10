@@ -84,6 +84,7 @@ const PatientPortal = () => {
   const [dataReleases, setDataReleases] = useState([]);
   const [studyResults, setStudyResults] = useState([]);
   const [contribution, setContribution] = useState(null);
+  const [reconsent, setReconsent] = useState([]);
   const [connections, setConnections] = useState([]);
   const [extractedData, setExtractedData] = useState([]);
   const [dataSummary, setDataSummary] = useState(null);
@@ -111,43 +112,67 @@ const PatientPortal = () => {
       return;
     }
 
-    try {
-      const headers = { Authorization: `Bearer ${token}` };
+    const headers = { Authorization: `Bearer ${token}` };
+    // Each panel is fetched independently and allowed to fail on its own.
+    //
+    // These used to run under Promise.all, and apiFetch throws on any
+    // non-2xx, so a single gated or briefly unavailable endpoint rejected the
+    // batch and the whole portal rendered as an error page. Someone who had
+    // simply not signed one optional consent lost their consents, their
+    // records, their releases and their contribution record along with it —
+    // a portal made of independent panels should not die because one of them
+    // is unavailable.
+    const settled = await Promise.allSettled([
+      fetch(`${API_URL}/api/patient/profile`, { headers }),
+      fetch(`${API_URL}/api/patient/consents`, { headers }),
+      fetch(`${API_URL}/api/consent/templates`, { headers }),
+      fetch(`${API_URL}/api/patient/data-access-log`, { headers }),
+      fetch(`${API_URL}/api/patient/connections`, { headers }),
+      fetch(`${API_URL}/api/patient/extracted-data`, { headers }),
+      fetch(`${API_URL}/api/patient/data-summary`, { headers }),
+      fetch(`${API_URL}/api/studies/available`, { headers }),
+      fetch(`${API_URL}/api/patient/studies`, { headers }),
+      fetch(`${API_URL}/api/patient/data-releases`, { headers }),
+      fetch(`${API_URL}/api/patient/study-results`, { headers }),
+      fetch(`${API_URL}/api/patient/contribution`, { headers }),
+      fetch(`${API_URL}/api/patient/reconsent`, { headers }),
+    ]);
 
-      const [profileRes, consentsRes, templatesRes, logRes, connectionsRes, dataRes, summaryRes, availableStudiesRes, myStudiesRes, releasesRes, resultsRes, contributionRes] = await Promise.all([
-        fetch(`${API_URL}/api/patient/profile`, { headers }),
-        fetch(`${API_URL}/api/patient/consents`, { headers }),
-        fetch(`${API_URL}/api/consent/templates`, { headers }),
-        fetch(`${API_URL}/api/patient/data-access-log`, { headers }),
-        fetch(`${API_URL}/api/patient/connections`, { headers }),
-        fetch(`${API_URL}/api/patient/extracted-data`, { headers }),
-        fetch(`${API_URL}/api/patient/data-summary`, { headers }),
-        fetch(`${API_URL}/api/studies/available`, { headers }),
-        fetch(`${API_URL}/api/patient/studies`, { headers }),
-        fetch(`${API_URL}/api/patient/data-releases`, { headers }),
-        fetch(`${API_URL}/api/patient/study-results`, { headers }),
-        fetch(`${API_URL}/api/patient/contribution`, { headers }),
-      ]);
+    const panel = async (index) => {
+      const result = settled[index];
+      if (result.status !== 'fulfilled') return null;
+      try { return await result.value.json(); } catch { return null; }
+    };
 
-      if (profileRes.ok) setProfile(await profileRes.json());
-      if (consentsRes.ok) setConsents(await consentsRes.json());
-      if (templatesRes.ok) setConsentTemplates(await templatesRes.json());
-      if (logRes.ok) setAccessLog(await logRes.json());
-      if (connectionsRes.ok) setConnections(await connectionsRes.json());
-      if (dataRes.ok) setExtractedData(await dataRes.json());
-      if (summaryRes.ok) setDataSummary(await summaryRes.json());
-      setAvailableStudies(availableStudiesRes.ok ? await availableStudiesRes.json() : []);
-      if (myStudiesRes.ok) setMyStudies(await myStudiesRes.json());
-      if (releasesRes.ok) setDataReleases(await releasesRes.json());
-      if (resultsRes.ok) setStudyResults(await resultsRes.json());
-      if (contributionRes.ok) setContribution(await contributionRes.json());
+    const [profileData, consentsData, templatesData, logData, connectionsData,
+           dataData, summaryData, availableData, myStudiesData, releasesData,
+           resultsData, contributionData, reconsentData] = await Promise.all(
+      settled.map((_, index) => panel(index)));
 
-      setPageState(STATES.READY);
-    } catch (err) {
-      console.error('Failed to fetch patient data:', err);
-      setError(err.message);
+    // The profile is the one exception. Without it there is no person whose
+    // portal this is, and rendering empty panels would be a lie.
+    if (!profileData) {
+      const reason = settled[0].status === 'rejected'
+        ? settled[0].reason?.message : null;
+      setError(reason || 'Your profile could not be loaded.');
       setPageState(STATES.ERROR);
+      return;
     }
+
+    setProfile(profileData);
+    setConsents(consentsData || []);
+    setConsentTemplates(templatesData || []);
+    setAccessLog(logData || []);
+    setConnections(connectionsData || []);
+    setExtractedData(dataData || []);
+    setDataSummary(summaryData);
+    setAvailableStudies(availableData || []);
+    setMyStudies(myStudiesData || []);
+    setDataReleases(releasesData || []);
+    setStudyResults(resultsData || []);
+    setContribution(contributionData);
+    setReconsent(reconsentData || []);
+    setPageState(STATES.READY);
   }, [token, navigate]);
 
   useEffect(() => {
@@ -181,6 +206,31 @@ const PatientPortal = () => {
       }
     } catch (err) {
       toast('Error signing consent. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Answering is the only thing that changes anything here. Leaving the
+  // question open is already the safe state — the person's records are out
+  // of the pool while it stands.
+  const handleReconsent = async (studyId, decision) => {
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${API_URL}/api/patient/reconsent/${studyId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ decision }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok) {
+        await fetchData();
+        toast(data.message);
+      } else {
+        toast(data.detail || 'Could not record your answer.');
+      }
+    } catch (err) {
+      toast('Error recording your answer. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -376,6 +426,58 @@ const PatientPortal = () => {
           </motion.div>
         </div>
       </section>
+
+      {/* A study has moved away from what someone agreed to. Placed above
+          everything because their records are already out of the pool, and
+          a question you have to go looking for is not really being asked. */}
+      {reconsent.length > 0 && (
+        <section className="px-6 py-6 bg-amber-500/10 border-b border-amber-500/20" data-testid="reconsent-prompt">
+          <div className="max-w-6xl mx-auto">
+            <h2 className="text-amber-300 text-sm uppercase tracking-wider mb-4">
+              {reconsent.length === 1 ? 'A study you joined has changed' : `${reconsent.length} studies you joined have changed`}
+            </h2>
+            <div className="space-y-5">
+              {reconsent.map((item) => (
+                <div key={item.study_id} className="border border-amber-400/20 p-5">
+                  <h3 className="text-white font-medium mb-3">{item.study_name}</h3>
+                  <ul className="space-y-1 mb-4">
+                    {item.changes.map((line, i) => (
+                      <li key={i} className="text-white/70 text-sm">{line}</li>
+                    ))}
+                  </ul>
+                  {item.current_purpose && (
+                    <p className="text-white/50 text-sm mb-2">
+                      <span className="text-white/35">The study now says: </span>{item.current_purpose}
+                    </p>
+                  )}
+                  {item.current_eligibility && (
+                    <p className="text-white/50 text-sm mb-4">
+                      <span className="text-white/35">Who it is for: </span>{item.current_eligibility}
+                    </p>
+                  )}
+                  <p className="text-white/40 text-xs mb-4 leading-relaxed">{item.note}</p>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={() => handleReconsent(item.study_id, 'continue')}
+                      disabled={isSubmitting}
+                      className="px-5 py-2.5 border border-white/25 text-white text-xs uppercase tracking-wider hover:bg-white/5 transition-colors disabled:opacity-50"
+                    >
+                      Stay in this study
+                    </button>
+                    <button
+                      onClick={() => handleReconsent(item.study_id, 'withdraw')}
+                      disabled={isSubmitting}
+                      className="px-5 py-2.5 border border-white/25 text-white text-xs uppercase tracking-wider hover:bg-white/5 transition-colors disabled:opacity-50"
+                    >
+                      Leave this study
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Alert for no consent */}
       {!hasActiveResearchConsent && (
