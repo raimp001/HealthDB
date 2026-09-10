@@ -391,6 +391,40 @@ def check_cross_account_differencing(db: Session) -> Finding:
     )
 
 
+def check_enrolments_have_a_consent_baseline(db: Session) -> Finding:
+    """Enrolments that record what the person was shown when they agreed.
+
+    Without a baseline a study can be rewritten around someone and nothing
+    detects it. Those enrolments are not withdrawn — nothing here knows what
+    they were originally shown, and mass-withdrawing on a guess would be its
+    own harm — so this reports them instead.
+
+    A warning: enrolments predating scope tracking cannot be repaired, and a
+    permanently red audit is one nobody reads.
+    """
+    from .models import StudyEnrollment
+
+    total = db.query(StudyEnrollment).filter(
+        StudyEnrollment.status == "enrolled").count()
+    if not total:
+        return Finding("enrolments_have_a_consent_baseline", True, WARNING,
+                       "No active enrolments.")
+    missing = db.query(StudyEnrollment).filter(
+        StudyEnrollment.status == "enrolled",
+        or_(StudyEnrollment.consented_scope_digest.is_(None),
+            StudyEnrollment.consented_scope_digest == ""),
+    ).count()
+    return Finding(
+        "enrolments_have_a_consent_baseline", missing == 0, WARNING,
+        f"All {total} active enrolment(s) record what the participant agreed to."
+        if missing == 0 else
+        f"{missing} of {total} active enrolment(s) have no record of what the "
+        "participant was shown, so a change to those studies cannot be "
+        "detected on their behalf.",
+        count=missing,
+    )
+
+
 def check_records_carry_provenance(db: Session) -> Finding:
     """Records should record where they came from.
 
@@ -512,6 +546,7 @@ INVARIANTS: List[Callable[[Session], Finding]] = [
     check_no_unapproved_researcher_holds_studies,
     check_export_threshold_not_lowered,
     check_cross_account_differencing,
+    check_enrolments_have_a_consent_baseline,
     check_records_carry_provenance,
     check_admin_bootstrap,
     check_pilot_flags,

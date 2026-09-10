@@ -27,7 +27,7 @@ with a beautiful workflow around an empty centre.
 | Patient-visible access log | Built | |
 | Patient-visible list of releases containing them | Built | `/api/patient/data-releases` |
 | Consent covering **commercial** use | **Missing** | See §Money |
-| Re-consent when study scope changes | **Missing** | A study can change purpose after enrolment; consent does not re-open |
+| Re-consent when study scope changes | Built | `api/study_scope.py` fingerprints purpose, eligibility, variables and population at enrolment. A material change removes the participant from the eligible pool until they answer — silence keeps them out. Renames and staffing changes do not re-ask, because consent fatigue erodes consent faster than it protects it |
 | Proxy / paediatric / decisionally-impaired consent | **Missing** | Requires a legal model, not a checkbox |
 | Returning results to the patient | Built | A study team publishes a plain-language finding; enrolled participants see it, framed as a group finding rather than advice |
 
@@ -98,7 +98,7 @@ with a beautiful workflow around an empty centre.
 | Health endpoint with a real database probe | Built | |
 | Behavioural production probe | Built | `scripts/monitor.py` — catches the SPA swallowing `/api`, which a liveness check cannot |
 | Scheduled monitoring | Built | Hourly, plus after every deploy |
-| Self-audit invariants over live data | Built | 15 checks, `python -m api.manage self-audit`, exit code as the alarm |
+| Self-audit invariants over live data | Built | 16 checks, `python -m api.manage self-audit`, exit code as the alarm |
 | Invariants in CI on a fresh database | Built | Catches drift between checker and schema |
 | Structured request logs | Partial | Audit lines exist; no request id, no aggregation |
 | Alerting to a human | Built | `scripts/alert.py` opens one tracking issue on failure, stays quiet while nothing changes, and closes it on recovery. Runs on the token Actions already provides; an optional webhook carries the same summary |

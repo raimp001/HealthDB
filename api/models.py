@@ -752,6 +752,12 @@ class StudyEnrollment(Base):
     status = Column(String(50), default="enrolled")  # enrolled, withdrawn
     enrolled_at = Column(DateTime, default=datetime.utcnow)
     withdrawn_at = Column(DateTime)
+    # Fingerprint of the study as it stood when this person agreed to it, and
+    # the snapshot behind it so they can be told what moved. A mismatch means
+    # the study is no longer the one they said yes to. See api/study_scope.py.
+    consented_scope_digest = Column(String(64))
+    consented_scope = Column(JSON)
+    reconsented_at = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships

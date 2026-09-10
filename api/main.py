@@ -55,6 +55,7 @@ from . import provenance as provenance_module
 from .release_manifest import (build_manifest, criteria_digest, digest,
                                manifest_digest, verify_manifest)
 from .fhir_ingest import parse_fhir_bundle
+from .study_scope import describe_change, scope_digest, scope_of
 from .cohort_query import CohortCriteria, matching_patient_ids, payload
 from .query_budget import find_differencing_risk, prune_history, recent_history
 from .demo import router as demo_router
@@ -188,6 +189,9 @@ SCHEMA_SYNC_STATEMENTS = [
     "ALTER TABLE extraction_jobs ADD COLUMN disclosure_risk JSON",
     "ALTER TABLE extracted_medical_data ADD COLUMN provenance JSON",
     "ALTER TABLE regulatory_submissions ADD COLUMN approved_cohort_digest VARCHAR(64)",
+    "ALTER TABLE study_enrollments ADD COLUMN consented_scope_digest VARCHAR(64)",
+    "ALTER TABLE study_enrollments ADD COLUMN consented_scope JSON",
+    "ALTER TABLE study_enrollments ADD COLUMN reconsented_at TIMESTAMP",
     "ALTER TABLE users ADD COLUMN researcher_approved_at TIMESTAMP",
     "ALTER TABLE users ADD COLUMN researcher_approved_by VARCHAR(36)",
 ]
@@ -1094,6 +1098,36 @@ def scrub_deidentified_data(value: Any) -> Any:
     return deidentify_record(value)
 
 
+def record_consented_scope(db: Session, enrollment, study) -> None:
+    """Pin this enrolment to the study as it stands right now.
+
+    Called wherever a person says yes — joining, and re-affirming after a
+    change — so there is one definition of what they agreed to rather than
+    two that can drift.
+    """
+    cohort = db.query(ResearchCohort).filter(
+        ResearchCohort.id == study.cohort_id
+    ).first() if study.cohort_id else None
+    enrollment.consented_scope = scope_of(study, cohort)
+    enrollment.consented_scope_digest = scope_digest(study, cohort)
+
+
+def enrollment_needs_reconsent(db: Session, enrollment, study) -> bool:
+    """True when the study has moved away from what this person agreed to.
+
+    An enrolment with no recorded baseline predates scope tracking. It is not
+    treated as needing re-consent, because nothing here knows what that person
+    was originally shown, and mass-withdrawing people on a guess would be its
+    own harm. The self-audit reports how many are in that state.
+    """
+    if not enrollment.consented_scope_digest:
+        return False
+    cohort = db.query(ResearchCohort).filter(
+        ResearchCohort.id == study.cohort_id
+    ).first() if study.cohort_id else None
+    return enrollment.consented_scope_digest != scope_digest(study, cohort)
+
+
 def study_cohort_digest(db: Session, study_id: str) -> Optional[str]:
     """Fingerprint of the population a study currently draws on.
 
@@ -1163,10 +1197,18 @@ def require_current_export_approvals(db: Session, study_id: str) -> None:
 
 def eligible_export_records(db: Session, study: Study):
     patient_ids = _consented_patient_ids(db)
-    enrolled = {str(pid) for (pid,) in db.query(StudyEnrollment.patient_id).filter(
+    enrollments = db.query(StudyEnrollment).filter(
         StudyEnrollment.study_id == study.id, StudyEnrollment.status == "enrolled",
         StudyEnrollment.patient_id.in_(patient_ids),
-    ).all()}
+    ).all()
+    # Anyone whose study has moved away from what they agreed to leaves the
+    # pool until they say otherwise. Silence is not consent, and defaulting
+    # the other way would make the re-consent screen an announcement rather
+    # than a question.
+    enrolled = {
+        str(e.patient_id) for e in enrollments
+        if not enrollment_needs_reconsent(db, e, study)
+    }
     records = db.query(ExtractedMedicalData).filter(
         ExtractedMedicalData.patient_id.in_(enrolled)
     ).order_by(ExtractedMedicalData.patient_id, ExtractedMedicalData.original_year, ExtractedMedicalData.created_at).all() if enrolled else []
@@ -1822,6 +1864,110 @@ async def get_patient_contribution(
         raise HTTPException(status_code=404, detail="Patient profile not found")
 
     return build_contribution(db, str(profile.id))
+
+
+class ReconsentDecision(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    # Two real answers. There is no third that means "decide for me".
+    decision: Literal["continue", "withdraw"]
+
+
+@app.get("/api/patient/reconsent")
+async def get_pending_reconsent(
+    token_data: Dict = Depends(require_patient_token),
+    db: Session = Depends(get_db)
+):
+    """Studies that have changed since this person agreed to them.
+
+    Their records are already out of the eligible pool for these — this is
+    the question, not a warning about something that has already happened.
+    """
+    patient_repo = PatientRepository(db)
+    profile = patient_repo.get_profile(UUID(token_data["sub"]))
+    if not profile:
+        raise HTTPException(status_code=404, detail="Patient profile not found")
+
+    enrollments = db.query(StudyEnrollment).filter(
+        StudyEnrollment.patient_id == str(profile.id),
+        StudyEnrollment.status == "enrolled",
+    ).all()
+    studies = {
+        str(s.id): s for s in db.query(Study).filter(
+            Study.id.in_([e.study_id for e in enrollments])
+        ).all()
+    } if enrollments else {}
+
+    pending = []
+    for enrollment in enrollments:
+        study = studies.get(str(enrollment.study_id))
+        if not study or not enrollment_needs_reconsent(db, enrollment, study):
+            continue
+        cohort = db.query(ResearchCohort).filter(
+            ResearchCohort.id == study.cohort_id
+        ).first() if study.cohort_id else None
+        pending.append({
+            "study_id": str(study.id),
+            "study_name": study.name,
+            "changes": describe_change(enrollment.consented_scope,
+                                       scope_of(study, cohort)),
+            "current_purpose": study.description,
+            "current_eligibility": study.eligibility_summary,
+            "note": (
+                "Your records are not being used for this study while the "
+                "question is open. Nothing happens until you answer, and "
+                "choosing not to answer keeps them out."
+            ),
+        })
+    return pending
+
+
+@app.post("/api/patient/reconsent/{study_id}")
+async def answer_reconsent(
+    study_id: str,
+    body: ReconsentDecision,
+    token_data: Dict = Depends(require_patient_token),
+    db: Session = Depends(get_db)
+):
+    """Continue in a changed study, or leave it."""
+    patient_repo = PatientRepository(db)
+    profile = patient_repo.get_profile(UUID(token_data["sub"]))
+    if not profile:
+        raise HTTPException(status_code=404, detail="Patient profile not found")
+
+    enrollment = db.query(StudyEnrollment).filter(
+        StudyEnrollment.study_id == study_id,
+        StudyEnrollment.patient_id == str(profile.id),
+        StudyEnrollment.status == "enrolled",
+    ).first()
+    if not enrollment:
+        raise HTTPException(status_code=404, detail="You are not enrolled in this study")
+
+    study = db.query(Study).filter(Study.id == study_id).first()
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found")
+    if not enrollment_needs_reconsent(db, enrollment, study):
+        raise HTTPException(
+            status_code=409,
+            detail="This study has not changed since you agreed to it.",
+        )
+
+    if body.decision == "withdraw":
+        enrollment.status = "withdrawn"
+        enrollment.withdrawn_at = datetime.utcnow()
+        db.commit()
+        return {"decision": "withdraw",
+                "message": "You have left this study. No further extract will include you."}
+
+    record_consented_scope(db, enrollment, study)
+    enrollment.reconsented_at = datetime.utcnow()
+    db.add(DataAccessLog(
+        user_id=token_data["sub"], patient_id=str(profile.id),
+        access_type="study_reconsent", data_type="study_enrollment",
+        purpose=f"Re-affirmed participation after a change: {study.name}",
+    ))
+    db.commit()
+    return {"decision": "continue",
+            "message": "Recorded. Your records are eligible for this study again."}
 
 
 @app.get("/api/patient/data-releases")
@@ -3986,6 +4132,10 @@ async def join_study(
             enrolled_at=datetime.utcnow(),
         )
         db.add(enrollment)
+
+    # Record the study as it stands, so a later change to it is a question
+    # for this person rather than something that happens to them.
+    record_consented_scope(db, enrollment, study)
 
     patient_repo.add_points(profile.id, 25, f"Joined pilot study simulation: {study.name}", "study_enrollment", study_id)
     db.commit()
