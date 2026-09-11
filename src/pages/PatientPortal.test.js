@@ -14,9 +14,13 @@ import { apiFetch } from '../lib/api';
 //
 // These hold the line: one panel failing must cost that panel and nothing else.
 
+// loadPanels is the real implementation on purpose: these tests are about
+// how the portal composes with it, not about a stand-in that might behave
+// differently from the code that ships.
 jest.mock('../lib/api', () => ({
   API_URL: '',
   apiFetch: jest.fn(),
+  loadPanels: jest.requireActual('../lib/api').loadPanels,
   readSessionUser: () => ({ user_type: 'patient' }),
 }));
 jest.mock('react-hot-toast', () => ({ __esModule: true, default: jest.fn() }));

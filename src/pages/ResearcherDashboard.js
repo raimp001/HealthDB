@@ -1,5 +1,5 @@
 import toast from 'react-hot-toast';
-import { API_URL, apiFetch as fetch, readSessionUser } from '../lib/api';
+import { API_URL, apiFetch as fetch, loadPanels, readSessionUser } from '../lib/api';
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -113,19 +113,28 @@ const ResearcherDashboard = () => {
     setLoadError(null);
     const token = sessionStorage.getItem('token');
     try {
-      const [cohortsRes, analyticsRes, studiesRes, collabsRes, instRes] = await Promise.all([
-        fetch(`${API_URL}/api/cohort/saved`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API_URL}/api/researcher/analytics`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API_URL}/api/researcher/studies`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API_URL}/api/researcher/collaborations`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API_URL}/api/institutions`),
+      const auth = { headers: { Authorization: `Bearer ${token}` } };
+      // Panels load independently: one unavailable endpoint should cost that
+      // panel, not the whole dashboard.
+      const { values, failures } = await loadPanels([
+        () => fetch(`${API_URL}/api/cohort/saved`, auth),
+        () => fetch(`${API_URL}/api/researcher/analytics`, auth),
+        () => fetch(`${API_URL}/api/researcher/studies`, auth),
+        () => fetch(`${API_URL}/api/researcher/collaborations`, auth),
+        () => fetch(`${API_URL}/api/institutions`),
       ]);
+      const [cohorts, analyticsData, studiesData, collabsData, instData] = values;
 
-      if (cohortsRes.ok) setSavedCohorts(await cohortsRes.json());
-      if (analyticsRes.ok) setAnalytics(await analyticsRes.json());
-      if (studiesRes.ok) setStudies(await studiesRes.json());
-      if (collabsRes.ok) setCollaborations(await collabsRes.json());
-      if (instRes.ok) setInstitutions(await instRes.json());
+      setSavedCohorts(cohorts || []);
+      setAnalytics(analyticsData);
+      setStudies(studiesData || []);
+      setCollaborations(collabsData || []);
+      setInstitutions(instData || []);
+      // Only say something went wrong if everything did. A partial load is a
+      // working dashboard with a gap in it, not an error.
+      if (failures.length === values.length) {
+        setLoadError(failures[0].error?.message || 'Could not load your workspace.');
+      }
     } catch (err) {
       console.error('Failed to fetch data:', err);
       setLoadError(err.message);

@@ -67,6 +67,41 @@ export async function apiFetch(url, options = {}) {
   }
 }
 
+// Load several independent panels, letting each fail on its own.
+//
+// apiFetch throws on any non-2xx, so `Promise.all` over a dashboard's fetches
+// meant one gated, rate-limited or briefly unavailable endpoint rejected the
+// batch and blanked the entire page. A screen made of independent panels
+// should lose the panel, not the screen.
+//
+// Returns { values, failures }: `values` is positional with null where a
+// request failed, and `failures` carries the errors for anything a caller
+// wants to treat as fatal — a dashboard with no profile has no subject, and
+// rendering empty panels around nothing would be a lie.
+export async function loadPanels(requests) {
+  const settled = await Promise.allSettled(requests.map((run) => run()));
+  const values = [];
+  const failures = [];
+  for (const [index, result] of settled.entries()) {
+    if (result.status !== 'fulfilled') {
+      values.push(null);
+      failures.push({ index, error: result.reason });
+      continue;
+    }
+    try {
+      const body = result.value;
+      // Accept either a Response (from apiFetch) or already-parsed data
+      // (from apiRequest), so callers are not forced to pick one.
+      values.push(typeof body?.json === 'function' ? await body.json() : body);
+    } catch (error) {
+      values.push(null);
+      failures.push({ index, error });
+    }
+  }
+  return { values, failures };
+}
+
+
 export async function apiRequest(path, options = {}) {
   const response = await apiFetch(`${API_URL}${path}`, options);
   try { return await response.json(); }

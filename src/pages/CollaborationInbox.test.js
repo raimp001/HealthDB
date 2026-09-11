@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import CollaborationInbox from './CollaborationInbox';
 import { apiRequest } from '../lib/api';
 
-jest.mock('../lib/api', () => ({ apiRequest: jest.fn() }));
+jest.mock('../lib/api', () => ({ apiRequest: jest.fn() , loadPanels: jest.requireActual('../lib/api').loadPanels }));
 let container, root;
 beforeEach(() => {
   global.IS_REACT_ACT_ENVIRONMENT = true;

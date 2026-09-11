@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { apiRequest } from '../lib/api';
+import { apiRequest, loadPanels } from '../lib/api';
 
 const authorizedRequest = (path, options = {}) => apiRequest(path, {
   ...options, headers: { Authorization: `Bearer ${sessionStorage.getItem('token')}` },
@@ -15,10 +15,14 @@ export default function CollaborationInbox() {
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const [pending, shared] = await Promise.all([
-        authorizedRequest('/api/researcher/invitations'), authorizedRequest('/api/researcher/collaborations'),
+      // Two independent lists. One being unavailable should not hide the
+      // other — an invitation you cannot see is one you cannot answer.
+      const { values, failures } = await loadPanels([
+        () => authorizedRequest('/api/researcher/invitations'),
+        () => authorizedRequest('/api/researcher/collaborations'),
       ]);
-      setInvitations(pending); setStudies(shared);
+      setInvitations(values[0] || []); setStudies(values[1] || []);
+      if (failures.length === values.length) setError(failures[0].error?.message || 'Could not load your inbox.');
     } catch (e) { setError(e.message); }
     finally { setLoading(false); }
   }, []);

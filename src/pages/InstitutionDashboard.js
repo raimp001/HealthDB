@@ -1,4 +1,4 @@
-import { API_URL, apiFetch as fetch } from '../lib/api';
+import { API_URL, apiFetch as fetch, loadPanels } from '../lib/api';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -28,26 +28,25 @@ const InstitutionDashboard = () => {
     try {
       const headers = { Authorization: `Bearer ${token}` };
       
-      const [instRes, agreementsRes, irbRes, emrRes, collabRes] = await Promise.all([
-        fetch(`${API_URL}/api/institution/profile`, { headers }),
-        fetch(`${API_URL}/api/institution/agreements`, { headers }),
-        fetch(`${API_URL}/api/institution/irb-protocols`, { headers }),
-        fetch(`${API_URL}/api/institution/emr-connections`, { headers }),
-        fetch(`${API_URL}/api/institution/collaborations`, { headers })
+      // Panels load independently: one unavailable endpoint should cost that
+      // panel, not the whole dashboard.
+      const { values } = await loadPanels([
+        () => fetch(`${API_URL}/api/institution/profile`, { headers }),
+        () => fetch(`${API_URL}/api/institution/agreements`, { headers }),
+        () => fetch(`${API_URL}/api/institution/irb-protocols`, { headers }),
+        () => fetch(`${API_URL}/api/institution/emr-connections`, { headers }),
+        () => fetch(`${API_URL}/api/institution/collaborations`, { headers }),
       ]);
 
-      if (instRes.ok) {
-        const instData = await instRes.json();
-        setInstitution(instData);
-      }
+      if (values[0]) setInstitution(values[0]);
       // Hold the fetched values locally. Deriving the stats from the state
       // variables instead read the *previous* render's data, because the
       // setters above have not applied yet, so the counts were always one
       // fetch behind (all zeros on first load).
-      const agreementData = agreementsRes.ok ? await agreementsRes.json() : [];
-      const irbData = irbRes.ok ? await irbRes.json() : [];
-      const emrData = emrRes.ok ? await emrRes.json() : [];
-      const collabData = collabRes.ok ? await collabRes.json() : [];
+      const agreementData = values[1] || [];
+      const irbData = values[2] || [];
+      const emrData = values[3] || [];
+      const collabData = values[4] || [];
 
       setAgreements(agreementData);
       setIrbProtocols(irbData);

@@ -1,5 +1,5 @@
 import toast from 'react-hot-toast';
-import { API_URL, apiFetch as fetch, readSessionUser } from '../lib/api';
+import { API_URL, apiFetch as fetch, loadPanels, readSessionUser } from '../lib/api';
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -122,39 +122,31 @@ const PatientPortal = () => {
     // records, their releases and their contribution record along with it —
     // a portal made of independent panels should not die because one of them
     // is unavailable.
-    const settled = await Promise.allSettled([
-      fetch(`${API_URL}/api/patient/profile`, { headers }),
-      fetch(`${API_URL}/api/patient/consents`, { headers }),
-      fetch(`${API_URL}/api/consent/templates`, { headers }),
-      fetch(`${API_URL}/api/patient/data-access-log`, { headers }),
-      fetch(`${API_URL}/api/patient/connections`, { headers }),
-      fetch(`${API_URL}/api/patient/extracted-data`, { headers }),
-      fetch(`${API_URL}/api/patient/data-summary`, { headers }),
-      fetch(`${API_URL}/api/studies/available`, { headers }),
-      fetch(`${API_URL}/api/patient/studies`, { headers }),
-      fetch(`${API_URL}/api/patient/data-releases`, { headers }),
-      fetch(`${API_URL}/api/patient/study-results`, { headers }),
-      fetch(`${API_URL}/api/patient/contribution`, { headers }),
-      fetch(`${API_URL}/api/patient/reconsent`, { headers }),
+    const { values: panels, failures } = await loadPanels([
+      () => fetch(`${API_URL}/api/patient/profile`, { headers }),
+      () => fetch(`${API_URL}/api/patient/consents`, { headers }),
+      () => fetch(`${API_URL}/api/consent/templates`, { headers }),
+      () => fetch(`${API_URL}/api/patient/data-access-log`, { headers }),
+      () => fetch(`${API_URL}/api/patient/connections`, { headers }),
+      () => fetch(`${API_URL}/api/patient/extracted-data`, { headers }),
+      () => fetch(`${API_URL}/api/patient/data-summary`, { headers }),
+      () => fetch(`${API_URL}/api/studies/available`, { headers }),
+      () => fetch(`${API_URL}/api/patient/studies`, { headers }),
+      () => fetch(`${API_URL}/api/patient/data-releases`, { headers }),
+      () => fetch(`${API_URL}/api/patient/study-results`, { headers }),
+      () => fetch(`${API_URL}/api/patient/contribution`, { headers }),
+      () => fetch(`${API_URL}/api/patient/reconsent`, { headers }),
     ]);
-
-    const panel = async (index) => {
-      const result = settled[index];
-      if (result.status !== 'fulfilled') return null;
-      try { return await result.value.json(); } catch { return null; }
-    };
 
     const [profileData, consentsData, templatesData, logData, connectionsData,
            dataData, summaryData, availableData, myStudiesData, releasesData,
-           resultsData, contributionData, reconsentData] = await Promise.all(
-      settled.map((_, index) => panel(index)));
+           resultsData, contributionData, reconsentData] = panels;
 
     // The profile is the one exception. Without it there is no person whose
     // portal this is, and rendering empty panels would be a lie.
     if (!profileData) {
-      const reason = settled[0].status === 'rejected'
-        ? settled[0].reason?.message : null;
-      setError(reason || 'Your profile could not be loaded.');
+      const first = failures.find((f) => f.index === 0);
+      setError(first?.error?.message || 'Your profile could not be loaded.');
       setPageState(STATES.ERROR);
       return;
     }
