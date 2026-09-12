@@ -23,5 +23,16 @@ test('guest can declare availability and record work without a server request', 
     act(() => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
     expect(container.querySelector('ol').textContent).toContain('#1 · Submitted · Reviewed fictional dictionary');
     expect(window.fetch).not.toHaveBeenCalled();
+    const remove = container.querySelector('[aria-label="Remove Treatment class"]');
+    act(() => remove.click());
+    expect(container.querySelectorAll('tbody tr')).toHaveLength(1);
+    const preview = Array.from(container.querySelectorAll('button')).find(button => button.textContent === 'Preview draft');
+    act(() => preview.click());
+    const exported = JSON.parse(container.querySelector('#guest-draft textarea').value);
+    expect(exported.variables.map(item => item.name)).toEqual(['Response category']);
+    expect(exported.events[0].description).toBe('Reviewed fictional dictionary');
+    expect(exported.synthetic_only).toBe(true);
+    expect(container.querySelector('[aria-label="Availability summary"]').textContent).toContain('Need assessment0');
+    expect(window.fetch).not.toHaveBeenCalled();
   } finally { act(() => root.unmount()); container.remove(); window.fetch = originalFetch; }
 });
