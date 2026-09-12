@@ -32,7 +32,31 @@ test('guest can declare availability and record work without a server request', 
     expect(exported.variables.map(item => item.name)).toEqual(['Response category']);
     expect(exported.events[0].description).toBe('Reviewed fictional dictionary');
     expect(exported.synthetic_only).toBe(true);
-    expect(container.querySelector('[aria-label="Availability summary"]').textContent).toContain('Need assessment0');
+    const mapping = container.querySelector('details textarea');
+    const owner = container.querySelector('details select');
+    const nextAction = container.querySelector('details input');
+    const reviewButton = container.querySelector('details button');
+    expect(reviewButton.disabled).toBe(true);
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(mapping, 'Map local response codes to the shared categories');
+      mapping.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    act(() => { owner.value = 'Methods reviewer'; owner.dispatchEvent(new Event('change', { bubbles: true })); });
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(nextAction, 'Validate missing categories');
+      nextAction.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    act(() => reviewButton.click());
+    expect(container.querySelector('details summary').textContent).toContain('Demo reviewed');
+    const availability = container.querySelector('tbody select');
+    act(() => { availability.value = 'unknown'; availability.dispatchEvent(new Event('change', { bubbles: true })); });
+    expect(container.querySelector('details summary').textContent).toContain('Needs review');
+    const revised = JSON.parse(container.querySelector('#guest-draft textarea').value);
+    expect(revised.reviewHistory).toHaveLength(1);
+    expect(revised.reviewHistory[0].mapping).toContain('local response codes');
+    expect(revised.variables[0].c).toBe('unavailable');
+    expect(revised.reviews['2:a'].status).toBe('draft');
+    expect(container.querySelector('[aria-label="Availability summary"]').textContent).toContain('Need assessment1');
     expect(window.fetch).not.toHaveBeenCalled();
   } finally { act(() => root.unmount()); container.remove(); window.fetch = originalFetch; }
 });
