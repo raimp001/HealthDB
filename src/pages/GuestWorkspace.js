@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import GuestMappingReview, { fictionalSites } from '../components/GuestMappingReview';
 
 const initialVariables = [
-  { id: 1, name: 'Treatment class', a: 'available', b: 'unknown' },
-  { id: 2, name: 'Response category', a: 'derivable', b: 'available' },
+  { id: 1, name: 'Treatment class', a: 'available', b: 'unknown', c: 'available' },
+  { id: 2, name: 'Response category', a: 'derivable', b: 'available', c: 'unavailable' },
 ];
 const options = ['unknown', 'available', 'derivable', 'unavailable'];
 const inputClass = 'w-full bg-black border border-white/30 rounded p-3';
@@ -17,10 +18,24 @@ export default function GuestWorkspace() {
   const [events, setEvents] = useState([]);
   const [notice, setNotice] = useState('');
   const [showDraft, setShowDraft] = useState(false);
-  const counts = variables.flatMap(v => [v.a, v.b]).reduce((total, value) => ({ ...total, [value]: total[value] + 1 }), { unknown: 0, available: 0, derivable: 0, unavailable: 0 });
-  const draft = JSON.stringify({ mode: 'guest_demo', synthetic_only: true, title, question, variables, events }, null, 2);
+  const [reviews, setReviews] = useState({});
+  const [reviewHistory, setReviewHistory] = useState([]);
+  const counts = variables.flatMap(v => fictionalSites.map(site => v[site])).reduce((total, value) => ({ ...total, [value]: total[value] + 1 }), { unknown: 0, available: 0, derivable: 0, unavailable: 0 });
+  const activeReviews = Object.fromEntries(Object.entries(reviews).filter(([key]) => variables.some(v => key.startsWith(`${v.id}:`))));
+  const draft = JSON.stringify({ mode: 'guest_demo', synthetic_only: true, title, question, variables, reviews: activeReviews, reviewHistory, events }, null, 2);
+  function changeReview(key, review, label) {
+    setReviews(items => ({ ...items, [key]: review }));
+    if (label) {
+      const [variableId, site] = key.split(':');
+      const availability = variables.find(v => String(v.id) === variableId)?.[site];
+      setReviewHistory(items => [...items, { sequence: items.length + 1, key, label, ...review, availability, title, question, at: new Date().toISOString() }]);
+      setNotice(`Demo review recorded for ${label}. No institutional approval was created.`);
+    }
+  }
   function map(id, site, value) {
     setVariables(items => items.map(item => item.id === id ? { ...item, [site]: value } : item));
+    const key = `${id}:${site}`;
+    setReviews(items => items[key] ? { ...items, [key]: { ...items[key], status: 'draft' } } : items);
   }
   function addVariable(e) {
     e.preventDefault();
@@ -29,7 +44,7 @@ export default function GuestWorkspace() {
     if (variables.some(v => v.name.toLowerCase() === name.toLowerCase())) {
       setNotice('That variable is already in the dictionary.'); return;
     }
-    setVariables(items => [...items, { id: Date.now(), name, a: 'unknown', b: 'unknown' }]);
+    setVariables(items => [...items, { id: Date.now(), name, a: 'unknown', b: 'unknown', c: 'unknown' }]);
     setVariable(''); setNotice('Variable added. Declare availability for each fictional site.');
   }
   function addWork(e) {
@@ -49,7 +64,7 @@ export default function GuestWorkspace() {
   return <div className="max-w-5xl mx-auto px-6 py-16 text-white space-y-10">
     <header><p className="text-emerald-300">Guest workspace · No sign-in required</p>
       <h1 className="text-4xl my-4">Turn a research question into a shared plan</h1>
-      <p className="text-xl mb-4">Find data gaps before a study starts. Define the variables, compare two fictional sites, and capture the work needed to move forward.</p>
+      <p className="text-xl mb-4">Find data gaps before a study starts. Define the variables, compare three fictional sites, and capture the work needed to move forward.</p>
       <p className="text-white/70">Explore the workflow with fictional sites. Your edits stay in this page and disappear when you reload or leave. Download a draft to keep it. Do not enter patient information.</p>
       <p className="text-white/60 mt-3">This is a temporary demo, not a shared study or an auditable institutional record. No live records, invitations, approvals, or payments are created.</p>
     </header>
@@ -66,11 +81,13 @@ export default function GuestWorkspace() {
         <p className="text-sm text-white/70">Counts describe variable–site declarations, not patients or verified data.</p>
         <p>{!variables.length ? 'Add a variable to begin assessing availability.' : counts.unknown ? 'Next: assess the unknown declarations with each site.' : counts.unavailable ? 'Next: discuss alternatives for unavailable variables before finalizing the study.' : counts.derivable ? 'Next: agree and validate the transformations for derivable variables.' : 'All fictional declarations are available. Real study feasibility still requires institutional validation.'}</p>
       </div>
-      <div className="overflow-x-auto"><table className="w-full text-left"><caption className="sr-only">Variable availability at fictional sites A and B</caption><thead><tr><th scope="col" className="p-2">Variable</th><th scope="col" className="p-2">Fictional site A</th><th scope="col" className="p-2">Fictional site B</th></tr></thead>
-        <tbody>{variables.map(v => <tr key={v.id}><th scope="row" className="p-2 break-words">{v.name}<button type="button" aria-label={`Remove ${v.name}`} onClick={() => { setVariables(items => items.filter(item => item.id !== v.id)); setNotice(`${v.name} removed from this draft.`); }} className="block text-sm font-normal text-white/70 underline py-2">Remove</button></th>{['a', 'b'].map(site => <td key={site} className="p-2"><select className={inputClass} aria-label={`${v.name}: fictional site ${site.toUpperCase()}`} value={v[site]} onChange={e => map(v.id, site, e.target.value)}>{options.map(o => <option key={o}>{o}</option>)}</select></td>)}</tr>)}</tbody></table></div>
+      <div className="overflow-x-auto"><table className="w-full text-left"><caption className="sr-only">Variable availability at fictional sites A, B and C</caption><thead><tr><th scope="col" className="p-2">Variable</th>{fictionalSites.map(site => <th key={site} scope="col" className="p-2">Fictional site {site.toUpperCase()}</th>)}</tr></thead>
+        <tbody>{variables.map(v => <tr key={v.id}><th scope="row" className="p-2 break-words">{v.name}<button type="button" aria-label={`Remove ${v.name}`} onClick={() => { setVariables(items => items.filter(item => item.id !== v.id)); setNotice(`${v.name} removed from this draft.`); }} className="block text-sm font-normal text-white/70 underline py-2">Remove</button></th>{fictionalSites.map(site => <td key={site} className="p-2"><select className={inputClass} aria-label={`${v.name}: fictional site ${site.toUpperCase()}`} value={v[site]} onChange={e => map(v.id, site, e.target.value)}>{options.map(o => <option key={o}>{o}</option>)}</select></td>)}</tr>)}</tbody></table></div>
       <form onSubmit={addVariable} className="flex flex-wrap gap-3 items-end"><label className="flex-1">New variable<input className={inputClass} maxLength={100} required value={variable} onChange={e => setVariable(e.target.value)} /></label><button className="border border-emerald-300 rounded px-4 py-3">Add variable</button></form>
       <Link to="/demo" className="inline-block text-emerald-300 underline">Run a synthetic cohort query →</Link>
     </section>
+    <GuestMappingReview variables={variables} reviews={reviews} onChange={changeReview} />
+    {reviewHistory.length > 0 && <details className="border border-white/20 rounded-xl p-4"><summary>Demo review history ({reviewHistory.length})</summary><ol className="space-y-2 mt-3">{reviewHistory.map(entry => <li key={entry.sequence}>#{entry.sequence} · {entry.label} · {entry.owner} · {entry.nextAction}<time className="block text-sm text-white/70" dateTime={entry.at}>{entry.at}</time></li>)}</ol><p className="text-sm text-white/70 mt-3">Past snapshots stay in the draft even if a variable changes or is removed. This local history has no verified reviewer identity.</p></details>}
     <section className="space-y-4" aria-labelledby="guest-ledger"><h2 id="guest-ledger" className="text-2xl">3. Try the contribution ledger</h2>
       <p className="text-white/70">Record example work such as defining variables or reviewing a protocol. Entries here have no verified contributor, approval, or financial value.</p>
       <form onSubmit={addWork} className="space-y-3"><label className="block">Example contribution<input className={inputClass} maxLength={300} required value={work} onChange={e => setWork(e.target.value)} /></label><button className="border border-emerald-300 rounded px-4 py-3">Record demo contribution</button></form>
