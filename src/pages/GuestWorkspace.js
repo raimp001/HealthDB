@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import GuestMappingReview, { fictionalSites } from '../components/GuestMappingReview';
+import { GUEST_DRAFT_KEY, parseGuestDraft, readGuestDraft } from '../lib/guestDraft';
 
 const initialVariables = [
   { id: 1, name: 'Treatment class', a: 'available', b: 'unknown', c: 'available' },
@@ -10,20 +11,50 @@ const options = ['unknown', 'available', 'derivable', 'unavailable'];
 const inputClass = 'w-full bg-black border border-white/30 rounded p-3';
 
 export default function GuestWorkspace() {
-  const [title, setTitle] = useState('Synthetic multi-site outcomes study');
-  const [question, setQuestion] = useState('How do response patterns differ across treatment classes?');
-  const [variables, setVariables] = useState(initialVariables);
+  const [restored] = useState(readGuestDraft);
+  const [title, setTitle] = useState(restored.plan?.title ?? 'Synthetic multi-site outcomes study');
+  const [question, setQuestion] = useState(restored.plan?.question ?? 'How do response patterns differ across treatment classes?');
+  const [variables, setVariables] = useState(restored.plan?.variables ?? initialVariables);
   const [variable, setVariable] = useState('');
   const [work, setWork] = useState('');
-  const [events, setEvents] = useState([]);
-  const [notice, setNotice] = useState('');
+  const [events, setEvents] = useState(restored.plan?.events ?? []);
+  const [notice, setNotice] = useState(restored.message ?? '');
   const [showDraft, setShowDraft] = useState(false);
-  const [reviews, setReviews] = useState({});
-  const [reviewHistory, setReviewHistory] = useState([]);
+  const [reviews, setReviews] = useState(restored.plan?.reviews ?? {});
+  const [reviewHistory, setReviewHistory] = useState(restored.plan?.reviewHistory ?? []);
+  const [saveStatus, setSaveStatus] = useState('');
+  const [importText, setImportText] = useState('');
+  const [importError, setImportError] = useState('');
+  const [pendingImport, setPendingImport] = useState(null);
   const counts = variables.flatMap(v => fictionalSites.map(site => v[site])).reduce((total, value) => ({ ...total, [value]: total[value] + 1 }), { unknown: 0, available: 0, derivable: 0, unavailable: 0 });
   const activeReviews = Object.fromEntries(Object.entries(reviews).filter(([key]) => variables.some(v => key.startsWith(`${v.id}:`))));
-  const draft = JSON.stringify({ mode: 'guest_demo', synthetic_only: true, title, question, variables, reviews: activeReviews, reviewHistory, events }, null, 2);
+  const draft = JSON.stringify({ schema_version: 1, mode: 'guest_demo', synthetic_only: true, title, question, variables, reviews: activeReviews, reviewHistory, events }, null, 2);
+  useEffect(() => {
+    try {
+      parseGuestDraft(draft);
+      sessionStorage.setItem(GUEST_DRAFT_KEY, draft);
+      setSaveStatus('Saved in this tab. Download a copy before closing the tab.');
+    } catch {
+      setSaveStatus('Could not save the latest changes in this tab. Download or copy your draft before leaving.');
+    }
+  }, [draft]);
+  function changeStudy(setter, value) {
+    setter(value);
+    setReviews(items => Object.fromEntries(Object.entries(items).map(([key, item]) => [key, { ...item, status: 'draft' }])));
+  }
+  function inspectImport() {
+    try { setPendingImport(parseGuestDraft(importText)); setImportError(''); }
+    catch (error) { setPendingImport(null); setImportError(error.message); }
+  }
+  function restoreImport() {
+    const plan = pendingImport;
+    setTitle(plan.title); setQuestion(plan.question); setVariables(plan.variables);
+    setReviews(plan.reviews); setReviewHistory(plan.reviewHistory); setEvents(plan.events);
+    setPendingImport(null); setImportText(''); setVariable(''); setWork('');
+    setNotice('Draft reopened. Imported history is unverified; nothing was submitted to HealthDB.');
+  }
   function changeReview(key, review, label) {
+    if (label && reviewHistory.length >= 1000) { setNotice('This demo supports up to 1,000 review snapshots. Download a copy of your work.'); return; }
     setReviews(items => ({ ...items, [key]: review }));
     if (label) {
       const [variableId, site] = key.split(':');
@@ -41,15 +72,20 @@ export default function GuestWorkspace() {
     e.preventDefault();
     const name = variable.trim();
     if (!name) return;
+    if (variables.length >= 100) { setNotice('This demo supports up to 100 variables.'); return; }
     if (variables.some(v => v.name.toLowerCase() === name.toLowerCase())) {
       setNotice('That variable is already in the dictionary.'); return;
     }
-    setVariables(items => [...items, { id: Date.now(), name, a: 'unknown', b: 'unknown', c: 'unknown' }]);
+    const usedIds = [...variables.map(v => v.id), ...Object.keys(reviews).map(key => Number(key.split(':')[0])), ...reviewHistory.map(v => Number(v.key.split(':')[0]))];
+    const id = Math.max(0, ...usedIds) + 1;
+    if (!Number.isSafeInteger(id)) { setNotice('Cannot add another variable to this draft.'); return; }
+    setVariables(items => [...items, { id, name, a: 'unknown', b: 'unknown', c: 'unknown' }]);
     setVariable(''); setNotice('Variable added. Declare availability for each fictional site.');
   }
   function addWork(e) {
     e.preventDefault();
     if (!work.trim()) return;
+    if (events.length >= 1000) { setNotice('This demo supports up to 1,000 contributions. Download a copy of your work.'); return; }
     setEvents(items => [...items, { sequence: items.length + 1, action: 'Submitted', description: work.trim(), at: new Date().toISOString() }]);
     setWork(''); setNotice('Demo contribution recorded. Independent review is available in the private workspace.');
   }
@@ -65,13 +101,15 @@ export default function GuestWorkspace() {
     <header><p className="text-emerald-300">Guest workspace · No sign-in required</p>
       <h1 className="text-4xl my-4">Turn a research question into a shared plan</h1>
       <p className="text-xl mb-4">Find data gaps before a study starts. Define the variables, compare three fictional sites, and capture the work needed to move forward.</p>
-      <p className="text-white/70">Explore the workflow with fictional sites. Your edits stay in this page and disappear when you reload or leave. Download a draft to keep it. Do not enter patient information.</p>
+      <p className="text-white/70">Explore the workflow with fictional sites. Your plan stays in this browser tab across reloads and page changes. Download a draft to keep it after closing the tab or to reopen it elsewhere. Do not enter patient information.</p>
+      <p role="status" className="text-emerald-300 text-sm">{saveStatus}</p>
       <p className="text-white/60 mt-3">This is a temporary demo, not a shared study or an auditable institutional record. No live records, invitations, approvals, or payments are created.</p>
     </header>
     <nav aria-label="Study planning steps" className="flex flex-wrap gap-3">{[['guest-plan', '1. Define your question'], ['guest-mapping', '2. Find data gaps'], ['guest-ledger', '3. Recognize the work']].map(([id, label]) => <a key={id} href={`#${id}`} className="rounded-full border border-white/30 px-4 py-2 hover:border-emerald-300 focus-visible:outline focus-visible:outline-emerald-300">{label}</a>)}</nav>
     <section className="space-y-4" aria-labelledby="guest-plan"><h2 id="guest-plan" className="text-2xl">1. Define the study</h2>
-      <label className="block">Study title<input className={inputClass} maxLength={160} value={title} onChange={e => setTitle(e.target.value)} /></label>
-      <label className="block">Research question<textarea className={inputClass} maxLength={2000} value={question} onChange={e => setQuestion(e.target.value)} /></label>
+      <label className="block">Study title<input className={inputClass} maxLength={160} value={title} onChange={e => changeStudy(setTitle, e.target.value)} /></label>
+      <label className="block">Research question<textarea className={inputClass} maxLength={2000} value={question} onChange={e => changeStudy(setQuestion, e.target.value)} /></label>
+      <p className="text-sm text-white/70">Changing the study title or question reopens mapping reviews. Earlier snapshots remain in the history.</p>
     </section>
     <section className="space-y-4" aria-labelledby="guest-mapping"><h2 id="guest-mapping" className="text-2xl">2. Map variable availability</h2>
       <p className="text-white/70">These declarations are fictional. “Unknown” means availability has not been assessed; “derivable” means a transformation would need validation.</p>
@@ -94,9 +132,16 @@ export default function GuestWorkspace() {
       {events.length ? <ol className="space-y-3">{events.map(e => <li key={e.sequence} className="border border-white/20 rounded p-3 break-words">#{e.sequence} · {e.action} · {e.description}<time className="block text-sm text-white/60" dateTime={e.at}>{e.at}</time></li>)}</ol> : <p className="text-white/60">No demo contributions yet.</p>}
     </section>
     <p role="status" aria-live="polite">{notice}</p>
-    <section className="border-t border-white/20 pt-6 space-y-4" aria-labelledby="guest-next"><h2 id="guest-next" className="text-2xl">Keep your plan. Take the next step.</h2><p className="text-white/70">Keep a copy before leaving. To discuss a supported institutional pilot, contact the team with your study idea and data needs.</p>
+    <section className="border-t border-white/20 pt-6 space-y-4" aria-labelledby="guest-next"><h2 id="guest-next" className="text-2xl">Keep your plan. Take the next step.</h2><p className="text-white/70">Keep a copy before closing this tab. To discuss a supported institutional pilot, contact the team with your study idea and data needs.</p>
     <div className="flex flex-wrap gap-5 items-center"><button onClick={download} className="bg-emerald-300 text-black rounded px-5 py-3">Download draft</button><button aria-expanded={showDraft} aria-controls="guest-draft" onClick={() => setShowDraft(value => !value)} className="border border-white/30 rounded px-5 py-3">{showDraft ? 'Hide draft' : 'Preview draft'}</button><Link to="/contact" className="text-emerald-300 underline">Discuss a research pilot →</Link></div>
     {showDraft && <label id="guest-draft" className="block">Draft JSON — select and copy<textarea readOnly value={draft} rows={12} className={`${inputClass} mt-2 font-mono text-sm`} /></label>}
+    <details className="border border-white/20 rounded-xl p-4"><summary className="cursor-pointer">Reopen an exported draft</summary>
+      <p className="text-white/70 my-3">Paste the JSON from a guest draft. Only synthetic planning content is supported. This stays in your browser; it does not verify data, identities, or approvals.</p>
+      <label className="block">Guest draft JSON<textarea id="guest-import" value={importText} maxLength={1000000} rows={6} className={`${inputClass} font-mono text-sm`} onChange={e => { setImportText(e.target.value); setPendingImport(null); setImportError(''); }} /></label>
+      <button type="button" disabled={!importText.trim()} onClick={inspectImport} className="border border-emerald-300 rounded px-4 py-3 mt-3 disabled:opacity-40">Check draft</button>
+      {importError && <p role="alert" className="text-red-300 mt-3">{importError}</p>}
+      {pendingImport && <div className="space-y-3 mt-4"><p>Ready to reopen: {pendingImport.title || 'Untitled study'} · {pendingImport.variables.length} variables · {pendingImport.reviewHistory.length} review snapshots · {pendingImport.events.length} contributions.</p><p>This replaces your current plan. Download the current draft first if you want to keep both.</p><button type="button" onClick={restoreImport} className="bg-emerald-300 text-black rounded px-4 py-3">Replace current plan with this draft</button></div>}
+    </details>
     <Link to="/projects" className="inline-block text-emerald-300 underline">Open private workspace (sign-in required)</Link></section>
   </div>;
 }

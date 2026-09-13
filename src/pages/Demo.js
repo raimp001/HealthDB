@@ -25,6 +25,7 @@ export default function Demo() {
     <h1 className="text-4xl md:text-5xl my-5">Build your first synthetic cohort.</h1>
     <p className="text-white/70 text-lg max-w-3xl">Explore 24 fictional profiles. Choose a diagnosis and minimum age, then run a query through the same filter evaluator used by the pilot research workspace.</p>
     <p className="text-white/60 my-4">This demo never reads patient data. Its simplified fixtures are for software evaluation, not clinical interpretation or estimates of available patients.</p>
+    <Link to="/explore" className="inline-block text-emerald-300 underline">Return to your study plan →</Link>
     <div className="grid md:grid-cols-2 gap-8 mt-10">
       <form onSubmit={run} className="border border-white/20 rounded-xl p-6 space-y-5">
         <fieldset disabled={busy} className="space-y-5">
