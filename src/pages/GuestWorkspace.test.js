@@ -3,6 +3,9 @@ import { createRoot } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
 import { MemoryRouter } from 'react-router-dom';
 import GuestWorkspace from './GuestWorkspace';
+import { GUEST_DRAFT_KEY } from '../lib/guestDraft';
+
+beforeEach(() => sessionStorage.clear());
 
 test('guest can declare availability and record work without a server request', async () => {
   global.IS_REACT_ACT_ENVIRONMENT = true;
@@ -56,7 +59,44 @@ test('guest can declare availability and record work without a server request', 
     expect(revised.reviewHistory[0].mapping).toContain('local response codes');
     expect(revised.variables[0].c).toBe('unavailable');
     expect(revised.reviews['2:a'].status).toBe('draft');
+    act(() => reviewButton.click());
+    const question = container.querySelector('section textarea');
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(question, 'A revised synthetic question');
+      question.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(container.querySelector('details summary').textContent).toContain('Needs review');
+    expect(JSON.parse(sessionStorage.getItem(GUEST_DRAFT_KEY)).question).toBe('A revised synthetic question');
     expect(container.querySelector('[aria-label="Availability summary"]').textContent).toContain('Need assessment1');
     expect(window.fetch).not.toHaveBeenCalled();
   } finally { act(() => root.unmount()); container.remove(); window.fetch = originalFetch; }
+});
+
+test('navigation restores work and draft reopening is validated before replacement', async () => {
+  global.IS_REACT_ACT_ENVIRONMENT = true;
+  const container = document.createElement('div'); document.body.appendChild(container);
+  const root = createRoot(container);
+  const render = () => root.render(<MemoryRouter><GuestWorkspace /></MemoryRouter>);
+  const button = name => Array.from(container.querySelectorAll('button')).find(b => b.textContent === name);
+  const fillImport = value => act(() => {
+    const field = container.querySelector('#guest-import');
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(field, value);
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  try {
+    await act(async () => render());
+    act(() => container.querySelector('[aria-label="Remove Treatment class"]').click());
+    act(() => root.render(null));
+    await act(async () => render());
+    expect(container.querySelectorAll('tbody tr')).toHaveLength(1);
+    const saved = sessionStorage.getItem(GUEST_DRAFT_KEY);
+    fillImport('{'); act(() => button('Check draft').click());
+    expect(container.querySelector('[role="alert"]').textContent).toContain('valid JSON');
+    expect(sessionStorage.getItem(GUEST_DRAFT_KEY)).toBe(saved);
+    const imported = JSON.parse(saved); imported.title = 'Reopened synthetic study';
+    fillImport(JSON.stringify(imported)); act(() => button('Check draft').click());
+    expect(JSON.parse(sessionStorage.getItem(GUEST_DRAFT_KEY)).title).not.toBe(imported.title);
+    act(() => button('Replace current plan with this draft').click());
+    expect(JSON.parse(sessionStorage.getItem(GUEST_DRAFT_KEY)).title).toBe(imported.title);
+  } finally { act(() => root.unmount()); container.remove(); }
 });
