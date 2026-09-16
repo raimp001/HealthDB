@@ -617,6 +617,10 @@ class StudyResult(Base):
     plain_language_summary = Column(Text, nullable=False)
     # Optional pointer to the paper, preprint or registry entry.
     citation = Column(Text)
+    # The dataset this finding came from. Without it a finding floats free of
+    # its evidence: it cannot be reproduced, and the platform cannot honestly
+    # tell a participant whether their records were part of it.
+    release_id = Column(String(36), ForeignKey("data_releases.id"))
     published_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     published_by = Column(String(36), ForeignKey("users.id"))
 

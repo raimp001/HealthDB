@@ -200,26 +200,65 @@ def build_contribution(db, patient_id: str) -> dict:
     ))
 
     # ---- 5. published -----------------------------------------------------
-    results = db.query(StudyResult).filter(
+    #
+    # Joining a study is not the same as being in the extract a finding came
+    # from. Someone can enrol after the data was drawn, be filtered out by the
+    # cohort, or sit outside a release that was blocked on disclosure risk —
+    # and this stage previously told all of them their records had produced
+    # the finding, which was the module's own rule against counting what it
+    # cannot show, broken by the module.
+    #
+    # A finding now counts as this person's only when it cites a release that
+    # actually carried them. One that cites nothing is still shown, because
+    # concealing it would be its own distortion, but it is labelled as a
+    # finding whose dataset was not recorded rather than as theirs.
+    release_ids = {str(r.id) for r in releases}
+    all_results = db.query(StudyResult).filter(
         StudyResult.study_id.in_(study_ids)
     ).order_by(StudyResult.published_at.desc()).all() if study_ids else []
-    stages.append(Stage(
-        "published", bool(results),
-        f"{len(results)} finding{'' if len(results) == 1 else 's'} published"
-        if results else "No findings published yet",
+
+    from_their_data, unlinked = [], []
+    for result in all_results:
+        if result.release_id and str(result.release_id) in release_ids:
+            from_their_data.append(result)
+        elif not result.release_id:
+            unlinked.append(result)
+        # A finding citing a release that did not carry them is not theirs and
+        # is not shown here at all.
+
+    count = len(from_their_data)
+    detail = (
         "This is what your records helped produce."
-        if results else
+        if count else
         "Most research does not reach a published finding, and the ones that "
-        "do take years. If a study you joined publishes something, it will "
-        "appear here — and if it never does, this will keep saying so.",
+        "do take years. If a study you joined publishes something drawn from "
+        "your records, it will appear here — and if it never does, this will "
+        "keep saying so."
+    )
+    if unlinked:
+        detail += (
+            f" {len(unlinked)} further finding(s) from studies you joined did "
+            "not record which dataset they came from, so whether your records "
+            "were part of them is not something this can tell you."
+        )
+
+    stages.append(Stage(
+        "published", bool(count),
+        f"{count} finding{'' if count == 1 else 's'} from data including yours"
+        if count else "No findings published from your records yet",
+        detail,
         blocked_because=(
-            None if results else
-            "No study you joined has published a finding."
+            None if count else
+            "No finding has been published from a release containing your records."
             if studies else
             "A finding can only come from a study you have joined."
         ),
         items=[{"title": r.title, "study_id": str(r.study_id),
-                "published_at": r.published_at.isoformat()} for r in results],
+                "published_at": r.published_at.isoformat(),
+                "dataset_recorded": True} for r in from_their_data]
+              + [{"title": r.title, "study_id": str(r.study_id),
+                  "published_at": r.published_at.isoformat(),
+                  "dataset_recorded": False} for r in unlinked],
     ))
 
     reached = [s for s in stages if s.reached]

@@ -255,8 +255,15 @@ def test_a_release_that_did_not_carry_this_person_is_not_shown(db):
     assert stage(build_contribution(db, patient), "released")["reached"] is False
 
 
-def test_a_published_finding_is_the_furthest_stage(db):
-    from api.models import Study, StudyEnrollment, StudyResult, User
+def test_a_finding_from_their_release_is_the_furthest_stage(db):
+    """Replaces an earlier version that reached "published" on enrolment alone.
+
+    Joining a study is not the same as being in the extract a finding came
+    from, and claiming otherwise broke this module's rule against counting
+    what it cannot show — in the most tempting direction, by being generous.
+    See tests/test_finding_provenance.py.
+    """
+    from api.models import DataRelease, Study, StudyEnrollment, StudyResult, User
 
     patient = make_patient(db)
     owner = User(email="pi-published@example.com", password_hash="x", name="PI",
@@ -266,16 +273,49 @@ def test_a_published_finding_is_the_furthest_stage(db):
     study = Study(name="Published study", user_id=owner.id)
     db.add(study)
     db.flush()
+    release = DataRelease(job_id="j", study_id=str(study.id), manifest={},
+                          manifest_digest="m", content_digest="c",
+                          subject_count=1, record_count=1,
+                          subject_ids=[patient])
+    db.add(release)
+    db.flush()
     db.add_all([
         StudyEnrollment(study_id=study.id, patient_id=patient, status="enrolled"),
         StudyResult(study_id=str(study.id), title="What we found",
-                    plain_language_summary="x" * 200),
+                    plain_language_summary="x" * 200,
+                    release_id=str(release.id)),
     ])
     db.commit()
 
     record = build_contribution(db, patient)
     assert record["furthest_stage"] == "published"
     assert stage(record, "published")["items"][0]["title"] == "What we found"
+
+
+def test_a_finding_that_cites_no_dataset_does_not_reach_published(db):
+    """It is listed, because hiding it would distort. It is not claimed."""
+    from api.models import Study, StudyEnrollment, StudyResult, User
+
+    patient = make_patient(db)
+    owner = User(email="pi-unlinked@example.com", password_hash="x", name="PI",
+                 user_type="researcher")
+    db.add(owner)
+    db.flush()
+    study = Study(name="Unlinked study", user_id=owner.id)
+    db.add(study)
+    db.flush()
+    db.add_all([
+        StudyEnrollment(study_id=study.id, patient_id=patient, status="enrolled"),
+        StudyResult(study_id=str(study.id), title="Unattributed",
+                    plain_language_summary="x" * 200),
+    ])
+    db.commit()
+
+    record = build_contribution(db, patient)
+    assert record["furthest_stage"] == "enrolled"
+    published = stage(record, "published")
+    assert published["reached"] is False
+    assert published["items"][0]["dataset_recorded"] is False
 
 
 def test_a_finding_from_a_study_this_person_did_not_join_is_not_shown(db):

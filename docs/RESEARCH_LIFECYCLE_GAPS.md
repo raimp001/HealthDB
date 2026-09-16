@@ -86,9 +86,9 @@ with a beautiful workflow around an empty centre.
 
 | Piece | State | Note |
 | --- | --- | --- |
-| Citable dataset identity | Partial | The content digest is citable; there is no DOI or persistent landing page |
+| Citable dataset identity | Partial | A finding now carries its release's content digest. There is still no DOI or persistent landing page |
 | Analysis environment | **Missing** | Data leaves the platform entirely. A trusted research environment would mean it never has to |
-| Results returned to the platform | Partial | A study result can carry a citation; nothing yet links it to the specific release it used |
+| Results returned to the platform | Built | A finding cites the release it came from, so it can be reproduced against the exact bytes behind it — and a participant's contribution chain counts a finding as theirs only when that release actually carried them |
 | Reproducibility check against a manifest | Partial | Possible by hand; no route does it |
 
 ## Stage 7 — Keeping it working

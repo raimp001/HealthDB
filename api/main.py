@@ -192,6 +192,7 @@ SCHEMA_SYNC_STATEMENTS = [
     "ALTER TABLE study_enrollments ADD COLUMN consented_scope_digest VARCHAR(64)",
     "ALTER TABLE study_enrollments ADD COLUMN consented_scope JSON",
     "ALTER TABLE study_enrollments ADD COLUMN reconsented_at TIMESTAMP",
+    "ALTER TABLE study_results ADD COLUMN release_id VARCHAR(36)",
     "ALTER TABLE users ADD COLUMN researcher_approved_at TIMESTAMP",
     "ALTER TABLE users ADD COLUMN researcher_approved_by VARCHAR(36)",
 ]
@@ -815,6 +816,11 @@ class StudyResultRequest(BaseModel):
     # someone who gave years of their medical history is not a result.
     plain_language_summary: str = Field(min_length=120, max_length=5000)
     citation: Optional[str] = Field(default=None, max_length=500)
+    # Which extract this finding came from. Optional, because a study may
+    # publish something that did not come from a HealthDB release at all —
+    # but when it is omitted the platform says so rather than implying a link
+    # it cannot show.
+    release_id: Optional[str] = Field(default=None, max_length=36)
 
 
 class ExtractionJobRequest(BaseModel):
@@ -1749,11 +1755,24 @@ async def publish_study_result(
     """
     study = require_study_access(db, study_id, token_data["sub"])
 
+    release = None
+    if request.release_id:
+        release = db.query(DataRelease).filter(
+            DataRelease.id == request.release_id,
+            DataRelease.study_id == str(study.id),
+        ).first()
+        if not release:
+            raise HTTPException(
+                status_code=404,
+                detail="That release does not belong to this study.",
+            )
+
     result = StudyResult(
         study_id=str(study.id),
         title=request.title,
         plain_language_summary=request.plain_language_summary,
         citation=request.citation,
+        release_id=str(release.id) if release else None,
         published_by=token_data["sub"],
     )
     db.add(result)
@@ -1769,6 +1788,10 @@ async def publish_study_result(
         "study_id": str(study.id),
         "published_at": result.published_at.isoformat(),
         "visible_to_participants": participants,
+        # The dataset this finding cites, so it can be reproduced against the
+        # exact bytes that produced it.
+        "release_id": str(release.id) if release else None,
+        "dataset_digest": release.content_digest if release else None,
     }
 
 
