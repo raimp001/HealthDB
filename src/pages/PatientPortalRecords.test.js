@@ -164,3 +164,31 @@ test('the dashboard percentage carries what it is made of', async () => {
 
   expect(container.textContent).toContain('1 of 5 kinds of record are represented');
 });
+
+
+test('an empty field does not crowd out the result the person wants to see', async () => {
+  // A qualitative lab: the numeric value is null and the real result is
+  // value_string, which sat past the four-chip cut behind blank labels.
+  mockApi({
+    '/api/patient/extracted-data': [{
+      ...RECORD,
+      data_category: 'lab_results',
+      data_type: 'Blast count',
+      completeness: '4 of 4 expected fields are recorded.',
+      missing_fields: [],
+      summary: {
+        code: '26446-4',
+        code_system: 'LOINC',
+        test: 'Blast count',
+        value: null,
+        unit: null,
+        value_string: 'Positive',
+      },
+    }],
+  });
+  await openRecordsTab();
+
+  expect(container.textContent).toContain('Positive');
+  expect(container.textContent).not.toContain('value:');
+  expect(container.textContent).not.toContain('unit:');
+});

@@ -429,11 +429,23 @@ const PatientPortal = () => {
                       {data.data_type && <span className="text-white/40 text-sm">• {data.data_type}</span>}
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {Object.entries(data.summary || {}).slice(0, 4).map(([key, value]) => (
-                        <span key={key} className="px-2 py-1 text-xs bg-white/5 text-white/60">
-                          {key.replace(/_/g, ' ')}: {typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value}
-                        </span>
-                      ))}
+                      {/*
+                        Empty fields are dropped before taking the first four.
+                        Without this, a qualitative lab showed a blank "value:"
+                        chip and pushed the actual result — value_string — past
+                        the cut, so the one thing the person wanted to see was
+                        the one thing missing. A field with nothing in it is
+                        already reported as a gap alongside; repeating it here
+                        as an empty label just crowds out something real.
+                      */}
+                      {Object.entries(data.summary || {})
+                        .filter(([, value]) => value !== null && value !== undefined && value !== '')
+                        .slice(0, 4)
+                        .map(([key, value]) => (
+                          <span key={key} className="px-2 py-1 text-xs bg-white/5 text-white/60">
+                            {key.replace(/_/g, ' ')}: {typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value}
+                          </span>
+                        ))}
                     </div>
                   </div>
                   {/*
