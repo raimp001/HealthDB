@@ -16,7 +16,20 @@ _FHIR_DATE_RE = re.compile(
     r"(?:-(?P<month>0[1-9]|1[0-2])"
     r"(?:-(?P<day>0[1-9]|[12]\d|3[01])(?:T.*)?)?)?$"
 )
-_YEAR_RE = re.compile(r"(?<!\d)((?:19|20)\d{2})(?!\d)")
+# Both year patterns below accept any four-digit year, not only 19xx/20xx.
+#
+# Restricting them to 19xx/20xx meant a date like 1782-01-01 parsed to *no
+# year*, so an implausible value was silently laundered into a missing one —
+# and "no date was recorded" and "the date could not be true" are different
+# facts. A researcher counting dated records gets a quietly wrong denominator
+# from the first, and a chance to reject from the second.
+#
+# Extracting and judging are separate jobs. The parser's job is to read what
+# is there; api/ingest_validation.py decides whether it could be true.
+#
+# This one searches anywhere in the value; _FHIR_YEAR_PREFIX_RE below is
+# anchored at the start of a well-formed FHIR date.
+_YEAR_ANYWHERE_RE = re.compile(r"(?<!\d)(\d{4})(?!\d)")
 
 _SYSTEM_LABELS = {
     "http://hl7.org/fhir/sid/icd-10-cm": "ICD-10",
@@ -73,10 +86,10 @@ def _age_band(birth_date_str, ref_date=None) -> str | None:
 
 
 def _year(date_str) -> int | None:
-    """Extract a four-digit 1900s or 2000s year from a FHIR date value."""
+    """Extract the first standalone four-digit year in a FHIR date value."""
     if not isinstance(date_str, str):
         return None
-    match = _YEAR_RE.search(date_str)
+    match = _YEAR_ANYWHERE_RE.search(date_str)
     return int(match.group(1)) if match else None
 
 
@@ -165,7 +178,8 @@ def _extension_display(resource, extension_name):
     return None
 
 
-_YEAR_RE = re.compile(r"^((?:19|20)\d{2})(?:-\d{2}(?:-\d{2}(?:T.*)?)?)?$")
+# Anchored: a FHIR date is a year, optionally followed by month and day.
+_FHIR_YEAR_PREFIX_RE = re.compile(r"^(\d{4})(?:-\d{2}(?:-\d{2}(?:T.*)?)?)?$")
 
 
 def _year_only(value):
@@ -177,7 +191,7 @@ def _year_only(value):
     """
     if not isinstance(value, str):
         return None
-    match = _YEAR_RE.match(value.strip())
+    match = _FHIR_YEAR_PREFIX_RE.match(value.strip())
     return int(match.group(1)) if match else None
 
 

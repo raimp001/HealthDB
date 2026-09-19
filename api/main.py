@@ -55,6 +55,7 @@ from . import provenance as provenance_module
 from .release_manifest import (build_manifest, criteria_digest, digest,
                                manifest_digest, verify_manifest)
 from .fhir_ingest import parse_fhir_bundle
+from .ingest_validation import describe_rejections, partition as partition_records
 from .study_scope import describe_change, scope_digest, scope_of
 from .cohort_query import CohortCriteria, matching_patient_ids, payload
 from .query_budget import find_differencing_risk, prune_history, recent_history
@@ -2384,7 +2385,12 @@ async def connect_fhir_records(
     db.commit()
     db.refresh(connection)
 
-    records = parse_fhir_bundle(req.bundle)
+    parsed = parse_fhir_bundle(req.bundle)
+    # Refuse what cannot be true before anything is stored. A malformed value
+    # kept "just in case" gets counted in a feasibility search and averaged
+    # into a finding; the contributor's data then makes the science worse.
+    records, quarantined = partition_records(parsed)
+
     prepared_records = []
     deidentification_failed = False
     for record in records:
@@ -2433,11 +2439,21 @@ async def connect_fhir_records(
         message = f"Successfully imported {records_imported} synthetic test records."
     else:
         message = "No supported clinical resources were found in the FHIR Bundle."
+    if quarantined:
+        message += (
+            f" {len(quarantined)} entr{'y was' if len(quarantined) == 1 else 'ies were'} "
+            "not stored because the values could not be true; details below."
+        )
     return {
         "success": True,
         "connection_id": str(connection.id),
         "records_imported": records_imported,
         "message": message,
+        # What was refused, and why, in terms the person who uploaded it can
+        # match against their own file. Silently dropping entries would leave
+        # them believing they contributed more than they did.
+        "records_rejected": len(quarantined),
+        "rejections": describe_rejections(quarantined),
     }
 
 

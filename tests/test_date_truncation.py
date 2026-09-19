@@ -56,9 +56,27 @@ class TestParser:
         assert _year_only("2022-11-04") == 2022
         assert _year_only("1962") == 1962
 
-    @pytest.mark.parametrize("junk", [None, "", "not-a-date", "20210829", 20210829, "0001-01-01"])
+    @pytest.mark.parametrize("junk", [None, "", "not-a-date", "20210829", 20210829])
     def test_unparseable_values_yield_none(self, junk):
         assert _year_only(junk) is None
+
+    def test_an_impossible_year_is_read_not_erased(self):
+        """"No date was recorded" and "the date cannot be true" differ.
+
+        Erasing an impossible year here would hide it behind the same None a
+        genuinely undated record uses, so a researcher counting dated records
+        gets a quietly wrong denominator and nobody ever learns the source
+        was wrong. The parser reads what is there; ingest validation is what
+        refuses it.
+        """
+        assert _year_only("0001-01-01") == 1
+        assert _year_only("1782-01-01") == 1782
+
+        from api.ingest_validation import check_record
+        refused = check_record({"data_category": "diagnosis", "data_type": "condition",
+                                "original_year": _year_only("1782-01-01"),
+                                "data": {"display": "AML"}})
+        assert refused and "1782" in refused
 
     def test_parsed_records_carry_year_only(self):
         records = parse_fhir_bundle(BUNDLE)

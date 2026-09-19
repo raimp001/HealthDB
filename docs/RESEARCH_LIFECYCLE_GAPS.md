@@ -36,13 +36,13 @@ with a beautiful workflow around an empty centre.
 | Piece | State | Note |
 | --- | --- | --- |
 | Synthetic FHIR R4 bundle parsing | Built | Flag-gated |
-| Year-only date truncation on ingest | Built | |
+| Year-only date truncation on ingest | Built | The year reaches the queryable column; `check_stored_years_were_not_dropped` in `api/self_audit.py` re-derives that from live data, and an admin repair restores any year still sitting only in a record's payload |
 | Direct-identifier scrubbing | Partial | Regex only, no NER; unreliable on free text |
 | Live EHR connection (SMART on FHIR, Bulk FHIR) | **Missing** | Blocked on de-identification review, not on code |
 | HL7v2, claims, lab feeds | **Missing** | |
 | Terminology normalization (ICD-10) | Partial | `api/terminology.py` codes diagnoses on ingest and matches cohorts on the code, so three spellings of one disease form one cohort. Starter map, not coder-reviewed. SNOMED, LOINC and RxNorm are not covered |
 | Provenance: which system, which extraction, when | Built | `api/provenance.py` records source class, resource type, parser version and arrival on every ingested record, plus a salted digest for integrity. Carries no source identifier — that would be a linkage key back to the patient. Institution-level provenance still requires real site onboarding |
-| Ingest validation and rejection reporting | **Missing** | Bad data is stored, not quarantined |
+| Ingest validation and rejection reporting | Built | `api/ingest_validation.py` refuses records that cannot be true — a year before modern oncology, an age beyond a human lifespan, an entry carrying nothing — per record rather than per upload, and the response names each refused entry and why. Deliberately narrow: merely unusual values are kept, because rare is what much of this research is looking for |
 
 ## Stage 3 — A researcher asks a question
 

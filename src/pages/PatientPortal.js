@@ -96,6 +96,10 @@ const PatientPortal = () => {
   const [showConsentModal, setShowConsentModal] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [showConnectionModal, setShowConnectionModal] = useState(false);
+  // What an upload refused to store, and why. Held here rather than flashed
+  // in a toast: the message tells someone part of their file did not make it,
+  // and they are owed the chance to read which part and go fix it.
+  const [rejections, setRejections] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const token = sessionStorage.getItem('token');
@@ -282,6 +286,7 @@ const PatientPortal = () => {
     }
 
     setIsSubmitting(true);
+    setRejections([]);
     try {
       const response = await fetch(`${API_URL}/api/patient/connections/fhir`, {
         method: 'POST',
@@ -293,7 +298,11 @@ const PatientPortal = () => {
       });
       const data = await response.json();
       if (response.ok) {
-        setShowConnectionModal(false);
+        const refused = Array.isArray(data.rejections) ? data.rejections : [];
+        setRejections(refused);
+        // Stay open when something was refused. Closing the modal would make
+        // the message's "details below" a promise the screen does not keep.
+        if (!refused.length) setShowConnectionModal(false);
         toast(data.message);
         await fetchData();
       } else {
@@ -1164,7 +1173,7 @@ const PatientPortal = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={() => setShowConnectionModal(false)}
+            onClick={() => { setShowConnectionModal(false); setRejections([]); }}
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
@@ -1175,7 +1184,10 @@ const PatientPortal = () => {
             >
               <div className="p-6 border-b border-white/10 flex items-center justify-between">
                 <h2 className="text-xl text-white">Import Synthetic FHIR Data</h2>
-                <button onClick={() => setShowConnectionModal(false)} className="p-2 hover:bg-white/10">
+                <button
+                  onClick={() => { setShowConnectionModal(false); setRejections([]); }}
+                  className="p-2 hover:bg-white/10"
+                >
                   <svg className="w-5 h-5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
                   </svg>
@@ -1203,6 +1215,32 @@ const PatientPortal = () => {
                     className="hidden"
                   />
                 </label>
+
+                {rejections.length > 0 && (
+                  <div className="border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
+                    <p className="text-amber-200 text-sm">
+                      {rejections.length === 1
+                        ? 'One entry was not stored'
+                        : `${rejections.length} entries were not stored`}
+                    </p>
+                    <p className="text-white/50 text-xs leading-relaxed">
+                      The rest of your file was imported. These values could not be
+                      true, and storing them would have made them count in searches
+                      and results built from your data.
+                    </p>
+                    <ul className="space-y-2">
+                      {rejections.map((entry, index) => (
+                        <li key={index} className="text-xs border-t border-white/10 pt-2">
+                          <span className="text-white/70">
+                            {[entry.category, entry.type].filter(Boolean).join(' · ') || 'Entry'}
+                            {entry.year ? ` (${entry.year})` : ''}
+                          </span>
+                          <p className="text-white/40 mt-1">{entry.reason}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
                 <p className="text-white/40 text-xs leading-relaxed">
                   The prototype runs identifier-removal checks, but those controls have not been
