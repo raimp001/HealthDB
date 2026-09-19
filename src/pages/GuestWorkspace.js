@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import GuestMappingReview, { fictionalSites } from '../components/GuestMappingReview';
+import SavedGuestPlans from '../components/SavedGuestPlans';
 import { GUEST_DRAFT_KEY, parseGuestDraft, readGuestDraft } from '../lib/guestDraft';
 
 const initialVariables = [
@@ -33,7 +34,7 @@ export default function GuestWorkspace() {
     try {
       parseGuestDraft(draft);
       sessionStorage.setItem(GUEST_DRAFT_KEY, draft);
-      setSaveStatus('Saved in this tab. Download a copy before closing the tab.');
+      setSaveStatus('Autosaved in this tab. Save a device copy or download before closing the tab.');
     } catch {
       setSaveStatus('Could not save the latest changes in this tab. Download or copy your draft before leaving.');
     }
@@ -46,11 +47,10 @@ export default function GuestWorkspace() {
     try { setPendingImport(parseGuestDraft(importText)); setImportError(''); }
     catch (error) { setPendingImport(null); setImportError(error.message); }
   }
-  function restoreImport() {
-    const plan = pendingImport;
+  function restorePlan(plan) {
     setTitle(plan.title); setQuestion(plan.question); setVariables(plan.variables);
     setReviews(plan.reviews); setReviewHistory(plan.reviewHistory); setEvents(plan.events);
-    setPendingImport(null); setImportText(''); setVariable(''); setWork('');
+    setPendingImport(null); setImportText(''); setImportError(''); setVariable(''); setWork('');
     setNotice('Draft reopened. Imported history is unverified; nothing was submitted to HealthDB.');
   }
   function changeReview(key, review, label) {
@@ -101,10 +101,11 @@ export default function GuestWorkspace() {
     <header><p className="text-emerald-300">Guest workspace · No sign-in required</p>
       <h1 className="text-4xl my-4">Turn a research question into a shared plan</h1>
       <p className="text-xl mb-4">Find data gaps before a study starts. Define the variables, compare three fictional sites, and capture the work needed to move forward.</p>
-      <p className="text-white/70">Explore the workflow with fictional sites. Your plan stays in this browser tab across reloads and page changes. Download a draft to keep it after closing the tab or to reopen it elsewhere. Do not enter patient information.</p>
+      <p className="text-white/70">Explore the workflow with fictional sites. Changes are kept in this tab. Save a copy on this device to return later, or download a draft to reopen elsewhere. Do not enter patient information.</p>
       <p role="status" className="text-emerald-300 text-sm">{saveStatus}</p>
       <p className="text-white/60 mt-3">This is a temporary demo, not a shared study or an auditable institutional record. No live records, invitations, approvals, or payments are created.</p>
     </header>
+    <SavedGuestPlans draft={draft} onOpen={restorePlan} />
     <nav aria-label="Study planning steps" className="flex flex-wrap gap-3">{[['guest-plan', '1. Define your question'], ['guest-mapping', '2. Find data gaps'], ['guest-ledger', '3. Recognize the work']].map(([id, label]) => <a key={id} href={`#${id}`} className="rounded-full border border-white/30 px-4 py-2 hover:border-emerald-300 focus-visible:outline focus-visible:outline-emerald-300">{label}</a>)}</nav>
     <section className="space-y-4" aria-labelledby="guest-plan"><h2 id="guest-plan" className="text-2xl">1. Define the study</h2>
       <label className="block">Study title<input className={inputClass} maxLength={160} value={title} onChange={e => changeStudy(setTitle, e.target.value)} /></label>
@@ -140,7 +141,7 @@ export default function GuestWorkspace() {
       <label className="block">Guest draft JSON<textarea id="guest-import" value={importText} maxLength={1000000} rows={6} className={`${inputClass} font-mono text-sm`} onChange={e => { setImportText(e.target.value); setPendingImport(null); setImportError(''); }} /></label>
       <button type="button" disabled={!importText.trim()} onClick={inspectImport} className="border border-emerald-300 rounded px-4 py-3 mt-3 disabled:opacity-40">Check draft</button>
       {importError && <p role="alert" className="text-red-300 mt-3">{importError}</p>}
-      {pendingImport && <div className="space-y-3 mt-4"><p>Ready to reopen: {pendingImport.title || 'Untitled study'} · {pendingImport.variables.length} variables · {pendingImport.reviewHistory.length} review snapshots · {pendingImport.events.length} contributions.</p><p>This replaces your current plan. Download the current draft first if you want to keep both.</p><button type="button" onClick={restoreImport} className="bg-emerald-300 text-black rounded px-4 py-3">Replace current plan with this draft</button></div>}
+      {pendingImport && <div className="space-y-3 mt-4"><p>Ready to reopen: {pendingImport.title || 'Untitled study'} · {pendingImport.variables.length} variables · {pendingImport.reviewHistory.length} review snapshots · {pendingImport.events.length} contributions.</p><p>This replaces your current plan. Download the current draft first if you want to keep both.</p><button type="button" onClick={() => restorePlan(pendingImport)} className="bg-emerald-300 text-black rounded px-4 py-3">Replace current plan with this draft</button></div>}
     </details>
     <Link to="/projects" className="inline-block text-emerald-300 underline">Open private workspace (sign-in required)</Link></section>
   </div>;
