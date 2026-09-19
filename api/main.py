@@ -2325,17 +2325,29 @@ async def get_medical_connections(
 
 
 def _parse_fhir_year(value: Any) -> Optional[int]:
-    """Extract the year from a FHIR date/dateTime, discarding month and day.
+    """Coerce an already-truncated year, or a FHIR date, to a year.
 
     HIPAA Safe Harbor requires removing every date element more precise than
-    the year for dates tied to an individual. The previous implementation
-    padded partial dates and returned a full ``date``, which persisted the
-    source month and day. Only the year survives this function, and the
-    parse boundary in fhir_ingest already truncates, so both layers agree.
+    the year for dates tied to an individual. An earlier implementation padded
+    partial dates and returned a full ``date``, which persisted the source
+    month and day. Only the year survives this function, and the parse
+    boundary in fhir_ingest already truncates, so both layers agree.
+
+    The integer branch matters. ``parse_fhir_bundle`` hands back an ``int``
+    here, and a string-only version of this function returned ``None`` for
+    every one of them — so every imported record was stored with no year at
+    all. Nothing failed loudly: the column is nullable, and a missing year
+    reads exactly like a record whose source never carried a date. What it
+    actually did was drop those patients out of every date-scoped cohort.
+    They had contributed, and were silently unreachable.
     """
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
     if not isinstance(value, str):
         return None
-    match = re.match(r"^((?:19|20)\d{2})(?:-\d{2}(?:-\d{2}(?:T.*)?)?)?$", value.strip())
+    match = re.match(r"^(\d{4})(?:-\d{2}(?:-\d{2}(?:T.*)?)?)?$", value.strip())
     return int(match.group(1)) if match else None
 
 
@@ -4786,6 +4798,68 @@ async def run_date_truncation(
         "rows_remaining": after["rows_with_month_and_day"],
         "column_present": after["column_present"],
     }
+
+
+@app.get("/api/admin/maintenance/missing-years")
+async def preview_year_repair(
+    token_data: Dict = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    """How many stored records lost their clinical year, and how many can get it back.
+
+    Reads only. See api/year_repair.py for how this happened and why the
+    repair is a copy rather than a guess.
+    """
+    from .year_repair import survey
+
+    state = survey(db.query(ExtractedMedicalData).all())
+    return {
+        **state,
+        "reversible": True,
+        "note": (
+            "Copies the year each record already carries in its payload into "
+            "the queryable column. Rows that state no year are left alone; "
+            "rows that already have one are never overwritten."
+        ) if state["rows_repairable"] else
+        "Nothing to repair: every record that states a year has it stored.",
+    }
+
+
+@app.post("/api/admin/maintenance/missing-years")
+async def run_year_repair(
+    token_data: Dict = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    """Restore the clinical year to records stored without one.
+
+    Only fills gaps, never overwrites, and writes nothing it cannot read out
+    of the same row. Attributable to a named admin, like the other
+    maintenance actions.
+    """
+    from .year_repair import repairable, survey
+
+    rows = db.query(ExtractedMedicalData).all()
+    before = survey(rows)
+    if not before["rows_repairable"]:
+        return {**before, "applied": False, "rows_repaired": 0,
+                "reason": "Nothing to repair."}
+
+    audit_logger.warning(
+        f"AUDIT: year_repair starting by={token_data['sub']} "
+        f"rows={before['rows_repairable']}"
+    )
+    repaired = 0
+    for row in rows:
+        year = repairable(row)
+        if year is not None:
+            row.original_year = year
+            repaired += 1
+    db.commit()
+
+    # Re-read rather than trusting the loop's account of itself.
+    after = survey(db.query(ExtractedMedicalData).all())
+    audit_logger.warning(f"AUDIT: year_repair finished result={after}")
+    return {"applied": True, "rows_repaired": repaired, **after}
 
 
 @app.get("/api/health/invariants")

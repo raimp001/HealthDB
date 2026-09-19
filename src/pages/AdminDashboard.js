@@ -11,6 +11,8 @@ export default function AdminDashboard() {
   const [dateState, setDateState] = useState(null);
   const [dateResult, setDateResult] = useState(null);
   const [confirmDates, setConfirmDates] = useState(false);
+  const [yearState, setYearState] = useState(null);
+  const [yearResult, setYearResult] = useState(null);
   const headers = () => ({ Authorization: `Bearer ${sessionStorage.getItem('token')}`, 'Content-Type': 'application/json' });
   const load = async () => {
     setBusy(true); setError(''); setData(null);
@@ -49,6 +51,23 @@ export default function AdminDashboard() {
       }));
       setConfirmDates(false);
       setDateState(await apiRequest('/api/admin/maintenance/date-truncation', { headers: headers() }));
+    } catch (e) { setError(e.message); } finally { setBusy(false); }
+  };
+  // Filling a gap from a value already in the same row. No confirmation
+  // step, unlike the truncation above: nothing is destroyed and nothing is
+  // overwritten, so the dangerous thing here would be leaving it undone.
+  const loadYearState = async () => {
+    setBusy(true); setError(''); setYearResult(null);
+    try { setYearState(await apiRequest('/api/admin/maintenance/missing-years', { headers: headers() })); }
+    catch (e) { setError(e.message); } finally { setBusy(false); }
+  };
+  const runYearRepair = async () => {
+    setBusy(true); setError('');
+    try {
+      setYearResult(await apiRequest('/api/admin/maintenance/missing-years', {
+        method: 'POST', headers: headers(),
+      }));
+      setYearState(await apiRequest('/api/admin/maintenance/missing-years', { headers: headers() }));
     } catch (e) { setError(e.message); } finally { setBusy(false); }
   };
   const button = 'border border-white/40 rounded px-4 py-2 disabled:opacity-40';
@@ -128,6 +147,38 @@ export default function AdminDashboard() {
       {dateResult.applied
         ? `Truncated ${dateResult.rows_truncated} record(s). ${dateResult.rows_remaining} remain.`
         : dateResult.reason}
+    </p>}
+
+    <h2 className="text-2xl mt-10 mb-3">Records missing their year</h2>
+    <p className="text-white/70 mb-4">
+      A record with no year matches no cohort with a date range on it, so a patient who
+      contributed can be invisible to the studies most likely to want them. Where the year is
+      still present in the record's own de-identified payload, this copies it into the column
+      researchers search. Records that genuinely never carried a date are left alone, and a
+      year already stored is never overwritten.
+    </p>
+    <button className={button} disabled={busy} onClick={loadYearState}>Check stored years</button>
+
+    {yearState && <section className="mt-4 border border-white/20 rounded p-5">
+      {!yearState.rows_repairable ? (
+        <p>Nothing to repair. Every record that states a year has it stored.</p>
+      ) : (<>
+        <p className="mb-2">
+          <strong>{yearState.rows_repairable}</strong> record(s) carry a year that was not stored.
+        </p>
+        <p className="text-white/60 mb-4">
+          {yearState.rows_with_no_year_recorded_anywhere} further record(s) state no year at all
+          and will stay as they are.
+        </p>
+        <button className={button} disabled={busy} onClick={runYearRepair}>
+          Restore these years
+        </button>
+      </>)}
+    </section>}
+    {yearResult && <p role="status" className="mt-3">
+      {yearResult.applied
+        ? `Restored the year on ${yearResult.rows_repaired} record(s).`
+        : yearResult.reason}
     </p>}
   </main>;
 }

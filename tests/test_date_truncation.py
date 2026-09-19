@@ -137,6 +137,30 @@ class TestPersistence:
         for item in read.json():
             assert "original_date" not in item, "API still returns original_date"
 
+    def test_the_year_survives_and_is_the_source_year(self, client, consented_patient):
+        """Truncating to a year must not amount to throwing the year away.
+
+        Asserting only "None or an int" let a regression through in which the
+        upload path re-parsed an already-parsed integer as if it were a
+        string and stored None for every record. Nothing failed: the column
+        is nullable, and a missing year is indistinguishable from a record
+        whose source never carried a date. The effect was that everyone who
+        uploaded dropped out of every date-scoped cohort. They had
+        contributed, and were silently unreachable.
+        """
+        headers = consented_patient("fhir-year-kept@example.com")
+        upload = client.post("/api/patient/connections/fhir", headers=headers,
+                             json={"source_name": "Test EHR", "bundle": BUNDLE})
+        assert upload.status_code == 200, upload.text
+
+        session = client._session_factory()
+        years = {(row.data_category, row.original_year)
+                 for row in session.query(ExtractedMedicalData).all()}
+        session.close()
+
+        assert ("diagnosis", 2021) in years, years
+        assert ("lab_results", 2022) in years, years
+
     def test_no_month_day_in_logs(self, client, consented_patient, caplog):
         headers = consented_patient("fhir-logs@example.com")
         with caplog.at_level(logging.DEBUG):

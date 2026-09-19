@@ -458,6 +458,41 @@ def check_records_carry_provenance(db: Session) -> Finding:
     )
 
 
+def check_stored_years_were_not_dropped(db: Session) -> Finding:
+    """A record whose payload states a year should have that year in its column.
+
+    This invariant exists because the opposite happened and nothing noticed.
+    The upload path stored None for every year while the payload beside it
+    said 2021, and because the column is nullable that reads exactly like a
+    record whose source carried no date. The people who uploaded simply
+    stopped matching any cohort with a date range on it.
+
+    A blocker rather than a warning, because unlike missing provenance this
+    is not a historical artefact that can never be fixed: the year is sitting
+    in the same row, and the repair is a copy. If this fires, the data needed
+    to clear it is already present.
+    """
+    from .models import ExtractedMedicalData
+    from .year_repair import repairable
+
+    rows = db.query(ExtractedMedicalData).all()
+    if not rows:
+        return Finding("stored_years_were_not_dropped", True, BLOCKER,
+                       "No records stored; nothing to check.")
+
+    dropped = sum(1 for row in rows if repairable(row) is not None)
+    return Finding(
+        "stored_years_were_not_dropped", dropped == 0, BLOCKER,
+        f"Every one of {len(rows)} record(s) that states a year has it stored."
+        if dropped == 0 else
+        f"{dropped} of {len(rows)} record(s) carry a year in their payload but "
+        "have none in the queryable column, so they are invisible to every "
+        "date-scoped cohort. The year is present in the row and can be "
+        "restored from it.",
+        count=dropped,
+    )
+
+
 def check_admin_bootstrap(db: Session) -> Finding:
     """Report whether an admin exists, and whether the bootstrap is still armed.
 
@@ -548,6 +583,7 @@ INVARIANTS: List[Callable[[Session], Finding]] = [
     check_cross_account_differencing,
     check_enrolments_have_a_consent_baseline,
     check_records_carry_provenance,
+    check_stored_years_were_not_dropped,
     check_admin_bootstrap,
     check_pilot_flags,
     check_secrets_configured,
