@@ -125,3 +125,53 @@ rather than done.
 The same checks are available at `GET /api/health/invariants` (admin only,
 503 when a blocker is failing) and run in CI against a fresh database, which
 catches the checker and the schema drifting apart.
+
+---
+
+## 2026-09 — Restore the year the truncation migration then discarded
+
+### Why
+
+The truncation above was correct at the parse boundary and wrong one layer
+later. `fhir_ingest._record()` returns `original_year` as an `int`; the upload
+path then passed that integer to `_parse_fhir_year()`, which only matched
+strings and returned `None` for every one of them. Every FHIR-imported record
+was stored with no year at all.
+
+Nothing failed. `original_year` is nullable, and a record with no year is
+indistinguishable from a record whose source genuinely never carried a date.
+The visible effect was that anyone who uploaded their records stopped matching
+any cohort with a date range on it. They had consented, connected and
+contributed, and were unreachable for exactly the studies most likely to want
+them.
+
+The tests did not catch it because they asserted `year is None or
+isinstance(year, int)`, which holds either way.
+
+### What changed
+
+| Layer | Before | After |
+|---|---|---|
+| `main._parse_fhir_year()` | `None` for any non-`str` | Returns an `int` unchanged; still parses a date string |
+| `self_audit` | No check | `check_stored_years_were_not_dropped` (BLOCKER) |
+| Admin surface | — | `GET`/`POST /api/admin/maintenance/missing-years` |
+
+### Repairing rows already stored
+
+The year is not lost. The parser also writes it into the de-identified payload
+as `diagnosis_year`, `year`, `start_year` or `death_year`, so the repair is a
+copy out of the same row, not an inference.
+
+```
+GET  /api/admin/maintenance/missing-years   # reads only; reports what is repairable
+POST /api/admin/maintenance/missing-years   # fills the gaps
+```
+
+Both are admin-gated and write an audit entry on each side of the run. The
+repair fills gaps only: a row that already has a year is never overwritten,
+and a payload stating no year — or two that disagree — is left alone, because
+a guessed date is worse than a missing one. A missing one is honest about
+itself.
+
+`rows_with_no_year_recorded_anywhere` in the response is the count that will
+never reach zero. Those records really have no date.
