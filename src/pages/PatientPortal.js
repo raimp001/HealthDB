@@ -356,6 +356,116 @@ const PatientPortal = () => {
     }
   };
 
+  // The records themselves, shared by the open-intake and closed-intake
+  // views. Extracted so that closing intake hides the import controls
+  // and nothing else: a contributor keeps sight of what they gave.
+  const hasRecords = extractedData.length > 0 || connections.length > 0;
+  const recordsPanel = (
+    <>
+      {/* Connected Sources */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm uppercase tracking-wider text-white/40">Synthetic Sources</h3>
+          {SYNTHETIC_FHIR_UPLOADS_ENABLED && (
+            <button
+              onClick={() => setShowConnectionModal(true)}
+              className="px-4 py-2 bg-white text-black text-xs uppercase tracking-wider font-medium hover:bg-gray-100 transition-colors"
+            >
+              + Import Test Bundle
+            </button>
+          )}
+        </div>
+
+        {connections.length > 0 ? (
+          <div className="space-y-3">
+            {connections.map((conn) => (
+              <div key={conn.id} className="card-glass p-4 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className={`w-3 h-3 rounded-full ${conn.connection_status === 'connected' ? 'bg-[#00d4aa]' : conn.connection_status === 'pending' ? 'bg-amber-500 animate-pulse' : 'bg-red-500'}`}></div>
+                  <div>
+                    <p className="text-white font-medium">{conn.source_name}</p>
+                    <p className="text-white/40 text-sm">{conn.source_type.replace(/_/g, ' ')} • {conn.records_synced} records</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  {conn.last_sync && (
+                    <span className="text-white/30 text-xs">Last sync: {new Date(conn.last_sync).toLocaleDateString()}</span>
+                  )}
+                  <span className={`px-2 py-1 text-xs uppercase ${conn.connection_status === 'connected' ? 'bg-[#00d4aa]/20 text-[#00d4aa]' : conn.connection_status === 'pending' ? 'bg-amber-500/20 text-amber-500' : 'bg-red-500/20 text-red-400'}`}>
+                    {conn.connection_status}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="card-glass p-8 text-center">
+            <span className="text-4xl mb-4 block">📋</span>
+            <h3 className="text-white font-medium mb-2">No Synthetic Records Imported</h3>
+            <p className="text-white/40 mb-6">Use a fictional FHIR R4 bundle to evaluate the workflow. Never upload real patient data.</p>
+            {SYNTHETIC_FHIR_UPLOADS_ENABLED && (
+              <button
+                onClick={() => setShowConnectionModal(true)}
+                className="px-6 py-3 bg-white text-black text-xs uppercase tracking-wider font-medium"
+              >
+                Import Test Bundle
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Extracted Data Summary */}
+      {extractedData.length > 0 && (
+        <div>
+          <h3 className="text-sm uppercase tracking-wider text-white/40 mb-4">De-identified Data Summary</h3>
+          <div className="space-y-3">
+            {extractedData.map((data) => (
+              <div key={data.id} className="card-glass p-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-white font-medium">{data.data_category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
+                      {data.data_type && <span className="text-white/40 text-sm">• {data.data_type}</span>}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {Object.entries(data.summary || {}).slice(0, 4).map(([key, value]) => (
+                        <span key={key} className="px-2 py-1 text-xs bg-white/5 text-white/60">
+                          {key.replace(/_/g, ' ')}: {typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  {/*
+                    Was a green "100% quality" badge, and the
+                    number was a constant. Approval generated
+                    by an assignment statement is not respect,
+                    and a grade is the wrong shape for this
+                    anyway: what is useful to someone looking
+                    at their own record is which parts of it
+                    are blank. Neutral, not celebratory —
+                    a thin record is usually a thin chart,
+                    not a failing patient.
+                  */}
+                  <div className="text-right max-w-[11rem]">
+                    {data.completeness && (
+                      <p className="text-white/60 text-xs">{data.completeness}</p>
+                    )}
+                    {data.missing_fields?.length > 0 && (
+                      <p className="text-white/30 text-xs mt-1">
+                        Not recorded: {data.missing_fields.join(', ')}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  );
+
   const tabs = [
     { id: 'overview', label: 'Overview' },
     { id: 'consent', label: 'Acknowledgement' },
@@ -547,6 +657,12 @@ const PatientPortal = () => {
                   <div className="card-glass p-6">
                     <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Completeness</p>
                     <p className="text-2xl font-light text-white font-mono">{Math.round(dataSummary?.completeness_score || 0)}%</p>
+                    {/* The number alone reads as a grade on the person. */}
+                    {dataSummary?.completeness_basis && (
+                      <p className="text-white/30 text-xs mt-2 leading-relaxed">
+                        {dataSummary.completeness_basis}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -910,8 +1026,17 @@ const PatientPortal = () => {
                   <h2 className="text-lg font-medium text-white mb-2">Synthetic Test Data</h2>
                   <p className="text-white/40 mb-8">This pilot workspace is for fictional or generated records only.</p>
 
-                  {/* Requirement check */}
-                  {!SYNTHETIC_FHIR_UPLOADS_ENABLED ? (
+                  {/*
+                    Closing intake must not close the view.
+
+                    This used to hide the whole tab whenever uploads were
+                    disabled, so a patient who had already contributed could
+                    not see their own records — while those records stayed in
+                    the database and stayed available to studies. You cannot
+                    reason about, or decide to withdraw, what you cannot see.
+                    So the flag now gates importing, not looking.
+                  */}
+                  {!SYNTHETIC_FHIR_UPLOADS_ENABLED && !hasRecords ? (
                     <div className="card-glass p-8 text-center border border-amber-500/20">
                       <span className="text-4xl mb-4 block">⏸</span>
                       <h3 className="text-white font-medium mb-2">Record intake is closed</h3>
@@ -919,6 +1044,17 @@ const PatientPortal = () => {
                         This deployment does not accept FHIR uploads or real health information. A controlled pilot can enable synthetic imports explicitly.
                       </p>
                     </div>
+                  ) : !SYNTHETIC_FHIR_UPLOADS_ENABLED ? (
+                    <>
+                      <div className="card-glass p-4 mb-8 border border-amber-500/20">
+                        <p className="text-white/50 text-sm">
+                          Record intake is closed on this deployment, so nothing new
+                          can be imported. What you have already contributed is below,
+                          and you can withdraw your acknowledgement at any time.
+                        </p>
+                      </div>
+                      {recordsPanel}
+                    </>
                   ) : !hasActiveResearchConsent ? (
                     <div className="card-glass p-8 text-center border border-amber-500/20">
                       <span className="text-4xl mb-4 block">🔒</span>
@@ -932,88 +1068,7 @@ const PatientPortal = () => {
                       </button>
                     </div>
                   ) : (
-                    <>
-                      {/* Connected Sources */}
-                      <div className="mb-8">
-                        <div className="flex items-center justify-between mb-4">
-                          <h3 className="text-sm uppercase tracking-wider text-white/40">Synthetic Sources</h3>
-                          <button
-                            onClick={() => setShowConnectionModal(true)}
-                            className="px-4 py-2 bg-white text-black text-xs uppercase tracking-wider font-medium hover:bg-gray-100 transition-colors"
-                          >
-                            + Import Test Bundle
-                          </button>
-                        </div>
-                        
-                        {connections.length > 0 ? (
-                          <div className="space-y-3">
-                            {connections.map((conn) => (
-                              <div key={conn.id} className="card-glass p-4 flex items-center justify-between">
-                                <div className="flex items-center gap-4">
-                                  <div className={`w-3 h-3 rounded-full ${conn.connection_status === 'connected' ? 'bg-[#00d4aa]' : conn.connection_status === 'pending' ? 'bg-amber-500 animate-pulse' : 'bg-red-500'}`}></div>
-                                  <div>
-                                    <p className="text-white font-medium">{conn.source_name}</p>
-                                    <p className="text-white/40 text-sm">{conn.source_type.replace(/_/g, ' ')} • {conn.records_synced} records</p>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-4">
-                                  {conn.last_sync && (
-                                    <span className="text-white/30 text-xs">Last sync: {new Date(conn.last_sync).toLocaleDateString()}</span>
-                                  )}
-                                  <span className={`px-2 py-1 text-xs uppercase ${conn.connection_status === 'connected' ? 'bg-[#00d4aa]/20 text-[#00d4aa]' : conn.connection_status === 'pending' ? 'bg-amber-500/20 text-amber-500' : 'bg-red-500/20 text-red-400'}`}>
-                                    {conn.connection_status}
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="card-glass p-8 text-center">
-                            <span className="text-4xl mb-4 block">📋</span>
-                            <h3 className="text-white font-medium mb-2">No Synthetic Records Imported</h3>
-                            <p className="text-white/40 mb-6">Use a fictional FHIR R4 bundle to evaluate the workflow. Never upload real patient data.</p>
-                            <button
-                              onClick={() => setShowConnectionModal(true)}
-                              className="px-6 py-3 bg-white text-black text-xs uppercase tracking-wider font-medium"
-                            >
-                              Import Test Bundle
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Extracted Data Summary */}
-                      {extractedData.length > 0 && (
-                        <div>
-                          <h3 className="text-sm uppercase tracking-wider text-white/40 mb-4">De-identified Data Summary</h3>
-                          <div className="space-y-3">
-                            {extractedData.map((data) => (
-                              <div key={data.id} className="card-glass p-4">
-                                <div className="flex items-start justify-between">
-                                  <div>
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <span className="text-white font-medium">{data.data_category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
-                                      {data.data_type && <span className="text-white/40 text-sm">• {data.data_type}</span>}
-                                    </div>
-                                    <div className="flex flex-wrap gap-2">
-                                      {Object.entries(data.summary || {}).slice(0, 4).map(([key, value]) => (
-                                        <span key={key} className="px-2 py-1 text-xs bg-white/5 text-white/60">
-                                          {key.replace(/_/g, ' ')}: {typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  </div>
-                                  <div className="text-right">
-                                    <span className="text-[#00d4aa] text-sm font-mono">{Math.round(data.data_quality_score || 0)}%</span>
-                                    <p className="text-white/30 text-xs">quality</p>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </>
+                    recordsPanel
                   )}
                 </div>
               </motion.div>

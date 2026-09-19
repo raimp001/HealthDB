@@ -493,6 +493,45 @@ def check_stored_years_were_not_dropped(db: Session) -> Finding:
     )
 
 
+def check_no_record_claims_verification(db: Session) -> Finding:
+    """No stored record may claim a verification nothing performed.
+
+    Every imported record used to be written with ``is_verified = True``, a
+    verification timestamp, and ``data_quality_score = 100.0``. Nothing had
+    checked anything. A patient saw "100% quality" beside the record they had
+    just handed over, and a researcher received a quality column that was the
+    same fabricated number on every row — a signal you would filter or weight
+    by, standing on nothing.
+
+    Completeness is measured now, and nothing claims accuracy. This re-derives
+    that from live data, because the field is cheap to set and the claim is
+    expensive to be wrong about.
+
+    A blocker. An invented attestation about someone's medical record is not
+    a cosmetic defect, and the repair removes a claim rather than adding one.
+    """
+    from .models import ExtractedMedicalData
+
+    total = db.query(ExtractedMedicalData).count()
+    if not total:
+        return Finding("no_record_claims_verification", True, BLOCKER,
+                       "No records stored; nothing claims verification.")
+
+    claimed = db.query(ExtractedMedicalData).filter(
+        or_(ExtractedMedicalData.is_verified.is_(True),
+            ExtractedMedicalData.verification_date.isnot(None))
+    ).count()
+    return Finding(
+        "no_record_claims_verification", claimed == 0, BLOCKER,
+        f"None of {total} record(s) claim a verification nothing performed."
+        if claimed == 0 else
+        f"{claimed} of {total} record(s) are marked verified, but nothing on "
+        "this platform verifies clinical values. The claim is false wherever "
+        "it is read.",
+        count=claimed,
+    )
+
+
 def check_admin_bootstrap(db: Session) -> Finding:
     """Report whether an admin exists, and whether the bootstrap is still armed.
 
@@ -584,6 +623,7 @@ INVARIANTS: List[Callable[[Session], Finding]] = [
     check_enrolments_have_a_consent_baseline,
     check_records_carry_provenance,
     check_stored_years_were_not_dropped,
+    check_no_record_claims_verification,
     check_admin_bootstrap,
     check_pilot_flags,
     check_secrets_configured,

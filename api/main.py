@@ -56,6 +56,7 @@ from .release_manifest import (build_manifest, criteria_digest, digest,
                                manifest_digest, verify_manifest)
 from .fhir_ingest import parse_fhir_bundle
 from .ingest_validation import describe_rejections, partition as partition_records
+from .record_quality import assess as assess_quality, describe_gaps, score as quality_score
 from .study_scope import describe_change, scope_digest, scope_of
 from .cohort_query import CohortCriteria, matching_patient_ids, payload
 from .query_budget import find_differencing_risk, prune_history, recent_history
@@ -888,7 +889,15 @@ class ExtractedDataResponse(BaseModel):
     data_type: Optional[str]
     extracted_date: datetime
     original_year: Optional[int]
+    # Completeness, measured from the record itself. Not a judgement about
+    # whether the values are correct — nothing here verifies that.
     data_quality_score: Optional[float]
+    # The basis for that number, in a sentence. A score nobody can take apart
+    # is a rumour, so the portal shows this instead of a bare percentage.
+    completeness: Optional[str] = None
+    # What this record does not say, named the way a person would say it, so
+    # a gap is something a contributor can act on rather than be graded by.
+    missing_fields: List[str] = []
     summary: Dict[str, Any]  # De-identified summary for patient view
     # Where this record came from, in one plain sentence. Control over data
     # you cannot trace is not really control.
@@ -898,6 +907,9 @@ class PatientDataSummary(BaseModel):
     total_records: int
     categories: Dict[str, int]
     last_sync: Optional[datetime]
+    # What the completeness number is made of. A bare percentage beside
+    # someone's medical history reads as a grade on them.
+    completeness_basis: Optional[str] = None
     completeness_score: float
     connections: List[MedicalConnectionResponse]
 
@@ -1265,6 +1277,16 @@ def csv_cell(value):
     return "'" + text_value if text_value.lstrip().startswith(("=", "+", "-", "@", "\t", "\r")) else text_value
 
 
+def _completeness_for_export(data, category, data_type):
+    """Completeness as a CSV cell: a number, or blank when none can be taken.
+
+    Blank rather than 0 for a record kind with no defined expectations. Zero
+    would tell a researcher a measurement was made and came back empty.
+    """
+    measured = assess_quality(data or {}, category, data_type)["score"]
+    return measured if measured is not None else ""
+
+
 def process_extraction_job(db: Session, job: ExtractionJob, study: Study, requester_user_id: str) -> None:
     """Build a consent-gated limited dataset CSV for an extraction job"""
     now = datetime.utcnow()
@@ -1294,7 +1316,14 @@ def process_extraction_job(db: Session, job: ExtractionJob, study: Study, reques
             record.data_category,
             csv_cell(scrubbed_type),
             record.original_year if record.original_year is not None else "",
-            record.data_quality_score if record.data_quality_score is not None else "",
+            # Measured from the scrubbed payload being exported, not read
+            # from the column. The stored value on older rows is the constant
+            # 100.0, and a quality signal is something a researcher filters or
+            # weights by — a fabricated one invites a decision and gives it
+            # nothing to stand on. Blank when this kind of record has no
+            # defined expectations, because zero would claim a measurement.
+            _completeness_for_export(scrubbed, record.data_category,
+                                     record.data_type),
             json.dumps(scrubbed),
         ])
         exported_provenance.append(record.provenance)
@@ -1347,7 +1376,12 @@ def process_extraction_job(db: Session, job: ExtractionJob, study: Study, reques
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["patient_pseudonym", "data_category", "data_type", "year", "quality_score", "data_json"])
+    # "completeness_pct", not "quality_score". The number says how much of
+    # what this kind of record can carry is present; it says nothing about
+    # whether the values are right, and a column named for quality invites
+    # exactly that misreading.
+    writer.writerow(["patient_pseudonym", "data_category", "data_type", "year",
+                     "completeness_pct", "data_json"])
     writer.writerows(export_rows)
 
     csv_content = output.getvalue()
@@ -2429,9 +2463,16 @@ async def connect_fhir_records(
             data_type=record["data_type"],
             original_year=_parse_fhir_year(record.get("original_year")),
             deidentified_data=scrubbed_data,
-            data_quality_score=100.0,
-            is_verified=True,
-            verification_date=datetime.utcnow(),
+            # Measured, not asserted. This used to be the constant 100.0 with
+            # is_verified=True and a timestamp beside it, which told a patient
+            # their record was perfect and handed a researcher a quality
+            # column that was the same fabricated number on every row.
+            data_quality_score=quality_score(
+                scrubbed_data, record["data_category"], record["data_type"]),
+            # Completeness is not accuracy. Nothing on this platform confirms
+            # that a value is correct, so nothing here claims verification.
+            is_verified=False,
+            verification_date=None,
             provenance=record.get("provenance"),
         ))
 
@@ -2485,19 +2526,27 @@ async def get_extracted_data(
         ExtractedMedicalData.patient_id == profile.id
     ).order_by(ExtractedMedicalData.extracted_date.desc()).all()
     
-    return [
-        ExtractedDataResponse(
+    rows = []
+    for e in extracted:
+        # Computed here rather than read from the column. Rows stored before
+        # completeness was measured still hold the constant 100.0, and a
+        # stale number in a database cannot lie to anyone if no read path
+        # repeats it.
+        completeness = assess_quality(
+            e.deidentified_data or {}, e.data_category, e.data_type)
+        rows.append(ExtractedDataResponse(
             id=str(e.id),
             data_category=e.data_category,
             data_type=e.data_type,
             extracted_date=e.extracted_date,
             original_year=e.original_year,
-            data_quality_score=e.data_quality_score,
+            data_quality_score=completeness["score"],
+            completeness=completeness["basis"],
+            missing_fields=describe_gaps(completeness),
             summary=e.deidentified_data or {},
             origin=provenance_module.describe_for_patient(e.provenance),
-        )
-        for e in extracted
-    ]
+        ))
+    return rows
 
 
 @app.get("/api/patient/data-summary", response_model=PatientDataSummary)
@@ -2526,9 +2575,18 @@ async def get_patient_data_summary(
     for e in extracted:
         categories[e.data_category] = categories.get(e.data_category, 0) + 1
     
-    # Calculate completeness
-    expected_categories = ["demographics", "diagnosis", "treatment", "lab_results", "molecular"]
-    completeness = (len(categories) / len(expected_categories)) * 100 if expected_categories else 0
+    # Completeness against what this platform can actually receive.
+    #
+    # The list used to include "molecular", which no ingest path produces, and
+    # to omit "outcome", which one does. So the number was capped below 100
+    # for everyone, permanently, for a category nobody could supply. A person
+    # looking at their own contribution read that as a shortfall of theirs.
+    # Measuring against an unreachable target is not a high standard, it is a
+    # wrong measurement.
+    expected_categories = ["demographics", "diagnosis", "treatment",
+                           "lab_results", "outcome"]
+    present = [name for name in expected_categories if name in categories]
+    completeness = (len(present) / len(expected_categories)) * 100
     
     # Get last sync
     last_sync = None
@@ -2541,6 +2599,14 @@ async def get_patient_data_summary(
         categories=categories,
         last_sync=last_sync,
         completeness_score=min(completeness, 100),
+        # What the number is made of, so it can be shown rather than asserted.
+        completeness_basis=(
+            f"{len(present)} of {len(expected_categories)} kinds of record "
+            "are represented. Not yet contributed: " + ", ".join(
+                name.replace("_", " ") for name in expected_categories
+                if name not in present) + "."
+        ) if len(present) < len(expected_categories) else
+        "Every kind of record this platform can receive is represented.",
         connections=[
             MedicalConnectionResponse(
                 id=str(c.id),
@@ -4860,6 +4926,71 @@ async def run_year_repair(
     after = survey(db.query(ExtractedMedicalData).all())
     audit_logger.warning(f"AUDIT: year_repair finished result={after}")
     return {"applied": True, "rows_repaired": repaired, **after}
+
+
+@app.get("/api/admin/maintenance/unverified-claims")
+async def preview_verification_claims(
+    token_data: Dict = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    """How many stored records claim a verification nothing performed. Reads only."""
+    total = db.query(ExtractedMedicalData).count()
+    claimed = db.query(ExtractedMedicalData).filter(
+        or_(ExtractedMedicalData.is_verified.is_(True),
+            ExtractedMedicalData.verification_date.isnot(None))
+    ).count()
+    return {
+        "records_total": total,
+        "records_claiming_verification": claimed,
+        "reversible": True,
+        "note": (
+            "Clears the verification flag and timestamp, and replaces the "
+            "stored quality score with measured completeness. Removes a claim; "
+            "adds none."
+        ) if claimed else "Nothing claims a verification that did not happen.",
+    }
+
+
+@app.post("/api/admin/maintenance/unverified-claims")
+async def run_verification_claim_repair(
+    token_data: Dict = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    """Withdraw verification claims nothing performed, and measure the score.
+
+    The read paths already compute completeness rather than trusting the
+    column, so this is not what keeps the number honest — it is what stops a
+    false attestation sitting in the database waiting for a query that was
+    never written yet.
+    """
+    rows = db.query(ExtractedMedicalData).filter(
+        or_(ExtractedMedicalData.is_verified.is_(True),
+            ExtractedMedicalData.verification_date.isnot(None))
+    ).all()
+    if not rows:
+        return {"applied": False, "records_corrected": 0,
+                "reason": "Nothing claims a verification that did not happen."}
+
+    audit_logger.warning(
+        f"AUDIT: verification_claim_repair starting by={token_data['sub']} "
+        f"rows={len(rows)}"
+    )
+    for row in rows:
+        row.is_verified = False
+        row.verification_date = None
+        row.data_quality_score = quality_score(
+            row.deidentified_data or {}, row.data_category, row.data_type)
+    db.commit()
+
+    # Re-read rather than trusting the loop's account of itself.
+    remaining = db.query(ExtractedMedicalData).filter(
+        or_(ExtractedMedicalData.is_verified.is_(True),
+            ExtractedMedicalData.verification_date.isnot(None))
+    ).count()
+    audit_logger.warning(
+        f"AUDIT: verification_claim_repair finished remaining={remaining}")
+    return {"applied": True, "records_corrected": len(rows),
+            "records_claiming_verification": remaining}
 
 
 @app.get("/api/health/invariants")

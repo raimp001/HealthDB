@@ -38,6 +38,7 @@ with a beautiful workflow around an empty centre.
 | Synthetic FHIR R4 bundle parsing | Built | Flag-gated |
 | Year-only date truncation on ingest | Built | The year reaches the queryable column; `check_stored_years_were_not_dropped` in `api/self_audit.py` re-derives that from live data, and an admin repair restores any year still sitting only in a record's payload |
 | Direct-identifier scrubbing | Partial | Regex only, no NER; unreliable on free text |
+| Record completeness measurement | Built | `api/record_quality.py` measures how much of what a record of its kind can carry is present, and returns the basis with the number. Computed on read, so a stale stored value cannot be repeated. Says nothing about whether the values are correct — nothing here verifies that, and `check_no_record_claims_verification` holds that line |
 | Live EHR connection (SMART on FHIR, Bulk FHIR) | **Missing** | Blocked on de-identification review, not on code |
 | HL7v2, claims, lab feeds | **Missing** | |
 | Terminology normalization (ICD-10) | Partial | `api/terminology.py` codes diagnoses on ingest and matches cohorts on the code, so three spellings of one disease form one cohort. Starter map, not coder-reviewed. SNOMED, LOINC and RxNorm are not covered |
