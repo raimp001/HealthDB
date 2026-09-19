@@ -44,13 +44,39 @@ from typing import Any, Mapping, Sequence
 # itself would shrink for unmapped diagnoses and score them *higher* for
 # carrying less. The expected set has to be stated independently of what
 # arrived.
+#
+# A tuple inside the list is one slot satisfied by any of its members, for the
+# cases where a record can legitimately say the same thing two ways.
 EXPECTED_FIELDS = {
     ("demographics", None): ("age_band", "sex", "race", "ethnicity"),
     ("outcome", None): ("vital_status", "death_year"),
     ("diagnosis", None): ("display", "code", "diagnosis_year", "clinical_status"),
-    ("lab_results", None): ("test", "code", "value", "unit", "year"),
+    # A result is a result whether it is a number or a word, so value and
+    # value_string are one slot. "unit" is deliberately not scored: units
+    # belong to quantitative results, and scoring them would mark every
+    # qualitative test incomplete for being qualitative — the same mistake as
+    # penalising a record for being unusual rather than impossible.
+    ("lab_results", None): ("test", "code", ("value", "value_string"), "year"),
     ("treatment", "medication"): ("medication", "code", "status", "start_year"),
     ("treatment", "procedure"): ("procedure", "code", "status", "year"),
+}
+
+# Fields the parser emits that are deliberately not scored, and why. Named
+# rather than merely absent, so a drift test can tell "decided against" from
+# "forgotten" — the distinction the terminology map makes for the same reason.
+UNSCORED_BY_DESIGN = {
+    # Derived from the code, not independently contributed.
+    "code_system": "Derived from the code itself.",
+    # Added by terminology annotation, not present in the source record.
+    "icd10_code": "Added by this platform, not contributed by the source.",
+    "icd10_display": "Added by this platform, not contributed by the source.",
+    "coding_source": "Added by this platform, not contributed by the source.",
+    # Vital status is its own record; scoring it twice would double-count.
+    "deceased": "Carried as its own outcome record.",
+    # Units belong to quantitative results only — see the lab slot above.
+    "unit": "Applies to numeric results only.",
+    # Optional clinical commentary; its absence is not a gap in the record.
+    "interpretation": "Optional commentary, not a required part of a result.",
 }
 
 # Field names as a patient would say them, so the portal can name a gap
@@ -67,8 +93,7 @@ FIELD_LABELS = {
     "diagnosis_year": "year of diagnosis",
     "clinical_status": "whether it is active",
     "test": "test name",
-    "value": "result",
-    "unit": "units",
+    "value": "the result",
     "year": "year",
     "medication": "medication",
     "status": "status",
@@ -118,8 +143,14 @@ def assess(data: Mapping[str, Any], category=None, data_type=None) -> dict:
                          "kind of record, so none is claimed."}
 
     payload = data if isinstance(data, Mapping) else {}
-    present = [name for name in fields if _present(payload.get(name))]
-    missing = [name for name in fields if name not in present]
+    present, missing = [], []
+    for slot in fields:
+        names = slot if isinstance(slot, tuple) else (slot,)
+        # A slot is a thing the record can say, not a key. Where it can be
+        # said two ways, either one satisfies it; the first name is what gets
+        # reported, because that is the one a person would recognise.
+        (present if any(_present(payload.get(n)) for n in names)
+         else missing).append(names[0])
     return {
         "score": round(100.0 * len(present) / len(fields), 1),
         "present": present,

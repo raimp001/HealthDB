@@ -283,3 +283,96 @@ def test_the_repair_is_idempotent(client, uploader, admin):
 def test_a_non_admin_cannot_reach_the_repair(client, uploader):
     assert client.post("/api/admin/maintenance/unverified-claims",
                        headers=uploader).status_code in (401, 403)
+
+
+# ---------------------------------------------------------------------------
+# The expected set is a second place the parser's shape is written down
+# ---------------------------------------------------------------------------
+
+EVERY_RESOURCE = {"resourceType": "Bundle", "entry": [{"resource": r} for r in [
+    {"resourceType": "Patient", "id": "p", "birthDate": "1962-03-17",
+     "gender": "female", "deceasedBoolean": False},
+    {"resourceType": "Condition", "code": {"text": "AML"},
+     "onsetDateTime": "2020-05-04"},
+    {"resourceType": "Observation",
+     "code": {"text": "Blast", "coding": [{"system": "http://loinc.org",
+                                            "code": "26446-4"}]},
+     "effectiveDateTime": "2021-01-02", "valueString": "Positive"},
+    {"resourceType": "Observation",
+     "code": {"text": "Hemoglobin", "coding": [{"system": "http://loinc.org",
+                                                 "code": "718-7"}]},
+     "effectiveDateTime": "2021-01-02",
+     "valueQuantity": {"value": 13.4, "unit": "g/dL"}},
+    {"resourceType": "MedicationRequest",
+     "medicationCodeableConcept": {"text": "Cytarabine"},
+     "authoredOn": "2019-06-06"},
+    {"resourceType": "Procedure", "code": {"text": "Biopsy"},
+     "performedDateTime": "2018-07-07"},
+]]}
+
+
+def test_every_field_the_parser_emits_is_scored_or_named_as_unscored():
+    """The dangerous direction of drift.
+
+    If the parser gains a field and EXPECTED_FIELDS does not, every record
+    silently scores complete while missing it — a completeness measure that
+    quietly stops measuring the thing that was added. Deciding not to score a
+    field is fine; forgetting to is not, so the decision has to be written
+    down where this test can see it.
+    """
+    from api.fhir_ingest import parse_fhir_bundle
+    from api.record_quality import UNSCORED_BY_DESIGN
+
+    for record in parse_fhir_bundle(EVERY_RESOURCE):
+        slots = expected_fields(record["data_category"], record["data_type"])
+        scored = set()
+        for slot in slots:
+            scored.update(slot if isinstance(slot, tuple) else (slot,))
+
+        unaccounted = set(record["data"]) - scored - set(UNSCORED_BY_DESIGN)
+        assert not unaccounted, (
+            f"{record['data_category']}/{record['data_type']} emits "
+            f"{sorted(unaccounted)}, which is neither scored nor listed in "
+            "UNSCORED_BY_DESIGN"
+        )
+
+
+def test_every_scored_field_is_one_the_parser_actually_emits():
+    """The other direction: a slot nothing can ever fill caps the score.
+
+    An expectation for a field the parser never produces marks every record
+    of that kind permanently incomplete — the same defect as measuring a
+    contribution against a category nobody can supply.
+    """
+    from api.fhir_ingest import parse_fhir_bundle
+
+    emitted = {}
+    for record in parse_fhir_bundle(EVERY_RESOURCE):
+        key = (record["data_category"], record["data_type"])
+        emitted.setdefault(key, set()).update(record["data"])
+
+    for (category, data_type), keys in emitted.items():
+        for slot in expected_fields(category, data_type):
+            names = slot if isinstance(slot, tuple) else (slot,)
+            assert keys & set(names), (
+                f"{category}/{data_type} is scored on {names}, which the "
+                "parser never emits, so it can never reach 100%"
+            )
+
+
+def test_a_qualitative_result_is_a_complete_result():
+    """A word is a result. Scoring units would penalise a test for its kind.
+
+    Both observations in the bundle carry a code and a year; the only thing
+    that differs is whether the result is a number with a unit or a word.
+    They must score the same.
+    """
+    from api.fhir_ingest import parse_fhir_bundle
+
+    labs = [r for r in parse_fhir_bundle(EVERY_RESOURCE)
+            if r["data_category"] == "lab_results"]
+    assert len(labs) == 2
+    assert all(score(r["data"], r["data_category"], r["data_type"]) == 100.0
+               for r in labs), [
+        (r["data_type"], score(r["data"], r["data_category"], r["data_type"]))
+        for r in labs]
