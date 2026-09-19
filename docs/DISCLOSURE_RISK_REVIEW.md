@@ -23,7 +23,7 @@ columns, one row per source record:
 | `data_category` | Category label, e.g. `diagnosis` |
 | `data_type` | Free-text type label, passed through the identifier scrubber |
 | `year` | Year only. Month and day are never stored (see §4) |
-| `completeness_pct` | How much of what this kind of record can carry is present, measured from the exported payload. Not a judgement about whether the values are correct — nothing on this platform verifies that |
+| `variables_present_pct` | Of the variables requested for this category, the share this row actually carries. Scored against the request, so it describes only what is in this file — a number derived from unreleased fields would be a channel about them. Says nothing about whether the values are correct; nothing on this platform verifies that |
 | `data_json` | The selected variables, scrubbed |
 
 Nothing else is released. Aggregate cohort counts follow a separate

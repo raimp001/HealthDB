@@ -1277,14 +1277,29 @@ def csv_cell(value):
     return "'" + text_value if text_value.lstrip().startswith(("=", "+", "-", "@", "\t", "\r")) else text_value
 
 
-def _completeness_for_export(data, category, data_type):
-    """Completeness as a CSV cell: a number, or blank when none can be taken.
+def _variables_present(scrubbed, requested_fields):
+    """What share of the variables this researcher asked for the row carries.
 
-    Blank rather than 0 for a record kind with no defined expectations. Zero
-    would tell a researcher a measurement was made and came back empty.
+    Scored against the request, not against everything a record of this kind
+    could hold. Two earlier versions of this column were both constants: the
+    stored 100.0 was fabricated at import, and measuring the projection
+    against the full expected set produced the same number on every row,
+    because what the projection contains is decided by the query rather than
+    by the patient.
+
+    Scoring the *stored* record instead would vary per row, but it would
+    describe fields that were not released — a number about withheld data is
+    a channel about withheld data, and this file is the disclosure boundary.
+
+    So: of the variables you requested, how many did this row actually fill.
+    That varies by record, describes only what is in the file, and is
+    something a researcher can act on.
     """
-    measured = assess_quality(data or {}, category, data_type)["score"]
-    return measured if measured is not None else ""
+    if not requested_fields:
+        return ""
+    present = sum(1 for name in requested_fields
+                  if (scrubbed or {}).get(name) not in (None, "", [], {}))
+    return round(100.0 * present / len(requested_fields), 1)
 
 
 def process_extraction_job(db: Session, job: ExtractionJob, study: Study, requester_user_id: str) -> None:
@@ -1316,14 +1331,14 @@ def process_extraction_job(db: Session, job: ExtractionJob, study: Study, reques
             record.data_category,
             csv_cell(scrubbed_type),
             record.original_year if record.original_year is not None else "",
-            # Measured from the scrubbed payload being exported, not read
-            # from the column. The stored value on older rows is the constant
-            # 100.0, and a quality signal is something a researcher filters or
-            # weights by — a fabricated one invites a decision and gives it
-            # nothing to stand on. Blank when this kind of record has no
-            # defined expectations, because zero would claim a measurement.
-            _completeness_for_export(scrubbed, record.data_category,
-                                     record.data_type),
+            # Of the variables requested for this category, how many this row
+            # filled. A quality signal is something a researcher filters or
+            # weights by, so it has to vary with the record and describe only
+            # what is in the file. See _variables_present().
+            _variables_present(scrubbed, [
+                name.split(".", 1)[1] for name in selected
+                if name.startswith(f"{record.data_category}.")
+            ]),
             json.dumps(scrubbed),
         ])
         exported_provenance.append(record.provenance)
@@ -1376,12 +1391,11 @@ def process_extraction_job(db: Session, job: ExtractionJob, study: Study, reques
 
     output = io.StringIO()
     writer = csv.writer(output)
-    # "completeness_pct", not "quality_score". The number says how much of
-    # what this kind of record can carry is present; it says nothing about
-    # whether the values are right, and a column named for quality invites
-    # exactly that misreading.
+    # Named for what it measures. "quality_score" invited a reading the
+    # number could not support, and "completeness_pct" suggested the record
+    # was being measured when what is measured is this request against it.
     writer.writerow(["patient_pseudonym", "data_category", "data_type", "year",
-                     "completeness_pct", "data_json"])
+                     "variables_present_pct", "data_json"])
     writer.writerows(export_rows)
 
     csv_content = output.getvalue()
