@@ -192,3 +192,54 @@ test('an empty field does not crowd out the result the person wants to see', asy
   expect(container.textContent).not.toContain('value:');
   expect(container.textContent).not.toContain('unit:');
 });
+
+
+test('a code this platform matched is attributed, not passed off as the record', async () => {
+  // The card used to say "Not recorded: a standard code" while displaying a
+  // code — because the code came from us, not from the person's record.
+  mockApi({
+    '/api/patient/extracted-data': [{
+      ...RECORD,
+      missing_fields: ['a standard code', 'whether it is active'],
+      summary: {
+        display: 'Acute myeloid leukemia',
+        diagnosis_year: 2021,
+        code: null,
+        icd10_code: 'C92.0',
+        icd10_display: 'Acute myeloblastic leukemia',
+        coding_source: 'healthdb-terminology-map',
+      },
+    }],
+  });
+  await openRecordsTab();
+
+  expect(container.textContent).toContain('HealthDB matched it to ICD-10 C92.0');
+  expect(container.textContent).toContain('That match is ours, not your clinician');
+  // Not mixed in with their own fields as if a clinician had written it.
+  expect(container.textContent).not.toContain('icd10 code:');
+  expect(container.textContent).not.toContain('coding source:');
+});
+
+test('a record with no matched code says nothing about matching', async () => {
+  mockApi({
+    '/api/patient/extracted-data': [{
+      ...RECORD,
+      summary: { display: 'AML', code: 'C92.0', diagnosis_year: 2020 },
+    }],
+  });
+  await openRecordsTab();
+  expect(container.textContent).not.toContain('HealthDB matched');
+});
+
+test('field names are shown as words, not as a schema', async () => {
+  mockApi({
+    '/api/patient/extracted-data': [{
+      ...RECORD,
+      summary: { value_string: 'Positive', clinical_status: 'active' },
+    }],
+  });
+  await openRecordsTab();
+  expect(container.textContent).toContain('result: Positive');
+  expect(container.textContent).not.toContain('value string:');
+  expect(container.textContent).not.toContain('clinical status:');
+});

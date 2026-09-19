@@ -4,6 +4,27 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
+// Fields this platform added, as distinct from what a person's own record
+// said. Shown separately and attributed, never mixed in with their data:
+// a matched code is our inference, and presenting it as something their
+// clinician wrote would be putting words in someone else's chart.
+const PLATFORM_ADDED_FIELDS = ['icd10_code', 'icd10_display', 'coding_source'];
+
+// Raw field names are a schema. A person reading their own medical record
+// should not have to.
+const FIELD_LABELS = {
+  value_string: 'result',
+  value: 'result',
+  code_system: 'coding system',
+  display: 'diagnosis',
+  clinical_status: 'status',
+  diagnosis_year: 'year of diagnosis',
+  start_year: 'year started',
+  death_year: 'year of death',
+  vital_status: 'vital status',
+  age_band: 'age range',
+};
+
 const SYNTHETIC_FHIR_UPLOADS_ENABLED = process.env.REACT_APP_ENABLE_SYNTHETIC_FHIR_UPLOADS === 'true';
 const PATIENT_STUDY_ENROLLMENT_ENABLED = process.env.REACT_APP_ENABLE_PATIENT_STUDY_ENROLLMENT === 'true';
 
@@ -439,14 +460,32 @@ const PatientPortal = () => {
                         as an empty label just crowds out something real.
                       */}
                       {Object.entries(data.summary || {})
-                        .filter(([, value]) => value !== null && value !== undefined && value !== '')
+                        .filter(([key, value]) => value !== null && value !== undefined && value !== ''
+                          && !PLATFORM_ADDED_FIELDS.includes(key))
                         .slice(0, 4)
                         .map(([key, value]) => (
                           <span key={key} className="px-2 py-1 text-xs bg-white/5 text-white/60">
-                            {key.replace(/_/g, ' ')}: {typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value}
+                            {FIELD_LABELS[key] || key.replace(/_/g, ' ')}: {typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value}
                           </span>
                         ))}
                     </div>
+                    {/*
+                      Attributed, and kept out of the chips above.
+
+                      The card otherwise said "Not recorded: a standard code"
+                      while displaying a code — because the code came from us,
+                      not from their record. It also showed our matched disease
+                      name beside their clinician's wording, slightly
+                      different, with nothing to say which was which.
+                    */}
+                    {data.summary?.icd10_code && (
+                      <p className="text-white/30 text-xs mt-2">
+                        Your record did not carry a standard code, so HealthDB matched
+                        it to ICD-10 {data.summary.icd10_code}
+                        {data.summary.icd10_display ? ` (${data.summary.icd10_display})` : ''}
+                        {' '}so researchers can find it. That match is ours, not your clinician's.
+                      </p>
+                    )}
                   </div>
                   {/*
                     Was a green "100% quality" badge, and the
