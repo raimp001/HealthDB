@@ -4,8 +4,13 @@ import { act } from 'react-dom/test-utils';
 import { MemoryRouter } from 'react-router-dom';
 import GuestWorkspace from './GuestWorkspace';
 import { GUEST_DRAFT_KEY } from '../lib/guestDraft';
+import { SAVED_PLANS_KEY } from '../lib/savedGuestPlans';
 
-beforeEach(() => sessionStorage.clear());
+beforeEach(() => {
+  sessionStorage.clear(); localStorage.clear();
+  let id = 0;
+  Object.defineProperty(window, 'crypto', { configurable: true, value: { randomUUID: () => `test-copy-${++id}` } });
+});
 
 test('guest can declare availability and record work without a server request', async () => {
   global.IS_REACT_ACT_ENVIRONMENT = true;
@@ -98,5 +103,55 @@ test('navigation restores work and draft reopening is validated before replaceme
     expect(JSON.parse(sessionStorage.getItem(GUEST_DRAFT_KEY)).title).not.toBe(imported.title);
     act(() => button('Replace current plan with this draft').click());
     expect(JSON.parse(sessionStorage.getItem(GUEST_DRAFT_KEY)).title).toBe(imported.title);
+  } finally { act(() => root.unmount()); container.remove(); }
+});
+
+test('explicit device save retains the complete plan across a new tab session and reopening requires confirmation', async () => {
+  global.IS_REACT_ACT_ENVIRONMENT = true;
+  const container = document.createElement('div'); document.body.appendChild(container);
+  const root = createRoot(container);
+  const render = () => root.render(<MemoryRouter><GuestWorkspace /></MemoryRouter>);
+  const button = name => Array.from(container.querySelectorAll('button')).find(b => b.textContent === name);
+  const review = { mapping: 'Synthetic categories', owner: 'Methods reviewer', nextAction: 'Check missing values', status: 'reviewed' };
+  const saved = { schema_version: 1, mode: 'guest_demo', synthetic_only: true, title: 'Return visit study', question: 'Synthetic question', variables: [{ id: 1, name: 'Response', a: 'available', b: 'unknown', c: 'derivable' }], reviews: { '1:a': review }, reviewHistory: [{ ...review, sequence: 1, key: '1:a', label: 'Response — site A', availability: 'available', title: 'Return visit study', question: 'Synthetic question', at: '2026-09-19T12:00:00Z' }], events: [{ sequence: 1, action: 'Submitted', description: 'Defined categories', at: '2026-09-19T12:00:00Z' }] };
+  sessionStorage.setItem(GUEST_DRAFT_KEY, JSON.stringify(saved));
+  try {
+    await act(async () => render());
+    expect(localStorage.getItem(SAVED_PLANS_KEY)).toBeNull();
+    act(() => button('Save a copy on this device').click());
+    expect(container.textContent).toContain('Copy saved on this device');
+    act(() => root.render(null)); sessionStorage.clear();
+    await act(async () => render());
+    const initial = sessionStorage.getItem(GUEST_DRAFT_KEY);
+    expect(JSON.parse(initial).title).not.toBe(saved.title);
+    act(() => button('Preview and reopen').click());
+    expect(container.querySelector('[aria-label="Saved copy preview"]').textContent).toContain('1 variables · 1 review snapshots · 1 contributions');
+    expect(sessionStorage.getItem(GUEST_DRAFT_KEY)).toBe(initial);
+    act(() => button('Cancel reopening').click());
+    expect(sessionStorage.getItem(GUEST_DRAFT_KEY)).toBe(initial);
+    act(() => button('Preview and reopen').click());
+    act(() => button('Replace open plan with saved copy').click());
+    expect(JSON.parse(sessionStorage.getItem(GUEST_DRAFT_KEY))).toEqual(saved);
+    act(() => button('Remove copy').click());
+    expect(JSON.parse(localStorage.getItem(SAVED_PLANS_KEY)).plans).toHaveLength(1);
+    act(() => button('Confirm removal').click());
+    expect(JSON.parse(localStorage.getItem(SAVED_PLANS_KEY)).plans).toHaveLength(0);
+    expect(JSON.parse(sessionStorage.getItem(GUEST_DRAFT_KEY))).toEqual(saved);
+  } finally { act(() => root.unmount()); container.remove(); }
+});
+
+test('blocked device storage shows a recovery action and keeps the current plan editable', async () => {
+  global.IS_REACT_ACT_ENVIRONMENT = true;
+  const container = document.createElement('div'); document.body.appendChild(container);
+  const root = createRoot(container);
+  try {
+    await act(async () => root.render(<MemoryRouter><GuestWorkspace /></MemoryRouter>));
+    const saved = sessionStorage.getItem(GUEST_DRAFT_KEY);
+    const set = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('QuotaExceededError'); });
+    try { act(() => Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Save a copy on this device').click()); }
+    finally { set.mockRestore(); }
+    expect(container.querySelector('[role="alert"]').textContent).toContain('Download or copy your draft instead');
+    expect(sessionStorage.getItem(GUEST_DRAFT_KEY)).toBe(saved);
+    expect(localStorage.getItem(SAVED_PLANS_KEY)).toBeNull();
   } finally { act(() => root.unmount()); container.remove(); }
 });
