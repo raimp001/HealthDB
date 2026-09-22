@@ -185,3 +185,113 @@ def test_default_quasi_identifiers_cover_the_exported_year_field():
 def test_extract_quasi_identifiers_returns_one_entry_per_field():
     signature = extract_quasi_identifiers({"year": 2020}, ("year", "sex"))
     assert signature == (("year", 2020), ("sex", None))
+
+
+# ---------------------------------------------------------------------------
+# l-diversity: what the number means, and when it may be enforced
+# ---------------------------------------------------------------------------
+
+def test_l_is_measured_per_attribute_not_over_their_union():
+    """The bug this replaced was anti-correlated with the harm.
+
+    Counting distinct (attribute, value) pairs across the union meant a class
+    whose subjects were *all* deceased reported l=4 — one pair for the uniform
+    vital_status plus three for the stages that happened to vary — and passed.
+    Adding more varied attributes inflated it further, so the number looked
+    healthiest exactly when one attribute was perfectly uniform.
+    """
+    from api.disclosure_risk import assess_records
+
+    rows = [{"subject_id": f"p{i}", "year": 2020, "vital_status": "Deceased",
+             "stage": ["I", "II", "III"][i % 3]} for i in range(12)]
+    report = assess_records(rows, threshold_k=11, quasi_identifiers=("year",),
+                            sensitive_attributes=("vital_status", "stage"),
+                            collapse_by_subject=True)
+    assert report.min_l == 1
+    assert report.least_diverse_attribute == "vital_status"
+
+
+def test_l_names_the_attribute_that_sank_it():
+    """"Blocked" without a reason leaves a researcher changing things at random."""
+    from api.disclosure_risk import assess_records
+
+    rows = [{"subject_id": f"p{i}", "year": 2020, "response": "Complete",
+             "stage": ["I", "II"][i % 2]} for i in range(12)]
+    report = assess_records(rows, threshold_k=11, quasi_identifiers=("year",),
+                            sensitive_attributes=("response", "stage"),
+                            collapse_by_subject=True)
+    assert report.least_diverse_attribute == "response"
+
+
+def test_an_absent_sensitive_attribute_is_not_a_failure():
+    """Nothing to disclose is not the same as disclosing everything."""
+    from api.disclosure_risk import assess_records
+
+    rows = [{"subject_id": f"p{i}", "year": 2020} for i in range(12)]
+    report = assess_records(rows, threshold_k=11, threshold_l=2,
+                            quasi_identifiers=("year",),
+                            sensitive_attributes=("diagnosis",),
+                            collapse_by_subject=True)
+    assert report.min_l == 0
+    assert report.meets_threshold is True
+    assert "not measured" in report.summary()
+
+
+def test_the_gate_requires_both_k_and_l():
+    """One name, both properties. A caller that must remember two will forget."""
+    from api.disclosure_risk import assess_records
+
+    rows = [{"subject_id": f"p{i}", "year": 2020, "diagnosis": "AML"}
+            for i in range(12)]
+    report = assess_records(rows, threshold_k=11, threshold_l=2,
+                            quasi_identifiers=("year",),
+                            sensitive_attributes=("diagnosis",),
+                            collapse_by_subject=True)
+    assert report.min_k == 12          # k is comfortably met
+    assert report.min_l == 1           # and every subject shares one diagnosis
+    assert report.meets_threshold is False
+
+
+def test_a_quasi_identifier_is_never_enforced_as_a_sensitive_attribute():
+    """Otherwise the gate is unsatisfiable, not strict.
+
+    A quasi-identifier forms the equivalence class, so within a class it is
+    constant by construction and its diversity is always exactly 1. Enforcing
+    l over it would refuse every export ever attempted — which is what the
+    existing suite caught when this was first written.
+    """
+    from api.disclosure_risk import (DEFAULT_QUASI_IDENTIFIERS,
+                                     enforceable_sensitive_attributes)
+
+    enforced = enforceable_sensitive_attributes(None)
+    assert not set(enforced) & set(DEFAULT_QUASI_IDENTIFIERS)
+
+
+def test_an_attribute_the_cohort_selected_on_is_not_enforced():
+    """A study of AML patients is uniform in diagnosis by construction.
+
+    Blocking it for that would block every targeted study, and protect
+    nobody: the study's own definition already says what it is about.
+    """
+    from api.disclosure_risk import enforceable_sensitive_attributes
+
+    assert "diagnosis" in enforceable_sensitive_attributes(None)
+    assert "diagnosis" not in enforceable_sensitive_attributes({"cancer_types": ["AML"]})
+    assert "diagnosis" not in enforceable_sensitive_attributes({"icd_codes": ["C92.0"]})
+
+
+def test_an_inclusion_rule_selects_just_as_a_filter_does():
+    from api.disclosure_risk import enforceable_sensitive_attributes
+
+    rule = {"field": "diagnosis", "operator": "IS", "value": "AML", "enabled": True}
+    assert "diagnosis" not in enforceable_sensitive_attributes({"inclusions": [rule]})
+    assert "diagnosis" in enforceable_sensitive_attributes(
+        {"inclusions": [dict(rule, enabled=False)]})
+
+
+def test_an_exclusion_does_not_switch_the_check_off():
+    """Ruling a value out usually leaves the rest varied."""
+    from api.disclosure_risk import enforceable_sensitive_attributes
+
+    rule = {"field": "diagnosis", "operator": "IS NOT", "value": "CLL"}
+    assert "diagnosis" in enforceable_sensitive_attributes({"exclusions": [rule]})

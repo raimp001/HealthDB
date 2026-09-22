@@ -51,7 +51,7 @@ from .repositories import (
     CohortRepository, DataProductRepository, DataAccessLogRepository
 )
 from .deidentification import deidentify_record, find_residual_identifiers
-from .disclosure_risk import assess_records
+from .disclosure_risk import assess_records, enforceable_sensitive_attributes
 from . import provenance as provenance_module
 from .release_differencing import find_collision, subject_digest
 from .release_manifest import (build_manifest, criteria_digest, digest,
@@ -146,6 +146,17 @@ MIN_AGGREGATE_CELL_SIZE = int(os.environ.get("MIN_AGGREGATE_CELL_SIZE", "11"))
 # sex and diagnosis from being linked to a person, so every export is measured
 # and blocked below this floor. Defaults to the aggregate suppression floor.
 MIN_EXPORT_K = int(os.environ.get("MIN_EXPORT_K", str(MIN_AGGREGATE_CELL_SIZE)))
+
+# Minimum distinct values a sensitive attribute must take within an
+# equivalence class. k hides which row is you; it does nothing about what the
+# row says. A class of twelve subjects who are all deceased satisfies any k,
+# and tells anyone who can place a person in that cohort that they died.
+#
+# 2 is a floor, not a guarantee. A class of twelve with eleven deceased and
+# one alive satisfies l=2 and is still nearly certain — that skew is what
+# t-closeness addresses, and this does not measure it. Stated here so the
+# number is not mistaken for more than it is.
+MIN_EXPORT_L = int(os.environ.get("MIN_EXPORT_L", "2"))
 
 
 def env_flag(name: str, default: bool = False) -> bool:
@@ -353,7 +364,7 @@ def promote_bootstrap_admin(session_factory=None) -> bool:
         return False
 
 
-def releasability_preview(records, matching) -> tuple:
+def releasability_preview(records, matching, criteria=None) -> tuple:
     """Would an extract from this cohort clear the disclosure gate?
 
     Answered while the researcher is still designing, because the alternative
@@ -390,17 +401,36 @@ def releasability_preview(records, matching) -> tuple:
     if not rows:
         return None, None
 
-    risk = assess_records(rows, threshold_k=MIN_EXPORT_K, collapse_by_subject=True)
+    risk = assess_records(
+        rows, threshold_k=MIN_EXPORT_K, threshold_l=MIN_EXPORT_L,
+        sensitive_attributes=enforceable_sensitive_attributes(criteria),
+        collapse_by_subject=True,
+    )
     if risk.meets_threshold:
         return True, (
             "An extract from this cohort would pass the re-identification "
             "check. That is not an approval — an extract still needs an "
             "unexpired IRB approval and a signed DUA."
         )
+    if risk.min_k < MIN_EXPORT_K:
+        return False, (
+            "An extract from this cohort would be blocked: some participants are "
+            "unique, or nearly unique, on their combination of recorded values. "
+            "Broadening the criteria or removing a variable usually resolves it. "
+            "Worth settling before you build a study around this cohort."
+        )
+    # Blocked on attribute disclosure, and the attribute is not named here.
+    #
+    # The extract path names it, because by then the requester holds an
+    # unexpired IRB approval and a signed DUA for this cohort and still
+    # receives no file. This path is open to any approved researcher with no
+    # study-level approval at all, and "every participant matching these
+    # criteria shares one value of X" is precisely the disclosure l-diversity
+    # exists to withhold. Saying it here would give it away for free.
     return False, (
-        "An extract from this cohort would be blocked: some participants are "
-        "unique, or nearly unique, on their combination of recorded values. "
-        "Broadening the criteria or removing a variable usually resolves it. "
+        "An extract from this cohort would be blocked: the participants are "
+        "too alike on one of the recorded clinical values, so the group size "
+        "alone would not hide it. Broadening the criteria usually resolves it. "
         "Worth settling before you build a study around this cohort."
     )
 
@@ -1373,19 +1403,44 @@ def process_extraction_job(db: Session, job: ExtractionJob, study: Study, reques
     # Direct identifiers are gone; residual re-identification risk is not.
     # Subjects contribute several rows each, so the linkable unit is the
     # subject, not the row.
+    # l-diversity is enforced only on attributes the cohort did not select
+    # on. A study of AML patients is uniform in diagnosis by construction, and
+    # blocking it for that would block every targeted study while protecting
+    # nobody — the study's own definition already says what it is about.
+    cohort_criteria = None
+    if study.cohort_id:
+        cohort_row = db.query(ResearchCohort).filter(
+            ResearchCohort.id == study.cohort_id).first()
+        cohort_criteria = cohort_row.criteria if cohort_row else None
+
     risk = assess_records(
-        risk_rows, threshold_k=MIN_EXPORT_K, collapse_by_subject=True
+        risk_rows, threshold_k=MIN_EXPORT_K, threshold_l=MIN_EXPORT_L,
+        sensitive_attributes=enforceable_sensitive_attributes(cohort_criteria),
+        collapse_by_subject=True,
     )
     job.disclosure_risk = risk.as_dict()
     if not risk.meets_threshold:
         job.status = "failed"
-        job.error_message = (
-            "Disclosure risk above threshold: "
-            f"smallest group contains {risk.min_k} subject(s), "
-            f"minimum {MIN_EXPORT_K} required; "
-            f"{risk.at_risk_records} subject(s) affected. Export blocked. "
-            "Broaden the cohort or drop identifying variables."
-        )
+        if risk.min_k < MIN_EXPORT_K:
+            job.error_message = (
+                "Disclosure risk above threshold: "
+                f"smallest group contains {risk.min_k} subject(s), "
+                f"minimum {MIN_EXPORT_K} required; "
+                f"{risk.at_risk_records} subject(s) affected. Export blocked. "
+                "Broaden the cohort or drop identifying variables."
+            )
+        else:
+            # k alone would have passed this. Say which attribute sank it,
+            # because "blocked" without a reason leaves a researcher changing
+            # things at random.
+            job.error_message = (
+                "Attribute disclosure above threshold: every subject in the "
+                f"smallest group shares the same {risk.least_diverse_attribute}"
+                f" ({risk.min_l} distinct value(s), minimum {MIN_EXPORT_L} "
+                "required). Group size alone does not hide a value everyone in "
+                "the group shares. Broaden the cohort, or drop "
+                f"{risk.least_diverse_attribute} from the requested variables."
+            )
         job.result_csv = None
         job.completed_at = now
         db.commit()
@@ -1464,10 +1519,7 @@ def process_extraction_job(db: Session, job: ExtractionJob, study: Study, reques
     # Record what left, immutably. Without this, a revocation has no way to
     # find who already holds the patient's data, and no result built on this
     # extract can be reproduced or checked.
-    cohort_criteria = None
-    if study.cohort_id:
-        cohort = db.query(ResearchCohort).filter(ResearchCohort.id == study.cohort_id).first()
-        cohort_criteria = cohort.criteria if cohort else None
+    # Already loaded above for the l-diversity scope.
     manifest = build_manifest(
         job_id=str(job.id),
         study_id=str(study.id),
@@ -2934,7 +2986,8 @@ async def build_cohort(
     # let the caller label it as such rather than as contributors.
     institution_names = [inst.name for inst in servable_institutions(db).all()]
 
-    releasable, releasability_note = releasability_preview(records, matching)
+    releasable, releasability_note = releasability_preview(
+        records, matching, criteria.model_dump())
 
     return CohortResult(
         patient_count=patient_count,

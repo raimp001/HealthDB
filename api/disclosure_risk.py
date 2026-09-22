@@ -72,6 +72,86 @@ DEFAULT_SENSITIVE_ATTRIBUTES = (
 )
 
 
+# Which sensitive attributes a cohort definition already gives away.
+#
+# A cohort selected on a cancer type is uniform in that attribute by
+# construction, and enforcing l-diversity on it would block every targeted
+# study — every one of them, forever, for stating what it is about. It would
+# also protect nobody: an adversary who knows someone is in "the AML study"
+# already knows the diagnosis, because the study said so.
+#
+# Deliberately narrow. Leaving an attribute out of this map keeps enforcement
+# on, which is the safe direction to be wrong in. A cancer type arguably
+# implies a primary site, but "arguably" is not a reason to stop checking.
+_CRITERIA_IMPLY = {
+    "cancer_types": ("cancer_type", "diagnosis"),
+    "icd_codes": ("cancer_type", "diagnosis"),
+    "stages": ("stage",),
+}
+
+
+# An inclusion rule selects on a field just as a top-level filter does.
+_RULE_FIELD_IMPLIES = {
+    "diagnosis": ("cancer_type", "diagnosis"),
+    "stage": ("stage",),
+}
+
+
+def implied_sensitive_attributes(criteria: Mapping[str, Any] | None) -> set:
+    """Attributes the cohort definition already discloses, so l need not.
+
+    Inclusions count; exclusions do not. Requiring a value makes the cohort
+    uniform in it by construction. Ruling one out usually leaves the rest
+    varied, and treating that as "already known" would switch the check off
+    for a cohort that is still hiding something.
+    """
+    implied = set()
+    for field_name, attributes in _CRITERIA_IMPLY.items():
+        if (criteria or {}).get(field_name):
+            implied.update(attributes)
+
+    for rule in (criteria or {}).get("inclusions") or []:
+        if not isinstance(rule, Mapping) or rule.get("enabled") is False:
+            continue
+        implied.update(_RULE_FIELD_IMPLIES.get(rule.get("field"), ()))
+    return implied
+
+
+def enforceable_sensitive_attributes(
+    criteria: Mapping[str, Any] | None,
+    sensitive_attributes: Sequence[str] = DEFAULT_SENSITIVE_ATTRIBUTES,
+    quasi_identifiers: Sequence[str] = DEFAULT_QUASI_IDENTIFIERS,
+) -> tuple:
+    """The sensitive attributes worth enforcing l-diversity on for this cohort.
+
+    Two exclusions, and the second one is not an optimisation — without it
+    this gate would refuse every export ever attempted.
+
+    **Quasi-identifiers.** A quasi-identifier is part of the signature that
+    forms an equivalence class, so within a class it is constant by
+    construction and its diversity is exactly 1, always. Enforcing l over an
+    attribute that also defines the classes is not a strict check, it is an
+    unsatisfiable one. It is also unnecessary: to exploit uniformity in an
+    attribute you must first place the person in the class, and if the
+    attribute helped define the class you had to know their value already.
+    Learning it back is not a disclosure.
+
+    **Attributes the cohort selected on**, per implied_sensitive_attributes.
+
+    In this deployment's default configuration the quasi-identifier set is
+    deliberately broad and already contains almost every clinical attribute,
+    so what remains enforceable is narrow — `diagnosis`, and only for a cohort
+    that did not select on it. That is the honest consequence of treating
+    nearly everything as identifying, not a hole: which attributes are
+    identifying and which are sensitive is the judgement a statistician makes,
+    and DISCLOSURE_RISK_REVIEW.md records that no statistician has made it
+    here yet. Narrowing the quasi-identifier set is what would make this check
+    bite, and that is not a decision to take by widening a default.
+    """
+    excluded = implied_sensitive_attributes(criteria) | set(quasi_identifiers)
+    return tuple(a for a in sensitive_attributes if a not in excluded)
+
+
 @dataclass
 class RiskReport:
     """Measured disclosure risk for one export."""
@@ -85,16 +165,37 @@ class RiskReport:
     unique_classes: int
     small_classes: int
     at_risk_records: int
+    threshold_l: int = 1
+    # Which attribute was the least diverse, so a researcher is told what to
+    # change rather than left to guess which column sank the export.
+    least_diverse_attribute: Any = None
     class_size_histogram: Mapping[int, int] = field(default_factory=dict)
     unit: str = "record"
 
     @property
     def meets_threshold(self) -> bool:
-        """True when every equivalence class is at least `threshold_k` in size.
+        """True when the export meets every configured threshold, k and l.
+
+        Both, deliberately, under one name. k and l defend against different
+        harms — being singled out, and having an attribute revealed — and a
+        caller that has to remember to check a second property is a caller
+        that will eventually forget. The name says "is this releasable", so
+        it has to mean it.
 
         An empty export trivially meets it: there is nothing to disclose.
         """
-        return self.record_count == 0 or self.min_k >= self.threshold_k
+        if self.record_count == 0:
+            return True
+        return self.min_k >= self.threshold_k and self.meets_l_threshold
+
+    @property
+    def meets_l_threshold(self) -> bool:
+        """True when no sensitive attribute is too uniform within a class.
+
+        A class carrying no sensitive attribute at all reports min_l = 0 and
+        passes: there is no attribute there to disclose.
+        """
+        return self.min_l == 0 or self.min_l >= self.threshold_l
 
     def summary(self) -> str:
         if self.record_count == 0:
@@ -104,7 +205,15 @@ class RiskReport:
             f"{self.record_count} records across {self.subject_count} subjects, "
             f"measured per {self.unit}. "
             f"Smallest equivalence class k={self.min_k} (threshold {self.threshold_k}); "
-            f"l={self.min_l}. {self.unique_classes} unique combination(s), "
+            + (
+                "no sensitive attribute outside the quasi-identifier set was "
+                "present, so l was not measured. "
+                if self.min_l == 0 else
+                f"least diverse sensitive attribute "
+                f"{self.least_diverse_attribute} at l={self.min_l} "
+                f"(threshold {self.threshold_l}). "
+            )
+            + f"{self.unique_classes} unique combination(s), "
             f"{self.at_risk_records} {self.unit}(s) below threshold. "
             f"Export {verdict} the configured threshold. "
             "This is a measurement, not a de-identification determination."
@@ -124,6 +233,9 @@ class RiskReport:
             "class_size_histogram": dict(self.class_size_histogram),
             "unit": self.unit,
             "meets_threshold": self.meets_threshold,
+            "threshold_l": self.threshold_l,
+            "meets_l_threshold": self.meets_l_threshold,
+            "least_diverse_attribute": self.least_diverse_attribute,
             "caveat": (
                 "k-anonymity is a measurement, not a compliance determination. "
                 "No qualified statistician has reviewed this pipeline."
@@ -189,6 +301,7 @@ def assess_records(
     records: Iterable[Mapping[str, Any]],
     *,
     threshold_k: int,
+    threshold_l: int = 1,
     quasi_identifiers: Sequence[str] = DEFAULT_QUASI_IDENTIFIERS,
     sensitive_attributes: Sequence[str] = DEFAULT_SENSITIVE_ATTRIBUTES,
     subject_key: str = "subject_id",
@@ -215,7 +328,8 @@ def assess_records(
     if not records:
         return RiskReport(
             record_count=0, subject_count=0, quasi_identifiers=quasi_identifiers,
-            min_k=0, min_l=0, threshold_k=threshold_k, unique_classes=0,
+            min_k=0, min_l=0, threshold_k=threshold_k, threshold_l=threshold_l,
+            unique_classes=0,
             small_classes=0, at_risk_records=0, class_size_histogram={},
             unit=unit,
         )
@@ -245,19 +359,37 @@ def assess_records(
     sizes = [len(members) for members in classes.values()]
     min_k = min(sizes)
 
-    # l-diversity: distinct sensitive values within a class. A class of 10 that
-    # shares one diagnosis discloses that diagnosis to anyone who can place a
-    # subject in it, so a large k with l=1 is not protection.
+    # l-diversity, measured per sensitive attribute.
+    #
+    # This previously counted distinct (attribute, value) pairs across the
+    # union of all sensitive attributes, which is not l-diversity and was
+    # anti-correlated with the harm in the worst case. A class of twelve
+    # subjects who were *all* deceased reported l=4 — one pair for the
+    # uniform vital_status plus three for the stages that happened to vary —
+    # and passed. Adding more varied attributes inflated it further, so the
+    # number looked healthiest exactly when one attribute was perfectly
+    # uniform, which is the disclosure it exists to catch.
+    #
+    # A class is l-diverse only if *every* sensitive attribute it carries has
+    # at least l distinct values. One uniform attribute is one attribute
+    # disclosed, however varied the others are.
     min_l = None
+    least_diverse_attribute = None
     for members in classes.values():
-        distinct = set()
+        values_by_attribute = defaultdict(set)
         for member in members:
             for flat in member:
                 for attribute in sensitive_attributes:
                     if attribute in flat:
-                        distinct.add((attribute, flat[attribute]))
-        diversity = len(distinct) if distinct else 1
-        min_l = diversity if min_l is None else min(min_l, diversity)
+                        values_by_attribute[attribute].add(flat[attribute])
+        if not values_by_attribute:
+            # No sensitive attribute is present, so there is none to disclose.
+            continue
+        for attribute, values in values_by_attribute.items():
+            if min_l is None or len(values) < min_l:
+                min_l, least_diverse_attribute = len(values), attribute
+    if min_l is None:
+        min_l = 0
 
     return RiskReport(
         record_count=len(records),
@@ -266,6 +398,8 @@ def assess_records(
         min_k=min_k,
         min_l=min_l or 0,
         threshold_k=threshold_k,
+        threshold_l=threshold_l,
+        least_diverse_attribute=least_diverse_attribute,
         unique_classes=sum(1 for s in sizes if s == 1),
         small_classes=sum(1 for s in sizes if s < threshold_k),
         at_risk_records=sum(s for s in sizes if s < threshold_k),

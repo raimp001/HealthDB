@@ -41,8 +41,11 @@ should decide whether that is acceptable for the intended release.
 
 - **k-anonymity** — the size of the smallest equivalence class over the
   quasi-identifier set.
-- **l-diversity** — the number of distinct sensitive values in the least
-  diverse class.
+- **l-diversity** — the number of distinct values taken by the least diverse
+  *single* sensitive attribute, within the least diverse class. Measured per
+  attribute: a class is only l-diverse if every sensitive attribute it carries
+  reaches l, since one uniform attribute is one attribute disclosed however
+  varied the others are.
 - Class-size histogram, count of unique classes, count of subjects below
   threshold.
 
@@ -92,8 +95,32 @@ measurement, but banding is whatever the source produced.
 ## 5. Limits a reviewer should not have to discover
 
 1. **k-anonymity does not prevent attribute disclosure.** A class of 30 that
-   all share one diagnosis discloses that diagnosis. l-diversity is reported
-   for this reason but is not currently enforced by a threshold.
+   all share one diagnosis discloses that diagnosis. The export gate now
+   requires l as well as k (`MIN_EXPORT_L`, default 2) — but **that check
+   cannot currently fire, and a reviewer should treat attribute disclosure as
+   unmitigated.**
+
+   l is only meaningful for attributes that are *not* quasi-identifiers: a
+   quasi-identifier forms the equivalence class, so within a class it is
+   constant by construction and its diversity is always 1. Enforcing l over
+   one would be unsatisfiable, not strict. This deployment's quasi-identifier
+   set is deliberately broad and already contains cancer_type, primary_site,
+   stage, histology and vital_status, which leaves `diagnosis` as the only
+   enforceable sensitive attribute — and no export payload carries a field
+   under that name.
+
+   So the mechanism is in place and the threshold is configurable, and
+   nothing is currently protected by it. What would make it bite is a
+   narrower quasi-identifier set, which is item 3 below and part of this
+   determination. It is deliberately not being changed by widening a default.
+
+   Until then, `min_l` in a manifest reads 0, which this records as "no
+   sensitive attribute outside the quasi-identifier set was present, so l was
+   not measured" rather than as a passing score.
+
+   Note also that l=2 is a weak floor: a class of twelve with eleven deceased
+   and one alive satisfies it and is still nearly certain. That skew is what
+   t-closeness addresses and nothing here measures it.
 2. **No cross-release tracking.** Repeated exports over overlapping cohorts
    can defeat a per-export threshold. Nothing here accumulates disclosure
    across releases, and nothing prevents a researcher from differencing two

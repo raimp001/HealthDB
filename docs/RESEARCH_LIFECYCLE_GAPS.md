@@ -80,7 +80,8 @@ with a beautiful workflow around an empty centre.
 | Download metered and logged | Built | |
 | **Validated de-identification** | **Not ours** | Requires a named qualified statistician. See `DISCLOSURE_RISK_REVIEW.md` |
 | Automatic generalization instead of blocking | **Missing** | An outlier record fails the export; nothing coarsens it |
-| l-diversity / t-closeness enforced by threshold | **Missing** | Measured, not enforced |
+| l-diversity enforced by threshold | Partial | The gate now requires k *and* l, and `min_l` was corrected: it counted distinct (attribute, value) pairs across the union of sensitive attributes, so a class whose subjects were all deceased reported l=4 and passed. It is per attribute now. **The enforcement cannot currently fire.** l is only meaningful for attributes that are not quasi-identifiers — a quasi-identifier is constant within a class by construction — and this deployment's quasi-identifier set deliberately contains almost every clinical attribute, leaving only `diagnosis`, which no export payload carries under that name. Narrowing the quasi-identifier set is what would make it bite, and that is the statistician's call recorded in `DISCLOSURE_RISK_REVIEW.md`, not a default to widen |
+| t-closeness | **Missing** | l=2 is satisfied by a class of twelve with eleven deceased and one alive, which is still nearly certain. Skew is not measured |
 | Signed manifests | **Missing** | Digests detect change; they do not prove authorship. Needs a key |
 | Export formats beyond CSV (REDCap, FHIR, OMOP) | **Missing** | |
 
