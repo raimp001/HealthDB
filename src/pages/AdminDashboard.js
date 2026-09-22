@@ -13,6 +13,8 @@ export default function AdminDashboard() {
   const [confirmDates, setConfirmDates] = useState(false);
   const [yearState, setYearState] = useState(null);
   const [yearResult, setYearResult] = useState(null);
+  const [reviews, setReviews] = useState(null);
+  const [reviewNote, setReviewNote] = useState({});
   const headers = () => ({ Authorization: `Bearer ${sessionStorage.getItem('token')}`, 'Content-Type': 'application/json' });
   const load = async () => {
     setBusy(true); setError(''); setData(null);
@@ -70,6 +72,24 @@ export default function AdminDashboard() {
       setYearState(await apiRequest('/api/admin/maintenance/missing-years', { headers: headers() }));
     } catch (e) { setError(e.message); } finally { setBusy(false); }
   };
+  // Held extracts. A researcher is waiting on each of these, so they load
+  // with the page rather than behind a button: a review nobody looks at is a
+  // refusal with extra steps.
+  const loadReviews = async () => {
+    try { setReviews(await apiRequest('/api/admin/release-reviews', { headers: headers() })); }
+    catch (e) { setError(e.message); }
+  };
+  useEffect(() => { loadReviews(); }, []);
+  const decideReview = async (id, decision) => {
+    setBusy(true); setError('');
+    try {
+      await apiRequest(`/api/admin/release-reviews/${id}`, {
+        method: 'POST', headers: headers(),
+        body: JSON.stringify({ decision, note: reviewNote[id] || '' }),
+      });
+      await loadReviews();
+    } catch (e) { setError(e.message); } finally { setBusy(false); }
+  };
   const button = 'border border-white/40 rounded px-4 py-2 disabled:opacity-40';
   return <main className="max-w-6xl mx-auto px-6 py-16 text-white">
     <h1 className="text-4xl mb-4">Admin workspace</h1>
@@ -110,6 +130,63 @@ export default function AdminDashboard() {
     <p className="text-white/70 mb-4">Run read-only database and privacy safeguards checks. These checks do not certify regulatory compliance.</p>
     <button className={button} disabled={busy} onClick={runAudit}>Run checks</button>
     {audit && <section className="mt-4"><p>{audit.summary}</p><ul className="space-y-3 mt-3">{audit.findings.map(f => <li key={f.name}>{f.passed ? 'Pass' : 'Needs attention'} — {f.summary} ({f.severity})</li>)}</ul></section>}
+
+    <h2 className="text-2xl mt-10 mb-3">Extracts held for disclosure review</h2>
+    <p className="text-white/70 mb-4">
+      Two extracts whose subject sets differ by only a few people identify those
+      people to anyone holding both files, and each file on its own passes every
+      automatic check. These are held before the file is built. The requester is
+      told it is under review and nothing else — what it collided with is exactly
+      what they must not have.
+    </p>
+
+    {reviews && reviews.length === 0 && (
+      <p className="text-white/50">Nothing is held. No researcher is waiting.</p>
+    )}
+    {reviews && reviews.map((review) => (
+      <section key={review.id} className="mb-4 border border-amber-500/30 rounded p-5">
+        <p className="mb-1">
+          <strong>{review.study_name || 'Untitled study'}</strong>
+          {review.requested_by ? ` · requested by ${review.requested_by}` : ''}
+          {review.requested_by_organization ? ` (${review.requested_by_organization})` : ''}
+        </p>
+        <p className="text-white/70 mb-1">
+          {review.subjects_differing} subject(s) differ from an earlier release —
+          below the floor of {review.threshold}. Releasing both would identify them.
+        </p>
+        <p className="text-white/50 mb-1">
+          Shape: {review.shape}
+          {review.detail?.prior_release_downloaded
+            ? ' · the earlier extract has been downloaded'
+            : ' · the earlier extract has not been downloaded yet'}
+        </p>
+        <p className="text-white/40 text-sm mb-4">
+          Approving re-runs the extract from scratch, so consent, approvals and
+          disclosure risk are all re-checked. If the people in it have changed
+          since it was held, it returns here rather than going out on a
+          decision made about a different group.
+        </p>
+        <label className="block mb-3">
+          <span className="text-white/60 text-sm">Why (recorded either way)</span>
+          <textarea
+            className="w-full bg-transparent border border-white/20 rounded p-2 mt-1"
+            rows={2}
+            value={reviewNote[review.id] || ''}
+            onChange={(e) => setReviewNote({ ...reviewNote, [review.id]: e.target.value })}
+          />
+        </label>
+        <div className="flex flex-wrap gap-3">
+          <button className={button} disabled={busy}
+                  onClick={() => decideReview(review.id, 'approve')}>
+            Release it
+          </button>
+          <button className={button} disabled={busy}
+                  onClick={() => decideReview(review.id, 'decline')}>
+            Do not release
+          </button>
+        </div>
+      </section>
+    ))}
 
     <h2 className="text-2xl mt-10 mb-3">Stored date precision</h2>
     <p className="text-white/70 mb-4">

@@ -43,6 +43,7 @@ with a beautiful workflow around an empty centre.
 | HL7v2, claims, lab feeds | **Missing** | |
 | Terminology normalization (ICD-10) | Partial | `api/terminology.py` codes diagnoses on ingest and matches cohorts on the code, so three spellings of one disease form one cohort. Starter map, not coder-reviewed. SNOMED, LOINC and RxNorm are not covered |
 | Provenance: which system, which extraction, when | Built | `api/provenance.py` records source class, resource type, parser version and arrival on every ingested record, plus a salted digest for integrity. Carries no source identifier — that would be a linkage key back to the patient. Institution-level provenance still requires real site onboarding |
+| Differencing between *releases* | Built | `api/release_differencing.py` compares each extract's subject set against earlier releases and holds it for a named admin when the symmetric difference is non-zero but below the export floor — two files differing by a few subjects identify those subjects to whoever holds both. Held *before* the CSV is built, since a file that exists can leak. The requester is told it is under review and nothing else; what it collided with is exactly what they must not have. An approval is bound to the subject set it was granted for, so a cohort that moves returns for review |
 | Ingest validation and rejection reporting | Built | `api/ingest_validation.py` refuses records that cannot be true — a year before modern oncology, an age beyond a human lifespan, an entry carrying nothing — per record rather than per upload, and the response names each refused entry and why. Deliberately narrow: merely unusual values are kept, because rare is what much of this research is looking for |
 
 ## Stage 3 — A researcher asks a question
@@ -183,9 +184,10 @@ Items 2, 3 and 5 of the original list are now built. What is left:
    deliberately left out and why, so a reviewer can start there.
 3. **Institutional onboarding.** A real, audited path for one institution,
    with executed agreements rather than a status string.
-4. **Preventing cross-account differencing in real time.** Two accounts are
-   now *detected* by the self-audit, and identity makes them accountable, but
-   nothing stops the second query as it happens. Blocking would fire on
-   honest overlapping work; a control everyone routes around protects nobody.
-   A real answer needs a disclosure budget per release population rather than
-   per account, which is a design decision for the statistician review.
+4. **Differencing between cohort *counts*.** Releases are now held at the
+   moment data would leave (see below), but counts are not, and are not going
+   to be: a count is cheap, frequent and exploratory, and blocking one
+   interrupts thinking. Cross-account count proximity is *detected* by the
+   self-audit and identity makes it accountable. A stronger answer needs a
+   disclosure budget per release population rather than per account, which is
+   a design decision for the statistician review.

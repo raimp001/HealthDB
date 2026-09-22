@@ -603,9 +603,15 @@ const ResearcherDashboard = () => {
   const jobStatusStyle = (status) => {
     if (status === 'completed') return 'bg-[#00d4aa]/20 text-[#00d4aa]';
     if (status === 'queued' || status === 'running') return 'bg-amber-500/20 text-amber-500';
+    if (status === 'held_for_review') return 'bg-amber-500/20 text-amber-500';
     if (status === 'failed') return 'bg-red-500/20 text-red-400';
     return 'bg-white/10 text-white/40';
   };
+  // A status is a word the system uses about itself. "HELD_FOR_REVIEW" tells
+  // a researcher nothing except that something went wrong, which is the one
+  // thing it does not mean.
+  const jobStatusLabel = (status) =>
+    status === 'held_for_review' ? 'Under review' : status;
 
   if (loadError) {
     return <div role="alert" className="max-w-3xl mx-auto px-6 py-20 text-white"><h1 className="text-2xl mb-4">Unable to load your workspace</h1><p>{loadError}</p><button onClick={fetchData} className="mt-5 underline">Try again</button></div>;
@@ -1405,12 +1411,12 @@ const ResearcherDashboard = () => {
                                       {job.disclosure_risk.meets_threshold ? ' — met' : ' — not met'}
                                     </p>
                                   )}
-                                  {job.status === 'failed' && job.error_message && (
+                                  {['failed', 'held_for_review'].includes(job.status) && job.error_message && (
                                     <p className="text-amber-300/80 text-xs mt-1">{job.error_message}</p>
                                   )}
                                 </div>
                                 <div className="flex flex-wrap items-center gap-3">
-                                  <span className={`px-2 py-0.5 text-xs uppercase ${jobStatusStyle(job.status)}`}>{job.status}</span>
+                                  <span className={`px-2 py-0.5 text-xs uppercase ${jobStatusStyle(job.status)}`}>{jobStatusLabel(job.status)}</span>
                                   {job.status === 'completed' && job.download_url && (
                                     <button
                                       onClick={() => handleDownloadExtract(job)}

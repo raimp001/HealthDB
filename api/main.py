@@ -43,7 +43,8 @@ from .models import (
     MedicalRecordConnection, ExtractedMedicalData, RewardsTransaction,
     Study, RegulatorySubmission, ExtractionJob, EMRConnection, Institution,
     StudyCollaborator, StudyDocument, StudyComment, DiseaseVariableSet,
-    StudyEnrollment, ContactSubmission, DataRelease, CohortQueryLog, StudyResult, ResearchEvidence
+    StudyEnrollment, ContactSubmission, DataRelease, CohortQueryLog, StudyResult, ResearchEvidence,
+    ReleaseReview
 )
 from .repositories import (
     UserRepository, PatientRepository, ClinicalDataRepository,
@@ -52,6 +53,7 @@ from .repositories import (
 from .deidentification import deidentify_record, find_residual_identifiers
 from .disclosure_risk import assess_records
 from . import provenance as provenance_module
+from .release_differencing import find_collision, subject_digest
 from .release_manifest import (build_manifest, criteria_digest, digest,
                                manifest_digest, verify_manifest)
 from .fhir_ingest import parse_fhir_bundle
@@ -1388,6 +1390,57 @@ def process_extraction_job(db: Session, job: ExtractionJob, study: Study, reques
         job.completed_at = now
         db.commit()
         return
+
+    # Two files that differ by a handful of subjects identify those subjects
+    # to whoever holds both, and each file on its own clears every check
+    # above. Compared here, before the CSV exists, because a built file is a
+    # file that can leak. See api/release_differencing.py for why releases get
+    # a control that cohort counts deliberately do not.
+    subject_ids = sorted(rows_by_patient)
+    review = db.query(ReleaseReview).filter(
+        ReleaseReview.job_id == str(job.id),
+        ReleaseReview.status == "approved",
+    ).first()
+    approved_digest = review.reviewed_subject_digest if review else None
+    current_digest = subject_digest(subject_ids)
+
+    if approved_digest is None or approved_digest != current_digest:
+        prior_releases = db.query(DataRelease).filter(
+            DataRelease.job_id != str(job.id)
+        ).order_by(DataRelease.released_at.desc()).limit(200).all()
+        collision = find_collision(
+            subject_ids, prior_releases, threshold=MIN_EXPORT_K,
+            requester_user_id=requester_user_id, study_id=str(study.id),
+        )
+        if collision is not None:
+            # An approval covers the people it was granted for. If the set
+            # moved since the decision, the reviewer never saw these subjects.
+            stale = approved_digest is not None
+            job.status = "held_for_review"
+            job.result_csv = None
+            job.error_message = collision.for_requester() + (
+                " The people in this extract changed since it was last "
+                "reviewed, so it needs looking at again." if stale else ""
+            )
+            job.completed_at = None
+            db.add(ReleaseReview(
+                job_id=str(job.id), study_id=str(study.id),
+                requested_by_user_id=str(requester_user_id),
+                prior_release_id=collision.prior_release_id,
+                subjects_differing=collision.difference,
+                threshold=collision.threshold,
+                collision_shape=collision.shape(),
+                detail=collision.for_reviewer(),
+                reviewed_subject_digest=current_digest,
+                status="pending",
+            ))
+            audit_logger.warning(
+                f"AUDIT: release_held job={job.id} study={study.id} "
+                f"by={requester_user_id} shape={collision.shape()} "
+                f"differing={collision.difference}"
+            )
+            db.commit()
+            return
 
     output = io.StringIO()
     writer = csv.writer(output)
@@ -3701,8 +3754,11 @@ async def create_extraction_job(
     db.refresh(job)
 
     failed = job.status == "failed"
+    # A held extract is neither a success nor a failure, and calling it either
+    # misleads the requester. It is not ready, and nobody is waiting on them.
+    held = job.status == "held_for_review"
     return {
-        "success": not failed,
+        "success": not failed and not held,
         "job_id": str(job.id),
         "job_name": job.job_name,
         "status": job.status,
@@ -3712,9 +3768,10 @@ async def create_extraction_job(
         "download_url": job.download_url,
         "message": (
             job.error_message
-            if failed
+            if failed or held
             else "Extraction job completed. Data is ready for download."
         ),
+        "held_for_review": held,
     }
 
 
@@ -4878,6 +4935,117 @@ async def run_date_truncation(
         "rows_remaining": after["rows_with_month_and_day"],
         "column_present": after["column_present"],
     }
+
+
+class ReleaseReviewDecision(BaseModel):
+    decision: Literal["approve", "decline"]
+    note: str = ""
+
+
+@app.get("/api/admin/release-reviews")
+async def list_release_reviews(
+    include_decided: bool = Query(False),
+    token_data: Dict = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    """Extracts held because releasing them would allow a differencing attack.
+
+    Carries counts, ids and the shape of the collision. Never the subjects:
+    a reviewer decides whether a group of people can be singled out, and
+    naming them here would be the disclosure the hold exists to prevent.
+    """
+    query = db.query(ReleaseReview)
+    if not include_decided:
+        query = query.filter(ReleaseReview.status == "pending")
+    reviews = query.order_by(ReleaseReview.created_at.desc()).limit(100).all()
+
+    out = []
+    for review in reviews:
+        requester = db.query(User).filter(User.id == review.requested_by_user_id).first()
+        study = db.query(Study).filter(Study.id == review.study_id).first()
+        out.append({
+            "id": str(review.id),
+            "job_id": str(review.job_id),
+            "study_id": str(review.study_id),
+            "study_name": study.name if study else None,
+            # Every approved researcher here was confirmed by a named person,
+            # so a decision can be made about someone rather than about a row.
+            "requested_by": requester.email if requester else None,
+            "requested_by_organization": requester.organization if requester else None,
+            "shape": review.collision_shape,
+            "subjects_differing": review.subjects_differing,
+            "threshold": review.threshold,
+            "detail": review.detail,
+            "status": review.status,
+            "created_at": review.created_at.isoformat() if review.created_at else None,
+            "decided_at": review.decided_at.isoformat() if review.decided_at else None,
+            "decision_note": review.decision_note,
+        })
+    return out
+
+
+@app.post("/api/admin/release-reviews/{review_id}")
+async def decide_release_review(
+    review_id: str,
+    body: ReleaseReviewDecision,
+    token_data: Dict = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    """Release a held extract, or refuse it. Attributable to a named admin.
+
+    Approving re-runs the extraction rather than releasing a file prepared
+    earlier. Nothing was built when the hold was placed, and consent can have
+    been revoked in the meantime — the approval clears this one collision, it
+    does not bypass the gates.
+    """
+    review = db.query(ReleaseReview).filter(ReleaseReview.id == review_id).first()
+    if not review:
+        raise HTTPException(status_code=404, detail="Review not found")
+    if review.status != "pending":
+        raise HTTPException(
+            status_code=409,
+            detail=f"This review was already {review.status}.",
+        )
+
+    job = db.query(ExtractionJob).filter(ExtractionJob.id == review.job_id).first()
+    study = db.query(Study).filter(Study.id == review.study_id).first()
+    if not job or not study:
+        raise HTTPException(status_code=404, detail="Held extract no longer exists")
+
+    review.decided_by_user_id = token_data["sub"]
+    review.decided_at = datetime.utcnow()
+    review.decision_note = (body.note or "").strip()
+
+    if body.decision == "decline":
+        review.status = "declined"
+        job.status = "failed"
+        job.error_message = (
+            "This extract was not released. Releasing it alongside an earlier "
+            "extract would have identified individual people by comparing the "
+            "two. Broaden the cohort, or ask about a narrower extract directly."
+            + (f" Reviewer's note: {review.decision_note}" if review.decision_note else "")
+        )
+        audit_logger.warning(
+            f"AUDIT: release_review_declined review={review.id} job={job.id} "
+            f"by={token_data['sub']}"
+        )
+        db.commit()
+        return {"status": "declined", "job_status": job.status}
+
+    review.status = "approved"
+    audit_logger.warning(
+        f"AUDIT: release_review_approved review={review.id} job={job.id} "
+        f"by={token_data['sub']} differing={review.subjects_differing}"
+    )
+    db.commit()
+
+    # Re-run through the same path, which re-checks consent, approvals and
+    # disclosure risk from scratch. The approval is consumed only if the
+    # subjects are still the ones that were reviewed.
+    process_extraction_job(db, job, study, review.requested_by_user_id)
+    db.refresh(job)
+    return {"status": "approved", "job_status": job.status,
+            "error_message": job.error_message}
 
 
 @app.get("/api/admin/maintenance/missing-years")

@@ -663,6 +663,44 @@ class DataRelease(Base):
     withdrawal_reason = Column(Text)
 
 
+class ReleaseReview(Base):
+    """A held extract awaiting a person's decision, and that decision.
+
+    Created when an extract's subject set lands close enough to an earlier
+    release that holding both files would identify the people between them.
+    The extract is not built while this is pending: a file that exists is a
+    file that can leak, so the hold happens before the CSV, not after.
+
+    `reviewed_subject_digest` is what makes an approval mean something. A
+    reviewer approves a set of people, not a job name, so if the data moves
+    between the decision and the release the approval no longer describes who
+    would go out — and the release is refused rather than quietly proceeding
+    on a stale judgement.
+    """
+    __tablename__ = "release_reviews"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    job_id = Column(String(36), ForeignKey("extraction_jobs.id"), nullable=False, index=True)
+    study_id = Column(String(36), ForeignKey("studies.id"), nullable=False, index=True)
+    requested_by_user_id = Column(String(36), ForeignKey("users.id"), index=True)
+
+    # Why it was held. Counts and ids only — never the subjects themselves.
+    prior_release_id = Column(String(36), ForeignKey("data_releases.id"))
+    subjects_differing = Column(Integer)
+    threshold = Column(Integer)
+    collision_shape = Column(String(64))
+    detail = Column(JSON)
+
+    # The exact people the reviewer is deciding about.
+    reviewed_subject_digest = Column(String(64), nullable=False)
+
+    status = Column(String(32), default="pending", index=True)  # pending, approved, declined
+    created_at = Column(DateTime, default=datetime.utcnow)
+    decided_by_user_id = Column(String(36), ForeignKey("users.id"))
+    decided_at = Column(DateTime)
+    decision_note = Column(Text)
+
+
 class EMRConnection(Base):
     """Institution-level EMR connection configuration"""
     __tablename__ = "emr_connections"

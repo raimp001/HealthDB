@@ -532,6 +532,40 @@ def check_no_record_claims_verification(db: Session) -> Finding:
     )
 
 
+def check_no_held_extract_was_released(db: Session) -> Finding:
+    """An extract held for disclosure review must not have produced a file.
+
+    The hold is placed before the CSV is built, so a held job carrying a file
+    means either the ordering broke or something wrote one afterwards. Either
+    way a file that can be subtracted from an earlier release exists and is
+    downloadable, which is the disclosure the hold exists to prevent.
+
+    A blocker. This is the state the control is supposed to make impossible.
+    """
+    from .models import ExtractionJob, ReleaseReview
+
+    pending = {
+        str(review.job_id) for review in
+        db.query(ReleaseReview).filter(ReleaseReview.status == "pending").all()
+    }
+    held = db.query(ExtractionJob).filter(
+        ExtractionJob.status == "held_for_review").all()
+    leaked = [
+        job for job in held
+        if job.result_csv is not None or job.download_url is not None
+    ]
+    return Finding(
+        "no_held_extract_was_released", not leaked, BLOCKER,
+        f"{len(held)} extract(s) held for review, none carrying a file "
+        f"({len(pending)} review(s) open)."
+        if not leaked else
+        f"{len(leaked)} extract(s) are held for disclosure review but carry a "
+        "downloadable file. Holding happens before the file is built, so this "
+        "should not be reachable.",
+        count=len(leaked),
+    )
+
+
 def check_admin_bootstrap(db: Session) -> Finding:
     """Report whether an admin exists, and whether the bootstrap is still armed.
 
@@ -624,6 +658,7 @@ INVARIANTS: List[Callable[[Session], Finding]] = [
     check_records_carry_provenance,
     check_stored_years_were_not_dropped,
     check_no_record_claims_verification,
+    check_no_held_extract_was_released,
     check_admin_bootstrap,
     check_pilot_flags,
     check_secrets_configured,

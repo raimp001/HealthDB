@@ -144,6 +144,9 @@ const CohortBuilder = () => {
   const [regError, setRegError] = useState(null);
   const [extractJob, setExtractJob] = useState(null);
   const [extractError, setExtractError] = useState(null);
+  // Held is its own state. Rendering it as an error would tell a researcher
+  // who did everything right that they did something wrong.
+  const [extractHeld, setExtractHeld] = useState(null);
 
   const steps = ['Define Cohort', 'Select Variables', 'Regulatory', 'Extract'];
 
@@ -332,7 +335,7 @@ const CohortBuilder = () => {
   const startExtraction = async () => {
     if (!activeStudyId) { setExtractError('Select or create a study first.'); return; }
     if (!selectedVariableIds.length) { setExtractError('Select at least one variable first.'); return; }
-    setExtracting(true); setExtractError(null); setExtractJob(null);
+    setExtracting(true); setExtractError(null); setExtractJob(null); setExtractHeld(null);
     try {
       const res = await fetch(`${API_URL}/api/extraction/create`, {
         method: 'POST',
@@ -346,6 +349,9 @@ const CohortBuilder = () => {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Extraction failed.');
+      // A held extract is not a failure, and throwing would tell a researcher
+      // their work was rejected when it is waiting on a person.
+      if (data.status === 'held_for_review') { setExtractHeld(data.message); setExtractJob(null); return; }
       if (data.status === 'failed' || data.success === false) throw new Error(data.error_message || data.message || 'The extract failed validation. Review the selected data before retrying.');
       setExtractJob(data);
     } catch (err) {
@@ -1079,6 +1085,12 @@ const CohortBuilder = () => {
                   </p>
                 )}
                 {extractError && <p className="text-red-400 text-sm mb-4">{extractError}</p>}
+                {extractHeld && (
+                  <div className="border border-amber-500/30 bg-amber-500/5 p-4 mb-4">
+                    <p className="text-amber-200 text-sm mb-1">Held for disclosure review</p>
+                    <p className="text-white/60 text-sm leading-relaxed">{extractHeld}</p>
+                  </div>
+                )}
 
                 <div className="flex gap-3">
                   <button
@@ -1167,6 +1179,7 @@ const CohortBuilder = () => {
                       setFeasibilityRun(false);
                       setExtractJob(null);
                       setExtractError(null);
+                      setExtractHeld(null);
                       setStudyName('');
                     }}
                     className="bg-white/10 hover:bg-white/20 px-4 py-2 text-sm transition-colors"
