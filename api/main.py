@@ -54,6 +54,7 @@ from .deidentification import deidentify_record, find_residual_identifiers
 from .disclosure_risk import assess_records, enforceable_sensitive_attributes
 from . import provenance as provenance_module
 from .release_differencing import find_collision, subject_digest
+from .release_integrity import verify_content
 from .release_manifest import (build_manifest, criteria_digest, digest,
                                manifest_digest, verify_manifest)
 from .fhir_ingest import parse_fhir_bundle
@@ -2184,6 +2185,54 @@ async def get_patient_data_releases(
         }
         for release in sorted(releases, key=lambda r: r.released_at or datetime.min, reverse=True)
     ]
+
+
+@app.get("/api/releases/{release_id}/verify")
+async def verify_release(
+    release_id: str,
+    # Not require_researcher_token: that dependency admits approved
+    # researchers only, so an admin could never reach the branch below that
+    # was written for them. A role check that excludes the role it means to
+    # allow is worse than none — it reads as a control and is not one.
+    token_data: Dict = Depends(require_role("researcher", "admin")),
+    db: Session = Depends(get_db),
+):
+    """Re-derive the digest of the extract behind a release and compare it.
+
+    A finding cites a release digest so a reader can hold the result to the
+    data. Until this existed the citation could only be taken on trust: the
+    manifest proved it still hashed to itself, and nothing ever re-hashed the
+    file it described.
+
+    Open to the researcher who received the release and to admins. It returns
+    a verdict about bytes and no data, so it discloses nothing about the
+    subjects — but it is still gated, because who has released what is not
+    public either.
+    """
+    release = db.query(DataRelease).filter(DataRelease.id == release_id).first()
+
+    user = db.query(User).filter(User.id == token_data["sub"]).first()
+    is_admin = bool(user and user.user_type == "admin")
+    visible = release is not None and (
+        is_admin or str(release.released_to_user_id) == str(token_data["sub"]))
+    # One answer for "no such release" and "not yours". Distinguishing them
+    # would let anyone holding a release id learn whether it names a real
+    # release, and who has released what is not public.
+    if not visible:
+        raise HTTPException(status_code=404, detail="Release not found")
+
+    job = db.query(ExtractionJob).filter(
+        ExtractionJob.id == release.job_id).first()
+    check = verify_content(release, job)
+    return {
+        **check.as_dict(),
+        # Whether the manifest is internally consistent is a separate
+        # question from whether the file still matches it, and answering both
+        # here stops one being mistaken for the other.
+        "manifest_intact": verify_manifest(release.manifest or {},
+                                           release.manifest_digest or ""),
+        "released_at": release.released_at.isoformat() if release.released_at else None,
+    }
 
 
 @app.get("/api/researcher/release-obligations")

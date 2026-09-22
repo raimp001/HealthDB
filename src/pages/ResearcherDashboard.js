@@ -70,6 +70,9 @@ const ResearcherDashboard = () => {
   const [extractionJobs, setExtractionJobs] = useState([]);
   const [extractActionId, setExtractActionId] = useState(null);
   const [obligations, setObligations] = useState([]);
+  // Verdicts from /verify, keyed by release id. A digest printed beside a
+  // release is only a claim until someone can re-derive it.
+  const [releaseChecks, setReleaseChecks] = useState({});
   const navigate = useNavigate();
 
   // Cancer types with ICD-10 codes
@@ -600,6 +603,23 @@ const ResearcherDashboard = () => {
     return 'bg-white/10 text-white/40';
   };
 
+  const verifyRelease = async (releaseId) => {
+    setReleaseChecks((prev) => ({ ...prev, [releaseId]: { state: 'checking' } }));
+    try {
+      const res = await fetch(`${API_URL}/api/releases/${releaseId}/verify`, {
+        headers: { Authorization: `Bearer ${sessionStorage.getItem('token')}` },
+      });
+      const data = await res.json();
+      setReleaseChecks((prev) => ({ ...prev, [releaseId]: data }));
+    } catch (err) {
+      // Unreachable is not "fine", so it does not render as one.
+      setReleaseChecks((prev) => ({
+        ...prev,
+        [releaseId]: { state: 'unchecked', explanation: 'The check could not be run. Try again.' },
+      }));
+    }
+  };
+
   const jobStatusStyle = (status) => {
     if (status === 'completed') return 'bg-[#00d4aa]/20 text-[#00d4aa]';
     if (status === 'queued' || status === 'running') return 'bg-amber-500/20 text-amber-500';
@@ -690,6 +710,33 @@ const ResearcherDashboard = () => {
                       {' • '}sha256:{(item.content_digest || '').slice(0, 12)}
                     </p>
                     <p className="text-amber-300/80 text-xs mt-1">{item.action_required}</p>
+                    {/*
+                      A digest beside a release is a claim until someone can
+                      re-derive it. This re-hashes the stored extract and
+                      compares. "Cannot be checked" renders as its own answer,
+                      never as a tick: a release whose file is gone is not a
+                      verified one.
+                    */}
+                    <div className="mt-2 flex flex-wrap items-center gap-3">
+                      <button
+                        onClick={() => verifyRelease(item.id)}
+                        disabled={releaseChecks[item.id]?.state === 'checking'}
+                        className="px-3 py-1 border border-white/20 text-white/70 text-xs uppercase tracking-wider hover:bg-white hover:text-black transition-all disabled:opacity-50"
+                      >
+                        {releaseChecks[item.id]?.state === 'checking' ? 'Checking…' : 'Check this extract'}
+                      </button>
+                      {releaseChecks[item.id] && releaseChecks[item.id].state !== 'checking' && (
+                        <span className={`text-xs ${
+                          releaseChecks[item.id].state === 'verified'
+                            ? 'text-[#00d4aa]'
+                            : releaseChecks[item.id].state === 'mismatch'
+                            ? 'text-red-400'
+                            : 'text-amber-300/80'
+                        }`}>
+                          {releaseChecks[item.id].explanation}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

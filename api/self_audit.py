@@ -238,6 +238,58 @@ def check_release_manifests_verify(db: Session) -> Finding:
     )
 
 
+def check_released_content_matches_its_digest(db: Session) -> Finding:
+    """The bytes a release promised are still the bytes it holds.
+
+    check_release_manifests_verify proves a manifest hashes to its own
+    digest, which is the manifest checking itself. This re-derives the digest
+    of the extract the manifest describes. Without it, a file whose content
+    had drifted would keep an intact manifest and keep being cited by every
+    finding that names it.
+
+    Releases whose file is no longer stored are reported separately and do
+    not count as passing. "Nobody can check this" is a different fact from
+    "this is correct", and a checker that merges them is the kind that goes
+    green because it stopped looking.
+    """
+    from .models import DataRelease, ExtractionJob
+    from .release_integrity import MISMATCH, UNVERIFIABLE, verify_content
+
+    releases = db.query(DataRelease).all()
+    if not releases:
+        return Finding("released_content_matches_its_digest", True, BLOCKER,
+                       "No releases recorded; nothing to check.")
+
+    jobs = {
+        str(job.id): job for job in db.query(ExtractionJob).filter(
+            ExtractionJob.id.in_([str(r.job_id) for r in releases])).all()
+    }
+    checks = [verify_content(r, jobs.get(str(r.job_id))) for r in releases]
+    mismatched = [c for c in checks if c.state == MISMATCH]
+    unverifiable = [c for c in checks if c.state == UNVERIFIABLE]
+
+    detail = {
+        "verified": len(checks) - len(mismatched) - len(unverifiable),
+        "unverifiable": len(unverifiable),
+        "mismatched_release_ids": sorted(c.release_id for c in mismatched),
+    }
+    if mismatched:
+        return Finding(
+            "released_content_matches_its_digest", False, BLOCKER,
+            f"{len(mismatched)} release(s) no longer hash to the digest "
+            "recorded when they were released. Any finding citing one cites "
+            "bytes that have changed.",
+            count=len(mismatched), detail=detail,
+        )
+    return Finding(
+        "released_content_matches_its_digest", True, BLOCKER,
+        f"{detail['verified']} release(s) still hash to their recorded digest"
+        + (f"; {len(unverifiable)} no longer store a file and cannot be "
+           "checked." if unverifiable else "."),
+        count=0, detail=detail,
+    )
+
+
 def check_releases_had_approvals(db: Session) -> Finding:
     """Every release must record an IRB approval and a signed DUA in force."""
     from .models import DataRelease
@@ -649,6 +701,7 @@ INVARIANTS: List[Callable[[Session], Finding]] = [
     check_completed_exports_were_risk_assessed,
     check_completed_exports_have_manifests,
     check_release_manifests_verify,
+    check_released_content_matches_its_digest,
     check_releases_had_approvals,
     check_revocations_are_tracked,
     check_no_unapproved_researcher_holds_studies,

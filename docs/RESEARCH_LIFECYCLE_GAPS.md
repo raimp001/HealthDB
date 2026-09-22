@@ -92,7 +92,7 @@ with a beautiful workflow around an empty centre.
 | Citable dataset identity | Partial | A finding now carries its release's content digest. There is still no DOI or persistent landing page |
 | Analysis environment | **Missing** | Data leaves the platform entirely. A trusted research environment would mean it never has to |
 | Results returned to the platform | Built | A finding cites the release it came from, so it can be reproduced against the exact bytes behind it — and a participant's contribution chain counts a finding as theirs only when that release actually carried them |
-| Reproducibility check against a manifest | Partial | Possible by hand; no route does it |
+| Reproducibility check against a manifest | Built | `api/release_integrity.py` re-derives the digest of the stored extract and compares it to the one recorded at release. The manifest check only proved a manifest hashed to itself, so a file whose content had drifted kept an intact manifest and kept being cited. Three states, never two: a release whose file is gone is *unverifiable*, which is reported separately and never as a pass. Reachable at `GET /api/releases/{id}/verify` by the recipient or an admin, and re-derived for every release by `check_released_content_matches_its_digest` |
 
 ## Stage 7 — Keeping it working
 
