@@ -48,6 +48,24 @@ def fetch(url, token=None):
         return 0, f"{type(exc).__name__}: {exc}", time.monotonic() - started
 
 
+def describe_failure(status, body, diagnosis):
+    """Say what actually happened, not what it would have meant.
+
+    A probe that failed because the request never completed has established
+    nothing about the thing it was checking. Reporting "root element not
+    found" for a connection reset sends an operator looking for a broken
+    build at three in the morning, when the event was a network blip — and
+    these strings become the body of an alerting issue, so a confident wrong
+    diagnosis is worse than a vague right one.
+
+    `status` of 0 means the request itself failed; `body` then holds the
+    exception rather than a response.
+    """
+    if status == 0:
+        return f"request failed — {body[:160]}"
+    return f"HTTP {status} — {diagnosis}"
+
+
 class Probes:
     def __init__(self, base):
         self.base = base.rstrip("/")
@@ -88,14 +106,23 @@ class Probes:
         ok = status == 404
         self.report("unknown_api_path_is_404", ok,
                     "unknown API path 404s as expected" if ok
-                    else f"HTTP {status} — the SPA may be capturing /api routes")
+                    # Only a 200 is the signature of the SPA answering for
+                    # /api. A 500 is the API failing, which is a different
+                    # outage with a different fix.
+                    else describe_failure(
+                        status, body,
+                        "the SPA is capturing /api routes" if status == 200
+                        else "unexpected status for an unknown API path"))
 
     def app_shell_renders(self):
         status, body, seconds = fetch(self.base + "/")
         ok = status == 200 and "<div id=\"root\"" in body
         self.report("app_shell_renders", ok,
                     f"HTTP {status} in {seconds:.2f}s" if ok
-                    else f"HTTP {status} — root element not found")
+                    else describe_failure(
+                        status, body,
+                        "root element not found" if status == 200
+                        else "the app shell did not load"))
 
     def invariants(self, token):
         status, body, _ = fetch(f"{self.base}/api/health/invariants", token=token)
