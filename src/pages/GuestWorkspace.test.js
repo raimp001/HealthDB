@@ -9,6 +9,31 @@ import { readGuestDraftFile } from '../lib/guestBrief';
 
 jest.mock('../lib/guestBrief', () => ({ ...jest.requireActual('../lib/guestBrief'), readGuestDraftFile: jest.fn() }));
 
+test('brief download provides the same content in a copyable fallback', async () => {
+  global.IS_REACT_ACT_ENVIRONMENT = true;
+  const container = document.createElement('div'); document.body.appendChild(container);
+  const root = createRoot(container);
+  const previousCreate = URL.createObjectURL, previousRevoke = URL.revokeObjectURL;
+  URL.createObjectURL = jest.fn(() => 'blob:study-brief'); URL.revokeObjectURL = jest.fn();
+  let filename;
+  const click = jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function () { filename = this.download; });
+  try {
+    await act(async () => root.render(<MemoryRouter><GuestWorkspace /></MemoryRouter>));
+    jest.useFakeTimers();
+    act(() => Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Download study brief').click());
+    jest.runOnlyPendingTimers(); jest.useRealTimers();
+    expect(filename).toBe('healthdb-study-brief.txt');
+    const blob = URL.createObjectURL.mock.calls[0][0];
+    const content = await new Promise(resolve => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.readAsText(blob); });
+    expect(content).toContain('Fictional site B: unknown');
+    expect(container.querySelector('[aria-label="Study brief preview"] textarea').value).toBe(content);
+  } finally {
+    jest.useRealTimers();
+    act(() => root.unmount()); container.remove(); click.mockRestore();
+    URL.createObjectURL = previousCreate; URL.revokeObjectURL = previousRevoke;
+  }
+});
+
 beforeEach(() => {
   sessionStorage.clear(); localStorage.clear();
   readGuestDraftFile.mockReset();

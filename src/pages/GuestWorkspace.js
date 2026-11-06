@@ -22,6 +22,7 @@ export default function GuestWorkspace() {
   const [events, setEvents] = useState(restored.plan?.events ?? []);
   const [notice, setNotice] = useState(restored.message ?? '');
   const [showDraft, setShowDraft] = useState(false);
+  const [briefText, setBriefText] = useState('');
   const [reviews, setReviews] = useState(restored.plan?.reviews ?? {});
   const [reviewHistory, setReviewHistory] = useState(restored.plan?.reviewHistory ?? []);
   const [saveStatus, setSaveStatus] = useState('');
@@ -120,9 +121,12 @@ export default function GuestWorkspace() {
     document.body.appendChild(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   function downloadBrief() {
+    setBriefText('');
     try {
-      downloadFile(buildGuestBrief(draft), 'text/plain;charset=utf-8', 'healthdb-study-brief.txt');
-      setNotice('Study brief download requested. It includes current mappings and next actions. Keep the JSON draft to reopen your work.');
+      const content = buildGuestBrief(draft);
+      setBriefText(content);
+      downloadFile(content, 'text/plain;charset=utf-8', 'healthdb-study-brief.txt');
+      setNotice('Study brief download requested. You can also select and copy the brief near the top of this page. Keep the JSON draft to reopen your work.');
     } catch (error) { setNotice(`Could not create the brief: ${error.message}`); }
   }
   function download() {
@@ -137,6 +141,7 @@ export default function GuestWorkspace() {
       <p className="text-white/60 text-sm mt-3">Synthetic planning only. Do not enter patient information. No live records, invitations, approvals, or payments are created.</p></div>
       <div className="flex flex-wrap gap-3"><button onClick={downloadBrief} className="bg-emerald-300 text-black rounded-lg px-5 py-3 font-medium">Download study brief</button><a href="#guest-next" className="border border-white/30 rounded-lg px-5 py-3">Save or reopen</a></div>
     </header>
+    {briefText && <section aria-label="Study brief preview" className="rounded-xl border border-emerald-300/30 p-5 space-y-3"><div className="flex flex-wrap justify-between gap-3"><h2 className="text-xl">Your study brief</h2><button type="button" onClick={() => setBriefText('')} className="text-emerald-300 underline">Hide study brief</button></div><p className="text-sm text-white/70">If the download did not start, select and copy this text. This is a snapshot; download again after editing your plan.</p><label className="block">Study brief — select and copy<textarea readOnly rows={10} value={briefText} className={`${inputClass} font-mono text-sm mt-2`} /></label></section>}
     <section aria-label="Planning checklist" className="rounded-2xl border border-emerald-300/25 bg-emerald-300/5 p-5 md:p-6 space-y-5">
       <div className="flex flex-wrap justify-between gap-3 items-center"><h2 className="text-xl">Your planning checklist</h2><span className="text-emerald-300 text-sm">{completed} of 3 steps complete</span></div>
       <nav aria-label="Study planning steps" className="grid md:grid-cols-3 gap-3">{checklist.map((step, index) => <a key={step.id} href={`#${step.id}`} className="flex gap-3 rounded-xl border border-white/15 bg-black/20 p-4 hover:border-emerald-300"><span aria-hidden="true" className={`flex-none w-8 h-8 rounded-full flex items-center justify-center ${step.complete ? 'bg-emerald-300 text-black' : 'border border-white/30'}`}>{step.complete ? '✓' : index + 1}</span><span><span className="block font-medium">{step.label}</span><span className="block text-sm text-white/60 mt-1">{step.detail}{step.complete ? ' · Complete' : ''}</span></span></a>)}</nav>

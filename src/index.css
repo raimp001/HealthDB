@@ -41,7 +41,7 @@ html {
 .guest-workspace :is(input, textarea, select) { min-width: 0; }
 .guest-workspace th[scope="row"] { min-width: 10rem; max-width: 20rem; }
 .guest-workspace td select { min-width: 8rem; }
-.guest-workspace [id] { scroll-margin-top: 6rem; }
+.guest-workspace [id] { scroll-margin-top: 1rem; }
 
 .skip-link {
   position: fixed;
