@@ -8,6 +8,7 @@ and the log stream.
 """
 import json
 import logging
+from datetime import datetime
 
 import pytest
 
@@ -50,6 +51,31 @@ def assert_no_month_day(blob: str, where: str):
         assert fragment not in blob, f"month/day fragment {fragment!r} leaked into {where}"
 
 
+def checked_operation_time(item, key, started_at, finished_at):
+    """Validate system time before excluding it from the source-date scan.
+
+    Processing metadata intentionally retains timestamps. Scanning its month
+    against a fixture's clinical month makes these tests fail every March,
+    August and November. A source date placed in this field must still fail:
+    the timestamp has to fall within the operation that just ran.
+    """
+    timestamp = datetime.fromisoformat(item[key])
+    assert started_at <= timestamp <= finished_at, f"{key} is not the current operation time"
+    return {**item, key: "checked system processing time"}
+
+
+def test_source_dates_cannot_be_disguised_as_operation_timestamps():
+    start, end = datetime(2026, 11, 6), datetime(2026, 11, 7)
+    for source in ("1962-03-17", "2021-08-29T14:23:00", "2022-11-04"):
+        with pytest.raises(AssertionError, match="not the current operation time"):
+            checked_operation_time({"ingested_at": source}, "ingested_at", start, end)
+    checked = checked_operation_time(
+        {"ingested_at": "2026-11-06T12:00:00", "clinical_date": "2022-11-04"},
+        "ingested_at", start, end)
+    with pytest.raises(AssertionError, match="leaked"):
+        assert_no_month_day(json.dumps(checked), "clinical data alongside processing metadata")
+
+
 class TestParser:
     def test_year_only_extracts_year_and_drops_the_rest(self):
         assert _year_only("2021-08-29T14:23:00Z") == 2021
@@ -79,13 +105,17 @@ class TestParser:
         assert refused and "1782" in refused
 
     def test_parsed_records_carry_year_only(self):
+        started_at = datetime.utcnow()
         records = parse_fhir_bundle(BUNDLE)
+        finished_at = datetime.utcnow()
         assert records, "bundle produced no records"
         for record in records:
             assert "original_date" not in record, "parser still emits original_date"
             year = record.get("original_year")
             assert year is None or (isinstance(year, int) and 1900 <= year <= 2100)
-        assert_no_month_day(json.dumps(records), "parser output")
+        checked = [{**record, "provenance": checked_operation_time(
+            record["provenance"], "ingested_at", started_at, finished_at)} for record in records]
+        assert_no_month_day(json.dumps(checked), "parser output")
 
 
 @pytest.fixture()
@@ -117,8 +147,10 @@ class TestPersistence:
     def test_no_month_day_in_stored_rows_or_api(self, client, consented_patient):
         headers = consented_patient("fhir-dates@example.com")
 
+        started_at = datetime.utcnow()
         upload = client.post("/api/patient/connections/fhir", headers=headers,
                              json={"source_name": "Test EHR", "bundle": BUNDLE})
+        finished_at = datetime.utcnow()
         assert upload.status_code == 200, upload.text
 
         session = client._session_factory()
@@ -133,7 +165,9 @@ class TestPersistence:
 
         read = client.get("/api/patient/extracted-data", headers=headers)
         assert read.status_code == 200
-        assert_no_month_day(read.text, "GET /api/patient/extracted-data")
+        checked = [checked_operation_time(item, "extracted_date", started_at, finished_at)
+                   for item in read.json()]
+        assert_no_month_day(json.dumps(checked), "GET /api/patient/extracted-data")
         for item in read.json():
             assert "original_date" not in item, "API still returns original_date"
 

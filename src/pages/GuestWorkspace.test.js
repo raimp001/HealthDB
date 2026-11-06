@@ -5,11 +5,80 @@ import { MemoryRouter } from 'react-router-dom';
 import GuestWorkspace from './GuestWorkspace';
 import { GUEST_DRAFT_KEY } from '../lib/guestDraft';
 import { SAVED_PLANS_KEY } from '../lib/savedGuestPlans';
+import { readGuestDraftFile } from '../lib/guestBrief';
+
+jest.mock('../lib/guestBrief', () => ({ ...jest.requireActual('../lib/guestBrief'), readGuestDraftFile: jest.fn() }));
+
+test('brief download provides the same content in a copyable fallback', async () => {
+  global.IS_REACT_ACT_ENVIRONMENT = true;
+  const container = document.createElement('div'); document.body.appendChild(container);
+  const root = createRoot(container);
+  const previousCreate = URL.createObjectURL, previousRevoke = URL.revokeObjectURL;
+  URL.createObjectURL = jest.fn(() => 'blob:study-brief'); URL.revokeObjectURL = jest.fn();
+  let filename;
+  const click = jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function () { filename = this.download; });
+  try {
+    await act(async () => root.render(<MemoryRouter><GuestWorkspace /></MemoryRouter>));
+    jest.useFakeTimers();
+    act(() => Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Download study brief').click());
+    jest.runOnlyPendingTimers(); jest.useRealTimers();
+    expect(filename).toBe('healthdb-study-brief.txt');
+    const blob = URL.createObjectURL.mock.calls[0][0];
+    const content = await new Promise(resolve => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.readAsText(blob); });
+    expect(content).toContain('Fictional site B: unknown');
+    expect(container.querySelector('[aria-label="Study brief preview"] textarea').value).toBe(content);
+  } finally {
+    jest.useRealTimers();
+    act(() => root.unmount()); container.remove(); click.mockRestore();
+    URL.createObjectURL = previousCreate; URL.revokeObjectURL = previousRevoke;
+  }
+});
 
 beforeEach(() => {
   sessionStorage.clear(); localStorage.clear();
+  readGuestDraftFile.mockReset();
   let id = 0;
   Object.defineProperty(window, 'crypto', { configurable: true, value: { randomUUID: () => `test-copy-${++id}` } });
+});
+
+test('file reopening previews before replacement and ignores a file superseded by pasted text', async () => {
+  global.IS_REACT_ACT_ENVIRONMENT = true;
+  const container = document.createElement('div'); document.body.appendChild(container);
+  const root = createRoot(container);
+  const button = name => Array.from(container.querySelectorAll('button')).find(b => b.textContent === name);
+  const chooseFile = () => {
+    const field = container.querySelector('input[type="file"]');
+    Object.defineProperty(field, 'files', { configurable: true, value: [new File(['{}'], 'draft.json')] });
+    field.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+  try {
+    await act(async () => root.render(<MemoryRouter><GuestWorkspace /></MemoryRouter>));
+    const original = sessionStorage.getItem(GUEST_DRAFT_KEY);
+    const imported = { ...JSON.parse(original), title: 'Reopened file' };
+    readGuestDraftFile.mockResolvedValue({ raw: JSON.stringify(imported), plan: imported });
+    await act(async () => chooseFile());
+    expect(container.textContent).toContain('Ready to reopen: Reopened file');
+    expect(sessionStorage.getItem(GUEST_DRAFT_KEY)).toBe(original);
+    act(() => button('Replace current plan with this draft').click());
+    expect(JSON.parse(sessionStorage.getItem(GUEST_DRAFT_KEY)).title).toBe('Reopened file');
+
+    readGuestDraftFile.mockRejectedValue(new Error('Invalid file'));
+    await act(async () => chooseFile());
+    expect(container.querySelector('[role="alert"]').textContent).toContain('Invalid file');
+    expect(JSON.parse(sessionStorage.getItem(GUEST_DRAFT_KEY)).title).toBe('Reopened file');
+
+    let finish;
+    readGuestDraftFile.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    act(() => chooseFile());
+    act(() => {
+      const field = container.querySelector('#guest-import');
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(field, 'new pasted content');
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => finish({ raw: JSON.stringify(imported), plan: imported }));
+    expect(container.querySelector('#guest-import').value).toBe('new pasted content');
+    expect(container.textContent).not.toContain('Ready to reopen:');
+  } finally { act(() => root.unmount()); container.remove(); }
 });
 
 test('guest can declare availability and record work without a server request', async () => {
