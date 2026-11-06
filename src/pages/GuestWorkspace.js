@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import GuestMappingReview, { fictionalSites } from '../components/GuestMappingReview';
 import SavedGuestPlans from '../components/SavedGuestPlans';
 import { GUEST_DRAFT_KEY, parseGuestDraft, readGuestDraft } from '../lib/guestDraft';
+import { buildGuestBrief, planningChecklist, readGuestDraftFile } from '../lib/guestBrief';
 
 const initialVariables = [
   { id: 1, name: 'Treatment class', a: 'available', b: 'unknown', c: 'available' },
@@ -27,9 +28,15 @@ export default function GuestWorkspace() {
   const [importText, setImportText] = useState('');
   const [importError, setImportError] = useState('');
   const [pendingImport, setPendingImport] = useState(null);
+  const [readingFile, setReadingFile] = useState(false);
+  const importVersion = useRef(0);
+  useEffect(() => () => { importVersion.current += 1; }, []);
   const counts = variables.flatMap(v => fictionalSites.map(site => v[site])).reduce((total, value) => ({ ...total, [value]: total[value] + 1 }), { unknown: 0, available: 0, derivable: 0, unavailable: 0 });
   const activeReviews = Object.fromEntries(Object.entries(reviews).filter(([key]) => variables.some(v => key.startsWith(`${v.id}:`))));
   const draft = JSON.stringify({ schema_version: 1, mode: 'guest_demo', synthetic_only: true, title, question, variables, reviews: activeReviews, reviewHistory, events }, null, 2);
+  const checklist = planningChecklist({ title, question, variables, reviews: activeReviews });
+  const completed = checklist.filter(step => step.complete).length;
+  const nextStep = checklist.find(step => !step.complete);
   useEffect(() => {
     try {
       parseGuestDraft(draft);
@@ -48,10 +55,27 @@ export default function GuestWorkspace() {
     catch (error) { setPendingImport(null); setImportError(error.message); }
   }
   function restorePlan(plan) {
+    importVersion.current += 1; setReadingFile(false);
     setTitle(plan.title); setQuestion(plan.question); setVariables(plan.variables);
     setReviews(plan.reviews); setReviewHistory(plan.reviewHistory); setEvents(plan.events);
     setPendingImport(null); setImportText(''); setImportError(''); setVariable(''); setWork('');
     setNotice('Draft reopened. Imported history is unverified; nothing was submitted to HealthDB.');
+  }
+  async function openFile(event) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    const version = ++importVersion.current;
+    setReadingFile(true); setPendingImport(null); setImportError('');
+    try {
+      const result = await readGuestDraftFile(file);
+      if (version !== importVersion.current) return;
+      setImportText(result.raw); setPendingImport(result.plan);
+    } catch (error) {
+      if (version === importVersion.current) setImportError(error.message);
+    } finally {
+      if (version === importVersion.current) setReadingFile(false);
+    }
   }
   function changeReview(key, review, label) {
     if (label && reviewHistory.length >= 1000) { setNotice('This demo supports up to 1,000 review snapshots. Download a copy of your work.'); return; }
@@ -89,24 +113,36 @@ export default function GuestWorkspace() {
     setEvents(items => [...items, { sequence: items.length + 1, action: 'Submitted', description: work.trim(), at: new Date().toISOString() }]);
     setWork(''); setNotice('Demo contribution recorded. Independent review is available in the private workspace.');
   }
-  function download() {
-    const blob = new Blob([draft], { type: 'application/json' });
+  function downloadFile(content, type, filename) {
+    const blob = new Blob([content], { type });
     const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'healthdb-guest-plan.json';
+    const anchor = document.createElement('a'); anchor.href = url; anchor.download = filename;
     document.body.appendChild(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  function downloadBrief() {
+    try {
+      downloadFile(buildGuestBrief(draft), 'text/plain;charset=utf-8', 'healthdb-study-brief.txt');
+      setNotice('Study brief download requested. It includes current mappings and next actions. Keep the JSON draft to reopen your work.');
+    } catch (error) { setNotice(`Could not create the brief: ${error.message}`); }
+  }
+  function download() {
+    downloadFile(draft, 'application/json', 'healthdb-guest-plan.json');
     setShowDraft(true);
     setNotice('Download requested. If your browser blocks it, select and copy the draft below. Nothing has been submitted to HealthDB.');
   }
-  return <div className="max-w-5xl mx-auto px-6 py-16 text-white space-y-10">
-    <header><p className="text-emerald-300">Guest workspace · No sign-in required</p>
-      <h1 className="text-4xl my-4">Turn a research question into a shared plan</h1>
-      <p className="text-xl mb-4">Find data gaps before a study starts. Define the variables, compare three fictional sites, and capture the work needed to move forward.</p>
-      <p className="text-white/70">Explore the workflow with fictional sites. Changes are kept in this tab. Save a copy on this device to return later, or download a draft to reopen elsewhere. Do not enter patient information.</p>
-      <p role="status" className="text-emerald-300 text-sm">{saveStatus}</p>
-      <p className="text-white/60 mt-3">This is a temporary demo, not a shared study or an auditable institutional record. No live records, invitations, approvals, or payments are created.</p>
+  return <div className="guest-workspace max-w-6xl mx-auto px-6 py-10 md:py-14 text-white space-y-8">
+    <header className="grid lg:grid-cols-[1fr_auto] gap-6 items-end"><div><p className="text-emerald-300 text-xs uppercase tracking-widest">Research workspace · No sign-in required</p>
+      <h1 className="text-4xl md:text-5xl my-4 max-w-2xl">A clearer path from question to study plan.</h1>
+      <p className="text-lg text-white/70 max-w-2xl">Define your variables, uncover gaps across three fictional sites, and leave with a useful planning brief.</p>
+      <p className="text-white/60 text-sm mt-3">Synthetic planning only. Do not enter patient information. No live records, invitations, approvals, or payments are created.</p></div>
+      <div className="flex flex-wrap gap-3"><button onClick={downloadBrief} className="bg-emerald-300 text-black rounded-lg px-5 py-3 font-medium">Download study brief</button><a href="#guest-next" className="border border-white/30 rounded-lg px-5 py-3">Save or reopen</a></div>
     </header>
-    <SavedGuestPlans draft={draft} onOpen={restorePlan} />
-    <nav aria-label="Study planning steps" className="flex flex-wrap gap-3">{[['guest-plan', '1. Define your question'], ['guest-mapping', '2. Find data gaps'], ['guest-ledger', '3. Recognize the work']].map(([id, label]) => <a key={id} href={`#${id}`} className="rounded-full border border-white/30 px-4 py-2 hover:border-emerald-300 focus-visible:outline focus-visible:outline-emerald-300">{label}</a>)}</nav>
+    <section aria-label="Planning checklist" className="rounded-2xl border border-emerald-300/25 bg-emerald-300/5 p-5 md:p-6 space-y-5">
+      <div className="flex flex-wrap justify-between gap-3 items-center"><h2 className="text-xl">Your planning checklist</h2><span className="text-emerald-300 text-sm">{completed} of 3 steps complete</span></div>
+      <nav aria-label="Study planning steps" className="grid md:grid-cols-3 gap-3">{checklist.map((step, index) => <a key={step.id} href={`#${step.id}`} className="flex gap-3 rounded-xl border border-white/15 bg-black/20 p-4 hover:border-emerald-300"><span aria-hidden="true" className={`flex-none w-8 h-8 rounded-full flex items-center justify-center ${step.complete ? 'bg-emerald-300 text-black' : 'border border-white/30'}`}>{step.complete ? '✓' : index + 1}</span><span><span className="block font-medium">{step.label}</span><span className="block text-sm text-white/60 mt-1">{step.detail}{step.complete ? ' · Complete' : ''}</span></span></a>)}</nav>
+      <p className="text-sm text-white/70">{nextStep ? <>Next: <a href={`#${nextStep.id}`} className="text-emerald-300 underline">{nextStep.label.toLowerCase()}</a>.</> : 'Planning checklist complete. Download your brief to discuss the remaining data gaps.'} Checklist completion does not establish feasibility or institutional approval.</p>
+    </section>
+    <p role="status" className="text-emerald-300 text-sm">{saveStatus}</p>
     <section className="space-y-4" aria-labelledby="guest-plan"><h2 id="guest-plan" className="text-2xl">1. Define the study</h2>
       <label className="block">Study title<input className={inputClass} maxLength={160} value={title} onChange={e => changeStudy(setTitle, e.target.value)} /></label>
       <label className="block">Research question<textarea className={inputClass} maxLength={2000} value={question} onChange={e => changeStudy(setQuestion, e.target.value)} /></label>
@@ -133,13 +169,16 @@ export default function GuestWorkspace() {
       {events.length ? <ol className="space-y-3">{events.map(e => <li key={e.sequence} className="border border-white/20 rounded p-3 break-words">#{e.sequence} · {e.action} · {e.description}<time className="block text-sm text-white/60" dateTime={e.at}>{e.at}</time></li>)}</ol> : <p className="text-white/60">No demo contributions yet.</p>}
     </section>
     <p role="status" aria-live="polite">{notice}</p>
-    <section className="border-t border-white/20 pt-6 space-y-4" aria-labelledby="guest-next"><h2 id="guest-next" className="text-2xl">Keep your plan. Take the next step.</h2><p className="text-white/70">Keep a copy before closing this tab. To discuss a supported institutional pilot, contact the team with your study idea and data needs.</p>
+    <section className="border-t border-white/20 pt-6 space-y-4" aria-labelledby="guest-next"><h2 id="guest-next" className="text-2xl">Keep your plan. Take the next step.</h2><p className="text-white/70">The study brief is a readable summary. The JSON draft retains the full plan and history so you can reopen it. Save a copy before closing this tab.</p>
+    <SavedGuestPlans draft={draft} onOpen={restorePlan} />
     <div className="flex flex-wrap gap-5 items-center"><button onClick={download} className="bg-emerald-300 text-black rounded px-5 py-3">Download draft</button><button aria-expanded={showDraft} aria-controls="guest-draft" onClick={() => setShowDraft(value => !value)} className="border border-white/30 rounded px-5 py-3">{showDraft ? 'Hide draft' : 'Preview draft'}</button><Link to="/contact" className="text-emerald-300 underline">Discuss a research pilot →</Link></div>
     {showDraft && <label id="guest-draft" className="block">Draft JSON — select and copy<textarea readOnly value={draft} rows={12} className={`${inputClass} mt-2 font-mono text-sm`} /></label>}
     <details className="border border-white/20 rounded-xl p-4"><summary className="cursor-pointer">Reopen an exported draft</summary>
-      <p className="text-white/70 my-3">Paste the JSON from a guest draft. Only synthetic planning content is supported. This stays in your browser; it does not verify data, identities, or approvals.</p>
-      <label className="block">Guest draft JSON<textarea id="guest-import" value={importText} maxLength={1000000} rows={6} className={`${inputClass} font-mono text-sm`} onChange={e => { setImportText(e.target.value); setPendingImport(null); setImportError(''); }} /></label>
-      <button type="button" disabled={!importText.trim()} onClick={inspectImport} className="border border-emerald-300 rounded px-4 py-3 mt-3 disabled:opacity-40">Check draft</button>
+      <p className="text-white/70 my-3">Choose a previously downloaded JSON draft, or paste its contents below. Files are read on this device and are never uploaded. Only synthetic planning content is supported.</p>
+      <label className="block mb-4">Open a draft file (.json, under 1 MB)<input type="file" accept=".json,application/json" onChange={openFile} className="block w-full min-w-0 mt-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-emerald-300 file:px-4 file:py-3 file:text-black" /></label>
+      {readingFile && <p role="status">Reading draft on this device…</p>}
+      <label className="block">Guest draft JSON<textarea id="guest-import" value={importText} maxLength={1000000} rows={6} className={`${inputClass} font-mono text-sm`} onChange={e => { importVersion.current += 1; setReadingFile(false); setImportText(e.target.value); setPendingImport(null); setImportError(''); }} /></label>
+      <button type="button" disabled={readingFile || !importText.trim()} onClick={inspectImport} className="border border-emerald-300 rounded px-4 py-3 mt-3 disabled:opacity-40">Check draft</button>
       {importError && <p role="alert" className="text-red-300 mt-3">{importError}</p>}
       {pendingImport && <div className="space-y-3 mt-4"><p>Ready to reopen: {pendingImport.title || 'Untitled study'} · {pendingImport.variables.length} variables · {pendingImport.reviewHistory.length} review snapshots · {pendingImport.events.length} contributions.</p><p>This replaces your current plan. Download the current draft first if you want to keep both.</p><button type="button" onClick={() => restorePlan(pendingImport)} className="bg-emerald-300 text-black rounded px-4 py-3">Replace current plan with this draft</button></div>}
     </details>

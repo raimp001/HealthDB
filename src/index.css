@@ -29,7 +29,19 @@
 
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: 6rem;
 }
+
+.guest-workspace section[aria-labelledby] {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 1rem;
+  padding: clamp(1rem, 3vw, 1.75rem);
+  background: rgba(255, 255, 255, 0.02);
+}
+.guest-workspace :is(input, textarea, select) { min-width: 0; }
+.guest-workspace th[scope="row"] { min-width: 10rem; max-width: 20rem; }
+.guest-workspace td select { min-width: 8rem; }
+.guest-workspace [id] { scroll-margin-top: 6rem; }
 
 .skip-link {
   position: fixed;

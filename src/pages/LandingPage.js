@@ -1,6 +1,5 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
 
 const statusGroups = [
   {
@@ -47,64 +46,57 @@ const toneClasses = {
 
 const LandingPage = () => (
   <div className="bg-black text-white">
-    <section className="relative min-h-[calc(100vh-2rem)] flex items-center overflow-hidden px-6 py-24">
-      <div className="absolute inset-0 gradient-bg" />
+    <section className="relative flex items-center overflow-hidden px-6 py-14 md:py-20">
+      <div className="absolute inset-0 bg-gradient-to-br from-emerald-950/40 via-black to-black" />
       <div className="absolute inset-0 grid-pattern" />
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[760px] h-[760px] bg-emerald-400/5 rounded-full blur-[120px]" />
 
-      <div className="relative z-10 max-w-6xl mx-auto w-full grid lg:grid-cols-[1.35fr_0.65fr] gap-14 items-end">
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7 }}
-        >
+      <div className="relative z-10 max-w-6xl mx-auto w-full grid lg:grid-cols-[1.2fr_0.8fr] gap-12 items-center">
+        <div>
           <p className="text-xs uppercase tracking-[0.24em] text-emerald-300 mb-6">
-            HealthDB AI · Research data infrastructure
+            HealthDB AI · Built for research collaboration
           </p>
-          <h1 className="text-5xl md:text-7xl font-medium tracking-tight mb-7 max-w-4xl">
-            Connect research teams. Turn health data into evidence.
+          <h1 className="text-4xl sm:text-5xl xl:text-6xl font-medium tracking-tight mb-7 max-w-4xl leading-tight">
+            Better research starts with <span className="text-emerald-300">a clearer plan.</span>
           </h1>
-          <p className="text-lg md:text-xl text-white/55 max-w-2xl mb-9 leading-relaxed">
-            Build cohorts, coordinate cross-institution studies, and evaluate governed data access
-            for outcomes and real-world research. The current pilot uses synthetic data; live EHR
-            integrations and commercial dataset releases require institutional validation.
+          <p className="text-lg text-white/70 max-w-2xl mb-8 leading-relaxed">
+            Bring your research question, define the data you need, and uncover gaps across sites.
+            Try the workflow with fictional data, then take a study brief into your next conversation.
           </p>
           <div className="flex flex-col sm:flex-row flex-wrap gap-3">
-            <Link to="/explore" className="px-7 py-3.5 bg-emerald-300 text-black text-center font-medium hover:bg-emerald-200 transition-colors">Try the workspace — no sign-in</Link>
-            <Link to="/demo" className="px-7 py-3.5 bg-white text-black text-center font-medium hover:bg-gray-100 transition-colors">
-              Try the research demo
-            </Link>
-            <Link to="/developers" className="px-7 py-3.5 border border-white/20 text-center hover:bg-white/5 transition-colors">
-              Explore the research API
+            <Link to="/explore" className="px-6 py-3.5 rounded-lg bg-emerald-300 text-black text-center font-medium hover:bg-emerald-200 transition-colors">Open research workspace →</Link>
+            <Link to="/demo" className="px-6 py-3.5 rounded-lg border border-white/25 text-center font-medium hover:bg-white/5 transition-colors">
+              Try a cohort query
             </Link>
           </div>
-        </motion.div>
+          <p className="text-sm text-white/60 mt-5">No sign-in needed · Synthetic data only · Save your work on this device</p>
+          <Link to="/developers" className="inline-block mt-6 text-sm text-emerald-300 underline underline-offset-4">Building with HealthDB? Explore the API</Link>
+        </div>
 
-        <motion.aside
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.12 }}
-          className="border border-white/10 bg-black/35 p-6"
-          aria-label="Pilot boundaries"
+        <aside
+          className="border border-emerald-300/25 rounded-2xl bg-zinc-950/90 p-6 md:p-8 shadow-2xl"
+          aria-label="Research workspace preview"
         >
-          <p className="text-xs uppercase tracking-[0.2em] text-white/35 mb-5">Pilot boundary</p>
-          <dl className="space-y-5">
+          <div className="flex justify-between gap-3 items-center mb-8"><p className="text-xs uppercase tracking-[0.16em] text-white/60">Your research workflow</p><span className="text-xs text-emerald-300 rounded-full bg-emerald-300/10 px-3 py-1">Public demo</span></div>
+          <h2 className="text-2xl mb-2">From question to next steps.</h2>
+          <p className="text-sm text-white/60 mb-7">A working space for the details that move a study forward.</p>
+          <ol className="space-y-6">
             {[
-              ['Data', 'Synthetic examples only'],
-              ['Access', 'Public demo · invited workspaces'],
-              ['Purpose', 'Workflow and control testing'],
-              ['Production readiness', 'Not yet'],
-            ].map(([term, detail]) => (
-              <div key={term} className="border-l border-white/15 pl-4">
-                <dt className="text-xs text-white/35 mb-1">{term}</dt>
-                <dd className="text-sm text-white/75">{detail}</dd>
-              </div>
+              ['Define your question', 'Build a shared variable dictionary.'],
+              ['Find the data gaps', 'Compare declarations across three fictional sites.'],
+              ['Leave with a useful brief', 'Download mappings, gaps, and next actions.'],
+            ].map(([term, detail], index) => (
+              <li key={term} className="flex gap-4"><span aria-hidden="true" className="flex-none text-emerald-300 font-mono text-sm w-9 h-9 border border-emerald-300/30 rounded-full flex items-center justify-center">0{index + 1}</span><div>
+                <h3 className="text-base mb-1">{term}</h3>
+                <p className="text-sm text-white/60">{detail}</p>
+              </div></li>
             ))}
-          </dl>
-          <Link to="/login" className="inline-block text-sm text-white/50 hover:text-white mt-7 transition-colors">
+          </ol>
+          <p className="mt-7 pt-5 border-t border-white/15 text-xs text-white/60">Technical pilot. Live EHR connections and patient-data intake are not available.</p>
+          <Link to="/login" className="inline-block text-sm text-emerald-300 hover:text-white mt-4 transition-colors">
             Already invited? Sign in →
           </Link>
-        </motion.aside>
+        </aside>
       </div>
     </section>
 

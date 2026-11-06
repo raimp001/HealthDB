@@ -74,7 +74,7 @@ const Navbar = () => {
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-1">
+          <div className="hidden xl:flex items-center space-x-1">
             <NavLink to="/researchers">Researchers</NavLink>
             <NavLink to="/patients">Patients</NavLink>
             <NavLink to="/institutions">Institutions</NavLink>
@@ -84,7 +84,7 @@ const Navbar = () => {
           </div>
 
           {/* Right Side */}
-          <div className="hidden md:flex items-center space-x-4">
+          <div className="hidden xl:flex items-center space-x-4">
             {user ? (
               <>
                 <Link
@@ -121,7 +121,7 @@ const Navbar = () => {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setMenuOpen(!menuOpen)}
-            className="md:hidden p-2 text-white"
+            className="xl:hidden p-2 text-white"
             aria-label="Toggle menu"
             aria-expanded={menuOpen}
             aria-controls="mobile-navigation"
@@ -151,8 +151,8 @@ const Navbar = () => {
       <div
         id="mobile-navigation"
         hidden={!menuOpen}
-        className={`md:hidden transition-all duration-300 overflow-hidden ${
-          menuOpen ? 'max-h-screen bg-black/95 backdrop-blur-xl' : 'max-h-0'
+        className={`xl:hidden transition-all duration-300 overflow-hidden ${
+          menuOpen ? 'max-h-[calc(100dvh-5rem)] overflow-y-auto bg-black/95 backdrop-blur-xl' : 'max-h-0'
         }`}
       >
         <div className="px-6 py-8 space-y-6">
@@ -205,6 +205,7 @@ const NavLink = ({ to, children }) => {
   return (
     <Link
       to={to}
+      aria-current={isActive ? 'page' : undefined}
       className={`px-4 py-2 text-sm transition-colors ${
         isActive
           ? 'text-white'
@@ -223,6 +224,7 @@ const MobileNavLink = ({ to, children }) => {
   return (
     <Link
       to={to}
+      aria-current={isActive ? 'page' : undefined}
       className={`block text-2xl font-light ${
         isActive ? 'text-white' : 'text-white/50'
       }`}
