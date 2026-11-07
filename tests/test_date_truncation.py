@@ -8,6 +8,7 @@ and the log stream.
 """
 import json
 import logging
+from datetime import datetime
 
 import pytest
 
@@ -44,10 +45,73 @@ BUNDLE = {
 FORBIDDEN = ["03-17", "08-29", "11-04", "-03-", "-08-", "-11-",
              "T14:23", "1962-03", "2021-08", "2022-11"]
 
+# Timestamps this platform writes about its own processing. They are not
+# source data and never derive from the bundle — see api/provenance.py, where
+# ingested_at is datetime.utcnow().
+#
+# They have to come out before the scan, because the bare "-MM-" fragments
+# above match any ISO date at all. Three months a year — March, August and
+# November — an arrival timestamp contains one, and this test failed for the
+# calendar rather than for a leak. A PHI test that cries wolf on a schedule
+# is worse than no test: "the date tests are flaky" is exactly how a real
+# leak gets waved through.
+#
+# Excluding them is only safe if they really are clocks, so
+# assert_platform_timestamps_are_recent checks that before they are dropped.
+# extracted_date is the row's own created-at (models.py: default=utcnow),
+# not a clinical date from the bundle.
+PLATFORM_TIMESTAMP_FIELDS = ("ingested_at", "extracted_date")
+
+
+def strip_platform_timestamps(value):
+    """The same structure with this platform's own timestamps removed."""
+    if isinstance(value, dict):
+        return {key: strip_platform_timestamps(item)
+                for key, item in value.items()
+                if key not in PLATFORM_TIMESTAMP_FIELDS}
+    if isinstance(value, list):
+        return [strip_platform_timestamps(item) for item in value]
+    return value
+
+
+def assert_platform_timestamps_are_recent(value, where: str):
+    """Every excluded timestamp is a clock reading, not a date from the bundle.
+
+    Without this the exclusion above would be a hole: a source date copied
+    into ingested_at would be skipped by the scan precisely because it is
+    named like a platform field.
+    """
+    now = datetime.utcnow()
+    for field, stamp in _platform_timestamps(value):
+        parsed = datetime.fromisoformat(str(stamp).replace("Z", ""))
+        age = abs((now - parsed).total_seconds())
+        assert age < 600, (
+            f"{field} in {where} is {stamp}, which is not a clock reading — "
+            "it may carry a date from the source bundle"
+        )
+
+
+def _platform_timestamps(value, path=""):
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if key in PLATFORM_TIMESTAMP_FIELDS:
+                yield f"{path}.{key}".lstrip("."), item
+            else:
+                yield from _platform_timestamps(item, f"{path}.{key}")
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            yield from _platform_timestamps(item, f"{path}[{index}]")
+
 
 def assert_no_month_day(blob: str, where: str):
     for fragment in FORBIDDEN:
         assert fragment not in blob, f"month/day fragment {fragment!r} leaked into {where}"
+
+
+def assert_no_source_month_day(value, where: str):
+    """Scan a structure for leaked source month/day, timestamps aside."""
+    assert_platform_timestamps_are_recent(value, where)
+    assert_no_month_day(json.dumps(strip_platform_timestamps(value)), where)
 
 
 class TestParser:
@@ -85,7 +149,7 @@ class TestParser:
             assert "original_date" not in record, "parser still emits original_date"
             year = record.get("original_year")
             assert year is None or (isinstance(year, int) and 1900 <= year <= 2100)
-        assert_no_month_day(json.dumps(records), "parser output")
+        assert_no_source_month_day(records, "parser output")
 
 
 @pytest.fixture()
@@ -128,12 +192,13 @@ class TestPersistence:
             assert getattr(row, "original_date", None) is None
             year = row.original_year
             assert year is None or isinstance(year, int)
-            assert_no_month_day(json.dumps(row.deidentified_data or {}), "deidentified_data")
+            assert_no_source_month_day(row.deidentified_data or {}, "deidentified_data")
+            assert_no_source_month_day(row.provenance or {}, "provenance")
         session.close()
 
         read = client.get("/api/patient/extracted-data", headers=headers)
         assert read.status_code == 200
-        assert_no_month_day(read.text, "GET /api/patient/extracted-data")
+        assert_no_source_month_day(read.json(), "GET /api/patient/extracted-data")
         for item in read.json():
             assert "original_date" not in item, "API still returns original_date"
 
@@ -206,3 +271,45 @@ class TestMigration:
         engine = client._session_factory().get_bind()
         migrate_truncate_original_dates(engine)
         migrate_truncate_original_dates(engine)  # must not raise
+
+
+class TestTheLeakScanItself:
+    """The scan excludes this platform's timestamps. That must not be a hole.
+
+    These were added after the suite failed in November because an arrival
+    timestamp contained "-11-". Excluding such fields fixes the false alarm
+    and would, done carelessly, create a place a real source date could hide.
+    """
+
+    def test_a_real_leak_is_still_caught(self):
+        leaked = [{"data": {"onset": "2022-11-04"}}]
+        with pytest.raises(AssertionError, match="leaked into"):
+            assert_no_source_month_day(leaked, "a record that leaked")
+
+    def test_a_leak_nested_under_provenance_is_still_caught(self):
+        leaked = [{"provenance": {"source_system": "x", "note": "1962-03-17"}}]
+        with pytest.raises(AssertionError, match="leaked into"):
+            assert_no_source_month_day(leaked, "provenance")
+
+    def test_a_source_date_hidden_in_a_platform_field_is_caught(self):
+        """The hole the exclusion would otherwise open.
+
+        A field named like a clock is skipped by the fragment scan, so the
+        scan has to prove it is a clock before skipping it.
+        """
+        disguised = [{"provenance": {"ingested_at": "1962-03-17T00:00:00"}}]
+        with pytest.raises(AssertionError, match="not a clock reading"):
+            assert_no_source_month_day(disguised, "disguised")
+
+    def test_a_genuine_arrival_timestamp_passes_in_any_month(self):
+        """Including March, August and November, when the old scan failed."""
+        now = datetime.utcnow().isoformat()
+        assert_no_source_month_day(
+            [{"provenance": {"ingested_at": now}, "data": {"year": 2022}}],
+            "a clean record")
+
+    def test_the_stripper_leaves_everything_else_alone(self):
+        record = {"a": 1, "provenance": {"ingested_at": "x", "source": "keep"},
+                  "items": [{"ingested_at": "y", "z": 2}]}
+        assert strip_platform_timestamps(record) == {
+            "a": 1, "provenance": {"source": "keep"}, "items": [{"z": 2}]}
