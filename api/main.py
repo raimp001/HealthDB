@@ -5328,9 +5328,16 @@ async def health_check(db: Session = Depends(get_db)):
         db.execute(text("SELECT 1"))
     except Exception:
         audit_logger.exception("Health check database probe failed")
+        # A misconfiguration is a different fact from an unreachable database,
+        # and the operator reading this is trying to tell them apart. Carries
+        # no credentials: it reports that DATABASE_URL is unset, never a URL.
+        from .database import DATABASE_CONFIG_ERROR
         return JSONResponse(status_code=503, headers={"Cache-Control": "no-store"}, content={
             "status": "degraded", "timestamp": checked_at,
             "version": "1.0.0", "database": "unavailable",
+            "reason": DATABASE_CONFIG_ERROR or
+                      "The database did not answer. Check that it is running "
+                      "and reachable from this deployment.",
             "revision": os.environ.get("VERCEL_GIT_COMMIT_SHA", "unknown"),
         })
     return JSONResponse(headers={"Cache-Control": "no-store"}, content={

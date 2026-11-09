@@ -3,6 +3,7 @@ HealthDB Database Configuration
 SQLAlchemy setup for PostgreSQL (production) or SQLite (development)
 """
 import os
+import tempfile
 from pathlib import Path
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
@@ -12,11 +13,50 @@ from contextlib import contextmanager
 # Database URL from environment
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
-# Use SQLite for local development if no DATABASE_URL is set
-if not DATABASE_URL:
-    # Create data directory if it doesn't exist
-    data_dir = Path(__file__).parent.parent / "data"
-    data_dir.mkdir(exist_ok=True)
+# Why a missing DATABASE_URL is handled so carefully.
+#
+# This used to fall straight through to a local SQLite file. On a serverless
+# deployment that is two failures at once. The filesystem is read-only, so
+# `data_dir.mkdir()` raises OSError while api.database is still being
+# imported — before the app object exists, before any try/except, before
+# /api/health can report anything — and every route dies at the platform
+# level with no cause in the response.
+#
+# The second failure is the one that would have been worse if the directory
+# had been writable: a production API quietly serving an empty per-instance
+# SQLite file in place of the real database. Each cold start gets its own.
+# Patients' records would appear to vanish, and consent and access logs would
+# be written somewhere nobody reads. For a platform whose promise is that a
+# person can see where their data went, inventing a throwaway database is a
+# worse outcome than refusing to serve.
+#
+# So: the convenience fallback stays for local development, and production
+# without a configured database records the fact and carries on starting, so
+# the health check can say what is wrong instead of the process dying.
+IN_PRODUCTION = os.environ.get("ENVIRONMENT", "development") == "production"
+DATABASE_CONFIG_ERROR = None
+
+if not DATABASE_URL and IN_PRODUCTION:
+    DATABASE_CONFIG_ERROR = (
+        "DATABASE_URL is not set. This deployment is marked production, so no "
+        "local database is substituted: serving an empty per-instance file in "
+        "place of the real database would hide every record rather than report "
+        "the problem."
+    )
+    # No engine is built at all. Handing create_engine a placeholder URL
+    # loads that URL's driver immediately, which is the same import-time
+    # failure in a new costume.
+    DATABASE_URL = None
+    is_sqlite = False
+elif not DATABASE_URL:
+    # Local development. Fall back to a writable location rather than assuming
+    # the checkout is writable.
+    try:
+        data_dir = Path(__file__).parent.parent / "data"
+        data_dir.mkdir(exist_ok=True)
+    except OSError:
+        data_dir = Path(tempfile.gettempdir()) / "healthdb"
+        data_dir.mkdir(exist_ok=True)
     DATABASE_URL = f"sqlite:///{data_dir}/healthdb.db"
     is_sqlite = True
 else:
@@ -26,7 +66,11 @@ else:
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 # Create engine with appropriate settings
-if is_sqlite:
+if DATABASE_CONFIG_ERROR:
+    # Unbound: importing works, and the first attempt to use the database
+    # fails per request, where the health check can report the reason.
+    engine = None
+elif is_sqlite:
     engine = create_engine(
         DATABASE_URL,
         connect_args={"check_same_thread": False},
