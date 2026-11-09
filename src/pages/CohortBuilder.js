@@ -19,11 +19,6 @@ const CohortBuilder = () => {
   const [newRule, setNewRule] = useState({ field: '', operator: 'IS', value: '' });
   const [outputFormat, setOutputFormat] = useState('csv');
   const [deidentLevel, setDeidentLevel] = useState('limited_dataset');
-  // The clinical year ships by default because most oncology questions need
-  // it. It is also a quasi-identifier, and often the single thing blocking a
-  // cohort — one subject recorded in an unusual year stands alone. When the
-  // disclosure check names it, this is the control that acts on that advice.
-  const [includeYear, setIncludeYear] = useState(true);
   const [extracting, setExtracting] = useState(false);
 
   // Field definitions with operators and values
@@ -350,7 +345,6 @@ const CohortBuilder = () => {
           variables: selectedVariableIds,
           output_format: outputFormat,
           deidentification_level: deidentLevel,
-          include_year: includeYear,
         }),
       });
       const data = await res.json();
@@ -1061,27 +1055,6 @@ const CohortBuilder = () => {
                         </button>
                       ))}
                     </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-white/60 mb-2">Clinical year</label>
-                    <label className="flex items-start gap-3 p-3 border border-white/10 cursor-pointer hover:border-white/20">
-                      <input
-                        type="checkbox"
-                        checked={includeYear}
-                        onChange={(e) => setIncludeYear(e.target.checked)}
-                        className="mt-1"
-                      />
-                      <span>
-                        <span className="block font-medium text-sm">Include the year in the extract</span>
-                        <span className="block text-xs text-white/40">
-                          Most questions need it. It is also a quasi-identifier: a
-                          participant recorded in an unusual year can stand alone, which
-                          is what blocks a release. Leave it out if your analysis does
-                          not depend on it.
-                        </span>
-                      </span>
-                    </label>
                   </div>
                 </div>
 

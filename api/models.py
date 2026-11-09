@@ -570,10 +570,6 @@ class ExtractionJob(Base):
     download_expires_at = Column(DateTime)
     result_csv = Column(Text)
     selected_variables = Column(JSON)
-    # Whether the study asked for the clinical year. Stored rather than taken
-    # from the request, because a held extract is re-run from the job alone
-    # when a reviewer approves it, and must release what was reviewed.
-    include_year = Column(Boolean, default=True)
     source_patient_ids = Column(JSON)
     source_record_ids = Column(JSON)
     # Measured re-identification risk for the rows this job released, kept so a
