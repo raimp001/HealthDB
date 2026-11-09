@@ -638,8 +638,30 @@ except Exception as e:
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize database on startup"""
-    initialize_database()
+    """Initialize the database on startup, without making it a condition of serving.
+
+    This retry used to be unguarded, while the identical call at import was
+    wrapped. The guard was on the path that did not need it and missing from
+    the one that did: when initialization raised here, FastAPI's startup
+    failed, the app refused to serve, and *every* route died at the platform
+    level as FUNCTION_INVOCATION_FAILED — including routes that never touch
+    the database.
+
+    That is the worst available failure mode for two reasons. It converts a
+    database problem into a total outage, and it discards the diagnosis:
+    /api/health is written to catch a failed database probe and answer 503
+    "degraded" with the reason, and none of that can run if the app will not
+    start. An opaque platform error is what an operator sees instead.
+
+    So a failure here is logged and the app serves. A database that is
+    unreachable then shows up as a degraded health check, which is a fact
+    someone can act on.
+    """
+    try:
+        initialize_database()
+    except Exception as exc:
+        audit_logger.exception("Database initialization failed at startup")
+        print(f"Database initialization failed at startup: {exc}")
 
 
 # ============== Pydantic Models ==============
