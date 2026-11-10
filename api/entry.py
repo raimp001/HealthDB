@@ -98,4 +98,10 @@ def load():
         return failed_start_app(detail), detail
 
 
-app, startup_failure = load()
+_loaded, startup_failure = load()
+
+# A plain top-level assignment, on purpose. The platform decides which files
+# are functions by scanning for one statically, and unpacking `app` out of a
+# tuple hid it from that scan: the file deployed, was not recognised as an
+# entry point, and every /api route answered 404.
+app = _loaded

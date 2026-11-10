@@ -109,3 +109,23 @@ def test_the_deployment_routes_the_api_through_the_entry_point():
         (pathlib.Path(__file__).resolve().parents[1] / "vercel.json").read_text())
     api_rewrites = [r for r in config["rewrites"] if r["source"] == "/api/(.*)"]
     assert api_rewrites and api_rewrites[0]["destination"] == "/api/entry.py"
+
+
+def test_app_is_assigned_where_a_static_scan_can_see_it():
+    """The platform finds entry points by scanning source, not by importing.
+
+    `app, startup_failure = load()` deployed cleanly and was not recognised
+    as a function at all, so every /api route answered 404.
+    """
+    import ast
+    import pathlib
+
+    source = (pathlib.Path(__file__).resolve().parents[1] / "api" / "entry.py").read_text()
+    plain = [
+        node for node in ast.parse(source).body
+        if isinstance(node, ast.Assign)
+        and len(node.targets) == 1
+        and isinstance(node.targets[0], ast.Name)
+        and node.targets[0].id == "app"
+    ]
+    assert plain, "api/entry.py has no plain top-level `app = ...` assignment"
