@@ -61,9 +61,21 @@ elif not DATABASE_URL:
     is_sqlite = True
 else:
     is_sqlite = DATABASE_URL.startswith("sqlite:")
-    # Handle Heroku/Railway style postgres:// URLs
-    if DATABASE_URL.startswith("postgres://"):
-        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    # Name the PostgreSQL driver rather than letting SQLAlchemy choose.
+    #
+    # A bare "postgresql://" URL means "whatever the installed SQLAlchemy
+    # defaults to", and that default changed: 2.0 loads psycopg2, 2.1 loads
+    # psycopg (v3). This project installs psycopg2. requirements.txt floored
+    # SQLAlchemy without capping it, so the first fresh build after 2.1 was
+    # released imported a driver that was not there, raised
+    # ModuleNotFoundError while this module was loading, and took every /api
+    # route down for days — with no change to the application at all.
+    #
+    # Also covers the Heroku/Railway "postgres://" spelling.
+    for bare in ("postgres://", "postgresql://"):
+        if DATABASE_URL.startswith(bare):
+            DATABASE_URL = "postgresql+psycopg2://" + DATABASE_URL[len(bare):]
+            break
 
 # Create engine with appropriate settings
 if DATABASE_CONFIG_ERROR:

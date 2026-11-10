@@ -3,11 +3,14 @@
 # packages without 3.14 wheels fail the build trying to compile from source.
 fastapi>=0.115,<1
 uvicorn[standard]>=0.32
-sqlalchemy>=2.0.43
+# Capped below the next minor on purpose. An uncapped floor let 2.1 in on a
+# routine rebuild; it changed the default PostgreSQL driver and took the API
+# down with no application change. Raise the cap deliberately, after testing.
+sqlalchemy>=2.0.43,<2.2
 psycopg2-binary>=2.9.11
 python-jose[cryptography]>=3.3
 bcrypt==4.0.1
 python-multipart>=0.0.9
-pydantic[email]>=2.12
+pydantic[email]>=2.12,<3
 gunicorn>=21.2
 aiofiles>=23.2

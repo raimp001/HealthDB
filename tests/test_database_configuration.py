@@ -102,3 +102,46 @@ def restore_database_module():
     yield
     sys.modules.pop("api.database", None)
     importlib.import_module("api.database")
+
+
+# ---------------------------------------------------------------------------
+# The driver is named, not left to a library default
+# ---------------------------------------------------------------------------
+
+import pytest as _pytest
+
+
+@_pytest.mark.parametrize("configured", [
+    "postgres://user@host/db",            # Heroku/Railway spelling
+    "postgresql://user@host/db",          # what most providers hand out
+])
+def test_a_bare_postgres_url_gets_an_explicit_driver(monkeypatch, configured):
+    """The outage this pins down.
+
+    A bare URL means "whatever SQLAlchemy defaults to", and 2.1 changed that
+    default from psycopg2 to psycopg v3. Only psycopg2 is installed, so a
+    fresh build with no application change crashed at import.
+    """
+    module = reload_database(monkeypatch, ENVIRONMENT="production",
+                             DATABASE_URL=configured)
+    assert module.DATABASE_URL == "postgresql+psycopg2://user@host/db"
+    assert module.engine.dialect.driver == "psycopg2"
+
+
+def test_an_explicit_driver_is_left_alone(monkeypatch):
+    """Someone who chose a driver on purpose keeps it."""
+    url = "postgresql+psycopg2://user@host/db"
+    module = reload_database(monkeypatch, ENVIRONMENT="production",
+                             DATABASE_URL=url)
+    assert module.DATABASE_URL == url
+
+
+def test_the_installed_driver_is_the_one_the_url_names():
+    """requirements.txt and the URL have to agree, whatever SQLAlchemy does."""
+    import pathlib
+
+    import psycopg2  # noqa: F401 - importing it is the assertion
+
+    requirements = (pathlib.Path(__file__).resolve().parents[1]
+                    / "requirements.txt").read_text()
+    assert "psycopg2-binary" in requirements
