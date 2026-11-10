@@ -51,6 +51,7 @@ from .repositories import (
     CohortRepository, DataProductRepository, DataAccessLogRepository
 )
 from .deidentification import deidentify_record, find_residual_identifiers
+from .disclosure_guidance import advise
 from .disclosure_risk import assess_records, enforceable_sensitive_attributes
 from . import provenance as provenance_module
 from .release_differencing import find_collision, subject_digest
@@ -196,6 +197,7 @@ SCHEMA_SYNC_STATEMENTS = [
     "ALTER TABLE regulatory_submissions ALTER COLUMN study_id DROP NOT NULL",
     "ALTER TABLE extraction_jobs ADD COLUMN result_csv TEXT",
     "ALTER TABLE extraction_jobs ADD COLUMN selected_variables JSON",
+    "ALTER TABLE extraction_jobs ADD COLUMN include_year BOOLEAN DEFAULT TRUE",
     "ALTER TABLE extraction_jobs ADD COLUMN source_patient_ids JSON",
     "ALTER TABLE extraction_jobs ADD COLUMN source_record_ids JSON",
     # Safe Harbor: destination column for the year-only clinical date.
@@ -414,11 +416,17 @@ def releasability_preview(records, matching, criteria=None) -> tuple:
             "unexpired IRB approval and a signed DUA."
         )
     if risk.min_k < MIN_EXPORT_K:
+        # Names the lever, carries no count. This path answers before any
+        # study-level approval exists, so it reports a verdict rather than
+        # measurements — but which field to change is not a count of anyone,
+        # and withholding it is what made the old note unusable.
+        lever = advise(rows, threshold_k=MIN_EXPORT_K, with_numbers=False,
+                       collapse_by_subject=True)
         return False, (
             "An extract from this cohort would be blocked: some participants are "
             "unique, or nearly unique, on their combination of recorded values. "
-            "Broadening the criteria or removing a variable usually resolves it. "
-            "Worth settling before you build a study around this cohort."
+            + lever +
+            " Worth settling before you build a study around this cohort."
         )
     # Blocked on attribute disclosure, and the attribute is not named here.
     #
@@ -886,6 +894,16 @@ class ExtractionJobRequest(BaseModel):
     variables: List[str] = Field(min_length=1, max_length=200)
     output_format: Literal["csv"] = "csv"
     deidentification_level: Literal["limited_dataset"] = "limited_dataset"
+    # The clinical year is in the file by default, because most oncology
+    # questions need it. It is also a quasi-identifier, and often the one
+    # thing standing between a cohort and release: a single subject recorded
+    # in an unusual year is alone in their equivalence class, and the extract
+    # is refused for a column the study may not even have needed.
+    #
+    # Default true, so nothing is quietly dropped from anyone's export. What
+    # this adds is the ability to say no — a lever the disclosure message can
+    # now point at, instead of "drop identifying variables" with no object.
+    include_year: bool = True
 
 class ExtractionJobResponse(BaseModel):
     id: str
@@ -1332,6 +1350,30 @@ def csv_cell(value):
     return "'" + text_value if text_value.lstrip().startswith(("=", "+", "-", "@", "\t", "\r")) else text_value
 
 
+def _requested_quasi_identifiers(selected, include_year: bool) -> list:
+    """The fields in the export a researcher is able to remove.
+
+    Advice to drop something they cannot deselect is advice they cannot
+    take, so the guidance is restricted to the variables they chose, plus
+    the year when they asked for it.
+    """
+    fields = [name.split(".", 1)[1] for name in selected if "." in name]
+    if include_year:
+        fields.append("original_year")
+    return fields
+
+
+def _released_year(record, include_year: bool):
+    """The year this row discloses, or None when the study declined it.
+
+    The column stays in the schema either way and is simply blank, so a
+    consumer parsing the header is unaffected.
+    """
+    if not include_year:
+        return None
+    return record.original_year
+
+
 def _variables_present(scrubbed, requested_fields):
     """What share of the variables this researcher asked for the row carries.
 
@@ -1362,6 +1404,8 @@ def process_extraction_job(db: Session, job: ExtractionJob, study: Study, reques
     now = datetime.utcnow()
     records = eligible_export_records(db, study)
     selected = set(job.selected_variables or [])
+    # Default true for rows written before the column existed.
+    include_year = job.include_year if job.include_year is not None else True
     exported_record_ids = []
 
     rows_by_patient: Dict[str, int] = {}
@@ -1381,11 +1425,12 @@ def process_extraction_job(db: Session, job: ExtractionJob, study: Study, reques
         scrubbed = deidentify_record(projected)
         scrubbed_records.append(scrubbed)
         scrubbed_type = deidentify_record(record.data_type or "")
+        released_year = _released_year(record, include_year)
         export_rows.append([
             patient_pseudonym,
             record.data_category,
             csv_cell(scrubbed_type),
-            record.original_year if record.original_year is not None else "",
+            released_year if released_year is not None else "",
             # Of the variables requested for this category, how many this row
             # filled. A quality signal is something a researcher filters or
             # weights by, so it has to vary with the record and describe only
@@ -1404,7 +1449,10 @@ def process_extraction_job(db: Session, job: ExtractionJob, study: Study, reques
             "subject_id": patient_pseudonym,
             "data_category": record.data_category,
             "data_type": scrubbed_type,
-            "original_year": record.original_year,
+            # The year as released, not as stored. The measurement has to
+            # describe the file: blocking an extract over a year the file
+            # does not contain would be measuring the database instead.
+            "original_year": released_year,
             "payload": scrubbed,
         })
 
@@ -1445,12 +1493,22 @@ def process_extraction_job(db: Session, job: ExtractionJob, study: Study, reques
     if not risk.meets_threshold:
         job.status = "failed"
         if risk.min_k < MIN_EXPORT_K:
+            # "Drop identifying variables" is advice with no object. The
+            # classes are already measured, so which variable to change is
+            # knowable here rather than by the researcher guessing across
+            # round trips. See api/disclosure_guidance.py.
+            guidance = advise(
+                risk_rows, threshold_k=MIN_EXPORT_K,
+                requested_fields=_requested_quasi_identifiers(
+                    selected, include_year),
+                collapse_by_subject=True,
+            )
             job.error_message = (
                 "Disclosure risk above threshold: "
                 f"smallest group contains {risk.min_k} subject(s), "
                 f"minimum {MIN_EXPORT_K} required; "
                 f"{risk.at_risk_records} subject(s) affected. Export blocked. "
-                "Broaden the cohort or drop identifying variables."
+                + guidance
             )
         else:
             # k alone would have passed this. Say which attribute sank it,
@@ -3863,6 +3921,7 @@ async def create_extraction_job(
         patient_count=study.patient_count,
         variable_count=len(requested_variables),
         selected_variables=requested_variables,
+        include_year=request.include_year,
         output_format=request.output_format,
         deidentification_level=request.deidentification_level,
         estimated_completion=estimated_completion,
