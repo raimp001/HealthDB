@@ -197,7 +197,11 @@ SCHEMA_SYNC_STATEMENTS = [
     "ALTER TABLE regulatory_submissions ALTER COLUMN study_id DROP NOT NULL",
     "ALTER TABLE extraction_jobs ADD COLUMN result_csv TEXT",
     "ALTER TABLE extraction_jobs ADD COLUMN selected_variables JSON",
-    "ALTER TABLE extraction_jobs ADD COLUMN include_year BOOLEAN DEFAULT TRUE",
+    # No DEFAULT, like its neighbours: this runs at import on every cold
+    # start, and a default can turn a metadata change into a table rewrite
+    # on the table that holds whole CSV extracts. A missing value is read
+    # as "include the year" where the job is processed.
+    "ALTER TABLE extraction_jobs ADD COLUMN include_year BOOLEAN",
     "ALTER TABLE extraction_jobs ADD COLUMN source_patient_ids JSON",
     "ALTER TABLE extraction_jobs ADD COLUMN source_record_ids JSON",
     # Safe Harbor: destination column for the year-only clinical date.
