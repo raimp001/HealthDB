@@ -36,6 +36,16 @@ except Exception:
     print("FAIL: module import raised")
     sys.exit(1)
 
+# The platform invokes api/entry.py, not api/main.py, so that a failed start
+# can report where it failed. Boot through it here too, or this script would
+# be exercising a path production does not take.
+import api.entry as entry  # noqa: E402
+
+if entry.startup_failure is not None or entry.app is not main.app:
+    print("FAIL: the entry point is not serving the real application")
+    print("  ", entry.startup_failure)
+    sys.exit(1)
+
 elapsed = time.time() - start
 print(f"import completed in {elapsed:.2f}s")
 if elapsed > BUDGET_SECONDS:
